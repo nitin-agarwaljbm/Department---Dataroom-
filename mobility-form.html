@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobility Issues — Add Entry</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B1220; --panel: #121B2E; --panel-2: #16223A; --border: #223049;
+    --text: #E8ECF3; --muted: #8A96AC; --faint: #5D6A81;
+    --accent: #5B8DEF; --ok: #4FA97F; --err: #E2574C; --warn: #E0A458;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(1200px 500px at 15% -10%, rgba(91,141,239,0.09), transparent 60%), var(--bg);
+    color:var(--text); font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh; padding:28px 18px 60px; display:flex; justify-content:center;
+  }
+  .wrap{width:100%; max-width:640px;}
+  .masthead{display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px;}
+  .seal{width:42px; height:42px; border-radius:8px; border:1px solid var(--border); background:linear-gradient(160deg, var(--panel-2), var(--panel)); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--accent); font-weight:600; flex-shrink:0;}
+  h1{font-family:'IBM Plex Serif', serif; font-weight:600; font-size:20px; margin:0;}
+  .subtitle{color:var(--muted); font-size:12px; margin-top:3px; font-family:'IBM Plex Mono', monospace;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px;}
+  .signin-box{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .who-am-i{font-size:12.5px; color:var(--muted); font-family:'IBM Plex Mono',monospace;}
+  .who-am-i b{color:var(--text);}
+
+  .btn{font-family:'IBM Plex Sans', sans-serif; font-size:13.5px; font-weight:500; padding:10px 18px; border-radius:7px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); cursor:pointer;}
+  .btn:hover{border-color:var(--accent); background:#182640;}
+  .btn.primary{background:linear-gradient(160deg,#3C6FE0,#5B8DEF); border-color:transparent; color:#fff; width:100%; padding:12px; font-size:14px;}
+  .btn.primary:hover{filter:brightness(1.08);}
+  .btn:disabled{opacity:0.5; cursor:default;}
+
+  label{display:block; font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; font-weight:500; margin-bottom:6px;}
+  .field{margin-bottom:16px;}
+  input, select, textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:7px; font-family:'IBM Plex Sans',sans-serif; font-size:13.5px;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .hint{font-size:11px; color:var(--faint); margin-top:5px;}
+
+  .banner{padding:12px 16px; border-radius:8px; font-size:13px; font-family:'IBM Plex Mono',monospace; margin-bottom:16px; display:none;}
+  .banner.info{background:rgba(91,141,239,0.12); color:var(--accent); border:1px solid #2E3F6B; display:block;}
+  .banner.success{background:rgba(79,169,127,0.12); color:var(--ok); border:1px solid #2E5A45; display:block;}
+  .banner.error{background:rgba(226,87,76,0.12); color:var(--err); border:1px solid #6B2E29; display:block;}
+  .banner.warn{background:rgba(224,164,88,0.12); color:var(--warn); border:1px solid #6B4E29; display:block;}
+
+  .recent{font-size:12px;}
+  .recent-row{padding:8px 0; border-bottom:1px solid #1B2740; display:flex; justify-content:space-between; gap:10px;}
+  .recent-row:last-child{border-bottom:none;}
+  .recent-title{color:var(--text);}
+  .recent-meta{color:var(--faint); font-family:'IBM Plex Mono',monospace; white-space:nowrap;}
+  .config-warning{background:rgba(224,164,88,0.1); border:1px solid #6B4E29; color:var(--warn); padding:14px 16px; border-radius:8px; font-size:12.5px; font-family:'IBM Plex Mono',monospace; margin-bottom:16px; line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div class="seal">MOB</div>
+    <div>
+      <h1>Mobility Issues — Add Entry</h1>
+      <div class="subtitle">WRITES DIRECTLY INTO THE DATAROOM EXCEL FILE ON ONEDRIVE</div>
+    </div>
+  </div>
+
+  <div id="configWarning" class="config-warning" style="display:none;">
+    ⚠ CONFIG.clientId is still a placeholder. Open this file, fill in your Azure App Registration's
+    Application (client) ID and redirect URI at the top of the &lt;script&gt; block, then reload.
+  </div>
+
+  <div id="banner" class="banner"></div>
+  <button class="btn primary" id="fixTableBtn" style="display:none; margin-bottom:16px;">🛠 Create the MobilityIssues table now</button>
+
+  <div class="panel signin-box">
+    <div class="who-am-i" id="whoAmI">Not signed in.</div>
+    <button class="btn" id="signInBtn">Sign in with Microsoft</button>
+  </div>
+
+  <form class="panel" id="entryForm" style="display:none;">
+    <div class="field">
+      <label>Project</label>
+      <input type="text" id="f-project" list="projectList" required>
+      <datalist id="projectList"></datalist>
+    </div>
+    <div class="field">
+      <label>Activity</label>
+      <textarea id="f-activity" required></textarea>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Customer</label>
+        <input type="text" id="f-customer" list="customerList">
+        <datalist id="customerList"></datalist>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <input type="text" id="f-category" list="categoryList" required>
+        <datalist id="categoryList"></datalist>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Open Date</label>
+        <input type="date" id="f-open" required>
+      </div>
+      <div class="field">
+        <label>Target Date</label>
+        <input type="date" id="f-target" required>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Closure Date <span style="text-transform:none; letter-spacing:0;">(leave blank if still open)</span></label>
+        <input type="date" id="f-closure">
+      </div>
+      <div class="field">
+        <label>Who (owner)</label>
+        <input type="text" id="f-who" list="whoList" required>
+        <datalist id="whoList"></datalist>
+      </div>
+    </div>
+    <div class="hint" style="margin-bottom:14px;">Next Sl number: <b id="nextSl">—</b></div>
+    <button type="submit" class="btn primary" id="submitBtn">Add to register</button>
+  </form>
+
+  <div class="panel recent" id="recentPanel" style="display:none;">
+    <div style="font-family:'IBM Plex Serif', serif; font-weight:600; font-size:14px; margin-bottom:10px;">Recently added</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<script>
+// ============ CONFIG — fill these in after creating your Azure App Registration ============
+const CONFIG = {
+  clientId: "7fcb875a-9294-438f-89b4-5c24feac5f18",
+  authority: "https://login.microsoftonline.com/common",
+  redirectUri: window.location.href.split('#')[0].split('?')[0],
+  // Resolved once from an "Anyone with the link can edit" share (see console helper) —
+  // this lets ANY signed-in user read/write the file regardless of whose OneDrive it lives in.
+  driveId: "b!z36Y3LaVuUitt4XAZX6eIOpWZ9PVGIhNn0cNVS5Fch5_UMQMhUs0QqZqOWUoxEuz",
+  itemId: "01OROHK3772NH2BHRCDRCYBSNZ3VKVJ2BP",
+  tableName: "MobilityIssues"
+};
+// =============================================================================================
+
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+const SCOPES = ["User.Read", "Files.ReadWrite"];
+
+let msalInstance, currentAccount = null;
+let cachedRows = [];
+
+function showBanner(msg, kind){
+  const el = document.getElementById('banner');
+  el.className = 'banner ' + kind;
+  el.textContent = msg;
+}
+
+function tableUrl(suffix){
+  return `${GRAPH_BASE}/drives/${CONFIG.driveId}/items/${CONFIG.itemId}/workbook/tables('${CONFIG.tableName}')${suffix}`;
+}
+
+async function getAccessToken(){
+  const req = { scopes: SCOPES, account: currentAccount };
+  try{
+    const result = await msalInstance.acquireTokenSilent(req);
+    return result.accessToken;
+  }catch(e){
+    const result = await msalInstance.acquireTokenPopup(req);
+    currentAccount = result.account;
+    return result.accessToken;
+  }
+}
+
+async function graphFetch(url, options={}){
+  const token = await getAccessToken();
+  const res = await fetch(url, {
+    ...options,
+    headers:{ 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json', ...(options.headers||{}) }
+  });
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error(`Graph API ${res.status}: ${text.slice(0,300)}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// Excel stores dates as serial numbers (days since 1899-12-30). The Graph
+// Excel API returns raw cell values, so date columns come back as numbers.
+function excelSerialToISO(v){
+  if(v===null || v===undefined || v==='') return null;
+  if(typeof v === 'number'){
+    const ms = Math.round((v - 25569) * 86400 * 1000);
+    return new Date(ms).toISOString().slice(0,10);
+  }
+  const d = new Date(v);
+  return isNaN(d) ? null : d.toISOString().slice(0,10);
+}
+
+async function fetchRows(){
+  const data = await graphFetch(tableUrl('/rows'));
+  return data.value.map(r=>{
+    const v = r.values[0];
+    return {
+      sl: v[0], project: v[1], activity: v[2], customer: v[3], category: v[4],
+      openDate: excelSerialToISO(v[5]), targetDate: excelSerialToISO(v[6]),
+      closureDate: excelSerialToISO(v[7]), who: v[8]
+    };
+  });
+}
+
+function uniqueSorted(arr, key){
+  return [...new Set(arr.map(x=>x[key]).filter(v=>v))].sort();
+}
+
+function populateDatalist(id, values){
+  document.getElementById(id).innerHTML = values.map(v=>`<option value="${v}">`).join('');
+}
+
+async function loadContext(){
+  showBanner('Loading current register…', 'info');
+  cachedRows = await fetchRows();
+  populateDatalist('projectList', uniqueSorted(cachedRows,'project'));
+  populateDatalist('customerList', uniqueSorted(cachedRows,'customer'));
+  populateDatalist('categoryList', uniqueSorted(cachedRows,'category'));
+  populateDatalist('whoList', uniqueSorted(cachedRows,'who'));
+  const maxSl = cachedRows.reduce((m,r)=> Math.max(m, Number(r.sl)||0), 0);
+  document.getElementById('nextSl').textContent = maxSl + 1;
+  renderRecent();
+  showBanner(`Loaded ${cachedRows.length} existing rows. Ready to add a new entry.`, 'success');
+}
+
+function renderRecent(){
+  const panel = document.getElementById('recentPanel');
+  const sorted = [...cachedRows].sort((a,b)=> (Number(b.sl)||0) - (Number(a.sl)||0)).slice(0,5);
+  if(sorted.length===0){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  document.getElementById('recentList').innerHTML = sorted.map(r=>`
+    <div class="recent-row">
+      <span class="recent-title">#${r.sl} — ${r.activity||'—'} <span style="color:var(--faint)">(${r.project||'—'})</span></span>
+      <span class="recent-meta">${r.who||'—'}</span>
+    </div>
+  `).join('');
+}
+
+async function handleSubmit(e){
+  e.preventDefault();
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Adding…';
+  try{
+    const maxSl = cachedRows.reduce((m,r)=> Math.max(m, Number(r.sl)||0), 0);
+    const nextSl = maxSl + 1;
+    const row = [
+      nextSl,
+      document.getElementById('f-project').value.trim(),
+      document.getElementById('f-activity').value.trim(),
+      document.getElementById('f-customer').value.trim(),
+      document.getElementById('f-category').value.trim(),
+      document.getElementById('f-open').value || null,
+      document.getElementById('f-target').value || null,
+      document.getElementById('f-closure').value || null,
+      document.getElementById('f-who').value.trim()
+    ];
+    await graphFetch(tableUrl('/rows/add'), { method:'POST', body: JSON.stringify({ values:[row] }) });
+    showBanner(`Added #${nextSl} to the register.`, 'success');
+    document.getElementById('entryForm').reset();
+    document.getElementById('f-open').value = new Date().toISOString().slice(0,10);
+    await loadContext();
+  }catch(err){
+    console.error(err);
+    showBanner('Could not add the entry: ' + err.message, 'error');
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Add to register';
+  }
+}
+
+async function signIn(){
+  try{
+    await msalInstance.loginRedirect({ scopes: SCOPES });
+    // page navigates away to Microsoft's sign-in page; execution resumes in init() on return.
+  }catch(err){
+    console.error(err);
+    showBanner('Sign-in failed: ' + err.message, 'error');
+  }
+}
+
+let diagnosedFileId = null;
+let diagnosedMissingTable = false;
+let diagnosedSheetName = null;
+
+async function diagnosePathIssue(){
+  const notes = [];
+  diagnosedFileId = null;
+  diagnosedMissingTable = false;
+  diagnosedSheetName = null;
+  try{
+    const me = await graphFetch(`${GRAPH_BASE}/me`);
+    notes.push(`Signed in as: ${me.userPrincipalName || me.mail || '(unknown)'}`);
+  }catch(e){
+    notes.push('Could not read /me: ' + e.message);
+  }
+  let root;
+  try{
+    root = await graphFetch(`${GRAPH_BASE}/me/drive/root/children?$top=200`);
+    notes.push('Root of your OneDrive contains: ' + (root.value.map(f=>f.name).join(' | ') || '(empty)'));
+  }catch(e){
+    notes.push('Could not list your OneDrive root: ' + e.message);
+    return notes.join(' — ');
+  }
+  const folderGuess = root.value.find(f => f.folder && /department|to.?do/i.test(f.name));
+  let fileItem = null;
+  if(folderGuess){
+    try{
+      const sub = await graphFetch(`${GRAPH_BASE}/me/drive/items/${folderGuess.id}/children?$top=200`);
+      notes.push(`Inside "${folderGuess.name}": ` + (sub.value.map(f=>f.name).join(' | ') || '(empty)'));
+      fileItem = sub.value.find(f => f.name.toLowerCase() === 'mobility issues - dataroom.xlsx');
+    }catch(e){
+      notes.push(`Could not list inside "${folderGuess.name}": ` + e.message);
+    }
+  } else {
+    notes.push('No folder matching "Department"/"To Do" found at the OneDrive root — the file may be in a different account\'s drive, a SharePoint site library instead of OneDrive, or a subfolder.');
+  }
+  if(fileItem){
+    diagnosedFileId = fileItem.id;
+    try{
+      const tables = await graphFetch(`${GRAPH_BASE}/me/drive/items/${fileItem.id}/workbook/tables`);
+      if(tables.value.some(t=>t.name === CONFIG.tableName)){
+        notes.push(`Table "${CONFIG.tableName}" exists — the read failure must be something else (see error above).`);
+      } else {
+        diagnosedMissingTable = true;
+        notes.push('Tables found in that file: ' + (tables.value.map(t=>t.name).join(', ') || `(none — the "${CONFIG.tableName}" table is missing from this copy)`));
+      }
+    }catch(e){
+      notes.push('Could not list tables in that file (workbook may not open at all via Graph): ' + e.message);
+    }
+    try{
+      const sheets = await graphFetch(`${GRAPH_BASE}/me/drive/items/${fileItem.id}/workbook/worksheets`);
+      notes.push('Worksheets: ' + (sheets.value.map(s=>s.name).join(', ') || '(none)'));
+      if(sheets.value.length) diagnosedSheetName = sheets.value[0].name;
+    }catch(e){
+      notes.push('Could not list worksheets: ' + e.message);
+    }
+  }
+  return notes.join(' — ');
+}
+
+async function createMissingTable(){
+  const btn = document.getElementById('fixTableBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating table…';
+  try{
+    if(!diagnosedFileId || !diagnosedSheetName){
+      throw new Error('No file/worksheet was identified by the diagnostic — reload and try again.');
+    }
+    const base = `${GRAPH_BASE}/me/drive/items/${diagnosedFileId}/workbook/worksheets('${encodeURIComponent(diagnosedSheetName)}')`;
+    const used = await graphFetch(`${base}/usedRange`);
+    const created = await graphFetch(`${base}/tables/add`, {
+      method: 'POST',
+      body: JSON.stringify({ address: used.address, hasHeaders: true })
+    });
+    if(created.name !== CONFIG.tableName){
+      await graphFetch(`${GRAPH_BASE}/me/drive/items/${diagnosedFileId}/workbook/tables('${created.name}')`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: CONFIG.tableName })
+      });
+    }
+    showBanner(`Table "${CONFIG.tableName}" created over range ${used.address}. Reloading data…`, 'success');
+    btn.style.display = 'none';
+    await loadContext();
+  }catch(err){
+    console.error(err);
+    showBanner('Automatic fix failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '🛠 Create the MobilityIssues table now';
+  }
+}
+
+async function onSignedIn(){
+  document.getElementById('whoAmI').innerHTML = `Signed in as <b>${currentAccount.username}</b>`;
+  document.getElementById('signInBtn').textContent = 'Switch account';
+  document.getElementById('entryForm').style.display = 'block';
+  document.getElementById('f-open').value = new Date().toISOString().slice(0,10);
+  try{
+    await loadContext();
+  }catch(err){
+    console.error(err);
+    showBanner('Reading the workbook failed, running a diagnostic…', 'warn');
+    const diag = await diagnosePathIssue().catch(e=>'Diagnostic also failed: '+e.message);
+    showBanner('Could not read the workbook: ' + err.message + '  ||  DIAGNOSIS: ' + diag, 'error');
+    if(diagnosedMissingTable){
+      document.getElementById('fixTableBtn').style.display = 'inline-flex';
+    }
+  }
+}
+
+async function init(){
+  document.getElementById('signInBtn').addEventListener('click', signIn);
+  document.getElementById('entryForm').addEventListener('submit', handleSubmit);
+  document.getElementById('fixTableBtn').addEventListener('click', createMissingTable);
+
+  if(CONFIG.clientId.startsWith('PASTE-')){
+    document.getElementById('configWarning').style.display = 'block';
+    return;
+  }
+  if(typeof msal === 'undefined'){
+    showBanner('The Microsoft sign-in library (MSAL) failed to load from the CDN. Check your network connection or ad-blocker/firewall, then reload.', 'error');
+    return;
+  }
+  try{
+    msalInstance = new msal.PublicClientApplication({
+      auth: { clientId: CONFIG.clientId, authority: CONFIG.authority, redirectUri: CONFIG.redirectUri },
+      cache: { cacheLocation: 'localStorage' }
+    });
+    await msalInstance.initialize();
+    const redirectResult = await msalInstance.handleRedirectPromise().catch(err=>{ console.error(err); return null; });
+    if(redirectResult && redirectResult.account){
+      currentAccount = redirectResult.account;
+      msalInstance.setActiveAccount(currentAccount);
+      onSignedIn();
+    } else {
+      const accounts = msalInstance.getAllAccounts();
+      if(accounts.length){
+        currentAccount = accounts[0];
+        msalInstance.setActiveAccount(currentAccount);
+        onSignedIn();
+      }
+    }
+  }catch(err){
+    console.error(err);
+    showBanner('Could not set up Microsoft sign-in: ' + err.message, 'error');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
