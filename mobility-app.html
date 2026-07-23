@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobility Issues — Assignment Register</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B1220; --panel: #121B2E; --panel-2: #16223A; --border: #223049;
+    --text: #E8ECF3; --muted: #8A96AC; --faint: #5D6A81;
+    --overdue: #E2574C; --overdue-bg: rgba(226,87,76,0.12);
+    --duesoon: #E0A458; --duesoon-bg: rgba(224,164,88,0.12);
+    --ontrack: #4FA97F; --ontrack-bg: rgba(79,169,127,0.12);
+    --pending: #9E7BE0; --pending-bg: rgba(158,123,224,0.14);
+    --closed: #6E7A90; --closed-bg: rgba(110,122,144,0.12);
+    --accent: #5B8DEF; --accent-2: #9E7BE0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(1200px 500px at 15% -10%, rgba(91,141,239,0.09), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(158,123,224,0.07), transparent 55%), var(--bg);
+    color:var(--text); font-family:'IBM Plex Sans', sans-serif; min-height:100vh;
+  }
+  .btn{font-family:'IBM Plex Sans', sans-serif; font-size:13px; font-weight:500; padding:9px 16px; border-radius:7px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); cursor:pointer; display:inline-flex; align-items:center; gap:8px;}
+  .btn:hover{border-color:var(--accent); background:#182640;}
+  .btn.primary{background:linear-gradient(160deg,#3C6FE0,#5B8DEF); border-color:transparent; color:#fff;}
+  .btn.primary:hover{filter:brightness(1.08);}
+  .btn.small{padding:6px 11px; font-size:12px;}
+  .btn:disabled{opacity:0.5; cursor:default;}
+  label{display:block; font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; font-weight:500; margin-bottom:6px;}
+  input, select, textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:7px; font-family:'IBM Plex Sans',sans-serif; font-size:13.5px;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  .field{margin-bottom:16px;}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px;}
+  .banner{padding:12px 16px; border-radius:8px; font-size:13px; font-family:'IBM Plex Mono',monospace; margin-bottom:16px; display:none;}
+  .banner.info{background:rgba(91,141,239,0.12); color:var(--accent); border:1px solid #2E3F6B; display:block;}
+  .banner.success{background:rgba(79,169,127,0.12); color:var(--ontrack); border:1px solid #2E5A45; display:block;}
+  .banner.error{background:rgba(226,87,76,0.12); color:var(--overdue); border:1px solid #6B2E29; display:block;}
+  .banner.warn{background:rgba(224,164,88,0.12); color:var(--duesoon); border:1px solid #6B4E29; display:block;}
+
+  /* ---- auth screen ---- */
+  #authScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .auth-card{width:100%; max-width:380px;}
+  .auth-seal{width:46px; height:46px; border-radius:8px; border:1px solid var(--border); background:linear-gradient(160deg, var(--panel-2), var(--panel)); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--accent); font-weight:600; margin:0 auto 16px;}
+  .auth-title{font-family:'IBM Plex Serif', serif; font-weight:600; font-size:20px; text-align:center; margin:0 0 4px;}
+  .auth-sub{color:var(--muted); font-size:12px; text-align:center; margin-bottom:22px; font-family:'IBM Plex Mono',monospace;}
+
+  /* ---- app shell ---- */
+  #appScreen{display:none;}
+  .topnav{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:16px 34px; border-bottom:1px solid var(--border); background:var(--panel);}
+  .topnav-left{display:flex; align-items:center; gap:20px;}
+  .brand{display:flex; align-items:center; gap:12px;}
+  .seal{width:36px; height:36px; border-radius:8px; border:1px solid var(--border); background:linear-gradient(160deg, var(--panel-2), var(--panel)); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--accent); font-weight:600;}
+  .brand-title{font-family:'IBM Plex Serif', serif; font-weight:600; font-size:16px;}
+  .nav-links{display:flex; gap:4px;}
+  .nav-link{padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; color:var(--muted);}
+  .nav-link:hover{color:var(--text); background:var(--panel-2);}
+  .nav-link.active{color:var(--text); background:#182640; border:1px solid var(--accent);}
+  .topnav-right{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--muted); font-family:'IBM Plex Mono',monospace;}
+  .topnav-right b{color:var(--text);}
+  .main-wrap{padding:24px 34px 60px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* dashboard bits (same as before) */
+  .kpi-row{display:grid; grid-template-columns:repeat(6,1fr); gap:14px; margin-bottom:22px;}
+  .kpi{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; position:relative; overflow:hidden;}
+  .kpi::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px;}
+  .kpi.total::before{background:var(--accent);}
+  .kpi.overdue::before{background:var(--overdue);}
+  .kpi.duesoon::before{background:var(--duesoon);}
+  .kpi.ontrack::before{background:var(--ontrack);}
+  .kpi.pending::before{background:var(--pending);}
+  .kpi.closed::before{background:var(--closed);}
+  .kpi-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.7px; font-weight:500;}
+  .kpi-value{font-family:'IBM Plex Mono', monospace; font-size:26px; font-weight:600; margin-top:6px;}
+  .kpi-sub{font-size:11px; color:var(--faint); margin-top:3px;}
+
+  .layout{display:grid; grid-template-columns:280px 1fr; gap:18px;}
+  .panel-title{font-family:'IBM Plex Serif', serif; font-size:14.5px; font-weight:600; margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;}
+  .panel-title span.count{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--muted); font-weight:400;}
+  .person-list{display:flex; flex-direction:column; gap:9px;}
+  .person-card{border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:pointer; background:var(--panel-2);}
+  .person-card:hover{border-color:var(--accent);}
+  .person-card.active{border-color:var(--accent); background:#182845;}
+  .person-top{display:flex; justify-content:space-between; align-items:baseline;}
+  .person-name{font-size:13px; font-weight:600;}
+  .person-total{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted);}
+  .person-bar{display:flex; height:6px; border-radius:3px; overflow:hidden; margin-top:8px; background:var(--border);}
+  .person-bar div{height:100%;}
+
+  .filter-bar{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px;}
+  .filter-group{display:flex; flex-direction:column; gap:5px;}
+  .filter-group label{margin-bottom:0;}
+  select.filter-input, input.filter-input{min-width:140px;}
+  .filter-group.grow{flex:1; min-width:200px;}
+  .filter-group.grow input{width:100%;}
+  .clear-btn{align-self:flex-end; font-size:12.5px; padding:9px 14px; border-color:var(--overdue); color:var(--overdue); background:rgba(226,87,76,0.08);}
+
+  .charts-row{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px;}
+  .chart-box{height:220px; position:relative;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  thead th{text-align:left; padding:9px 10px; font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--panel);}
+  tbody tr{border-bottom:1px solid #1B2740;}
+  tbody tr:hover{background:#131F38;}
+  tbody td{padding:9px 10px; vertical-align:top;}
+  .activity-cell{max-width:300px;}
+  .activity-title{font-weight:500; line-height:1.35;}
+  .activity-meta{font-size:11px; color:var(--faint); margin-top:2px;}
+  .badge{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:600; font-family:'IBM Plex Mono',monospace; white-space:nowrap;}
+  .badge::before{content:''; width:6px; height:6px; border-radius:50%;}
+  .badge.overdue{background:var(--overdue-bg); color:var(--overdue);} .badge.overdue::before{background:var(--overdue);}
+  .badge.duesoon{background:var(--duesoon-bg); color:var(--duesoon);} .badge.duesoon::before{background:var(--duesoon);}
+  .badge.ontrack{background:var(--ontrack-bg); color:var(--ontrack);} .badge.ontrack::before{background:var(--ontrack);}
+  .badge.pending_review{background:var(--pending-bg); color:var(--pending);} .badge.pending_review::before{background:var(--pending);}
+  .badge.closed{background:var(--closed-bg); color:var(--closed);} .badge.closed::before{background:var(--closed);}
+  .who-chip{font-family:'IBM Plex Mono',monospace; font-size:11px; padding:2px 8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border);}
+  .table-wrap{background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:auto; max-height:640px;}
+  .empty-state{padding:40px; text-align:center; color:var(--muted); font-size:13px;}
+  .footer-note{margin-top:18px; font-size:11px; color:var(--faint); font-family:'IBM Plex Mono',monospace;}
+
+  /* new task form */
+  .form-card{max-width:640px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+
+  /* change password inline panel */
+  .inline-panel{max-width:420px;}
+
+  @media (max-width: 1000px){
+    .layout{grid-template-columns:1fr;}
+    .kpi-row{grid-template-columns:repeat(3,1fr);}
+    .charts-row{grid-template-columns:1fr;}
+  }
+  @media (max-width: 640px){
+    .main-wrap{padding:16px 14px 40px;}
+    .topnav{padding:12px 16px;}
+    .kpi-row{grid-template-columns:repeat(2,1fr); gap:10px;}
+    table, thead, tbody, tr, td{display:block; width:100%;}
+    thead{display:none;}
+    tbody tr{background:var(--panel); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; padding:4px 4px 6px;}
+    tbody td{display:flex; flex-direction:column; gap:2px; padding:7px 12px; border-bottom:1px solid #1B2740;}
+    tbody td:last-child{border-bottom:none;}
+    tbody td::before{content:attr(data-label); font-size:10px; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); font-weight:600;}
+    .table-wrap{max-height:none; overflow:visible; border:none; background:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= AUTH SCREEN ================= -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-seal">MOB</div>
+    <div class="auth-title">Mobility Issues Tracker</div>
+    <div class="auth-sub">SIGN IN WITH THE ACCOUNT NITIN CREATED FOR YOU</div>
+    <div id="authBanner" class="banner"></div>
+    <form id="loginForm" class="panel">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="loginEmail" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn primary" style="width:100%; justify-content:center; padding:11px;">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= APP SCREEN ================= -->
+<div id="appScreen">
+  <div class="topnav">
+    <div class="topnav-left">
+      <div class="brand"><div class="seal">MOB</div><div class="brand-title">Mobility Issues Tracker</div></div>
+      <div class="nav-links">
+        <div class="nav-link active" data-view="dashboardView">Dashboard</div>
+        <div class="nav-link" data-view="newTaskView">New Task</div>
+        <div class="nav-link" data-view="passwordView">Change Password</div>
+      </div>
+    </div>
+    <div class="topnav-right">
+      <span>Signed in as <b id="whoAmI">—</b></span>
+      <button class="btn small" id="signOutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main-wrap">
+    <div id="globalBanner" class="banner"></div>
+
+    <!-- ---------- DASHBOARD VIEW ---------- -->
+    <div id="dashboardView" class="view active">
+      <div class="kpi-row" id="kpiRow"></div>
+      <div class="layout">
+        <div class="panel">
+          <div class="panel-title">By Responsible Person <span class="count" id="personCount"></span></div>
+          <div class="person-list" id="personList"></div>
+        </div>
+        <div>
+          <div class="filter-bar">
+            <div class="filter-group"><label>Project</label><select class="filter-input" id="f-project"></select></div>
+            <div class="filter-group"><label>Category</label><select class="filter-input" id="f-category"></select></div>
+            <div class="filter-group"><label>Owner</label><select class="filter-input" id="f-who"></select></div>
+            <div class="filter-group">
+              <label>Status</label>
+              <select class="filter-input" id="f-status">
+                <option value="">All statuses</option>
+                <option value="overdue">Overdue</option>
+                <option value="duesoon">Due soon (≤3d)</option>
+                <option value="ontrack">On track</option>
+                <option value="pending_review">Pending review</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div class="filter-group grow"><label>Search activity / project</label><input type="text" class="filter-input" id="searchBox" placeholder="Type to filter…"></div>
+            <button class="btn clear-btn" id="resetBtn">✕ Clear filters</button>
+          </div>
+
+          <div class="charts-row">
+            <div class="panel"><div class="panel-title">Status Mix</div><div class="chart-box"><canvas id="statusChart"></canvas></div></div>
+            <div class="panel"><div class="panel-title">By Category</div><div class="chart-box"><canvas id="categoryChart"></canvas></div></div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="dataTable">
+              <thead>
+                <tr>
+                  <th>Project</th><th>Activity</th><th>Category</th><th>Target</th>
+                  <th>Owner</th><th>Reviewer</th><th>Status</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">No assignments match the current filters.</div>
+          </div>
+          <div class="footer-note" id="countLine">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- NEW TASK VIEW ---------- -->
+    <div id="newTaskView" class="view">
+      <div class="panel form-card">
+        <div class="panel-title">Create a New Task</div>
+        <form id="newTaskForm">
+          <div class="field">
+            <label>Project</label>
+            <input type="text" id="nt-project" list="projectList" required>
+            <datalist id="projectList"></datalist>
+          </div>
+          <div class="field">
+            <label>Activity</label>
+            <textarea id="nt-activity" required></textarea>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Customer</label>
+              <input type="text" id="nt-customer" list="customerList">
+              <datalist id="customerList"></datalist>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <input type="text" id="nt-category" list="categoryList">
+              <datalist id="categoryList"></datalist>
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Open Date</label>
+              <input type="date" id="nt-open">
+            </div>
+            <div class="field">
+              <label>Target Date</label>
+              <input type="date" id="nt-target" required>
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Who (owner)</label>
+              <select id="nt-who" required></select>
+            </div>
+            <div class="field">
+              <label>Reviewer</label>
+              <select id="nt-reviewer" required></select>
+            </div>
+          </div>
+          <button type="submit" class="btn primary" id="ntSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Create task</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ---------- CHANGE PASSWORD VIEW ---------- -->
+    <div id="passwordView" class="view">
+      <div class="panel inline-panel">
+        <div class="panel-title">Change Password</div>
+        <form id="passwordForm">
+          <div class="field">
+            <label>New password</label>
+            <input type="password" id="pw-new" required minlength="6" autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label>Confirm new password</label>
+            <input type="password" id="pw-confirm" required minlength="6" autocomplete="new-password">
+          </div>
+          <button type="submit" class="btn primary" style="width:100%; justify-content:center; padding:11px;">Update password</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ CONFIG — fill in after creating your Supabase project ============
+const CONFIG = {
+  supabaseUrl: "https://taqowuunuiytgmyacuca.supabase.co",
+  supabaseAnonKey: "sb_publishable_85v7JdGGii_RPcvcDTiT9Q_EfqLDjvl"
+};
+// =================================================================================
+
+const COLORS = {
+  overdue:'#E2574C', duesoon:'#E0A458', ontrack:'#4FA97F', pending_review:'#9E7BE0', closed:'#6E7A90'
+};
+const CATEGORY_PALETTE = ['#5B8DEF','#9E7BE0','#4FA97F','#E0A458','#E2574C','#4FB6C9','#C97FD9'];
+const STATUS_ORDER = ['overdue','duesoon','ontrack','pending_review','closed'];
+const STATUS_LABELS = ['Overdue','Due soon','On track','Pending review','Closed'];
+
+let db = null;
+let currentUser = null;   // supabase auth user
+let myProfile = null;     // {id, display_name, email, is_admin}
+let profiles = [];        // all profiles, for name lookups + dropdowns
+let profileById = {};
+let rawTasks = [];        // enriched tasks
+let statusChart=null, categoryChart=null;
+let currentCatLabels = [];
+let activePerson = null;
+
+function showBanner(id, msg, kind){
+  const el = document.getElementById(id);
+  el.className = 'banner ' + kind;
+  el.textContent = msg;
+}
+
+function parseDate(s){ if(!s) return null; const d = new Date(s); return isNaN(d) ? null : d; }
+function daysBetween(a,b){ return Math.round((b-a)/(1000*60*60*24)); }
+
+function computeStatus(t){
+  if(t.workflow_status === 'closed'){
+    return {status:'closed', rank:4, label:'Closed', detail: t.closure_date ? ('Closed '+t.closure_date) : 'Closed'};
+  }
+  if(t.workflow_status === 'pending_review'){
+    return {status:'pending_review', rank:3, label:'Pending review', detail: 'Completed '+(t.actual_completion_date||'—')+' — awaiting reviewer'};
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = parseDate(t.target_date);
+  if(!target) return {status:'ontrack', rank:2, label:'On track', detail:'No target set'};
+  const diff = daysBetween(today, target);
+  if(diff < 0) return {status:'overdue', rank:0, label:'Overdue', detail: Math.abs(diff)+'d overdue'};
+  if(diff <= 3) return {status:'duesoon', rank:1, label:'Due soon', detail: diff===0 ? 'Due today' : diff+'d left'};
+  return {status:'ontrack', rank:2, label:'On track', detail: diff+'d left'};
+}
+
+function nameOf(id){ return (profileById[id] && profileById[id].display_name) || '—'; }
+
+function enrich(tasks){
+  return tasks.map(t=>{
+    const s = computeStatus(t);
+    return {...t, status:s.status, statusLabel:s.label, statusDetail:s.detail, statusRank:s.rank,
+      whoName: nameOf(t.who), reviewerName: nameOf(t.reviewer)};
+  });
+}
+
+function uniqueSorted(arr, key){ return [...new Set(arr.map(x=>x[key]).filter(v=>v))].sort(); }
+function populateSelect(id, values, allLabel){
+  const el = document.getElementById(id);
+  el.innerHTML = `<option value="">${allLabel}</option>` + values.map(v=>`<option value="${v}">${v}</option>`).join('');
+}
+function populateDatalist(id, values){
+  document.getElementById(id).innerHTML = values.map(v=>`<option value="${v}">`).join('');
+}
+
+function initFilters(){
+  populateSelect('f-project', uniqueSorted(rawTasks,'project'), 'All projects');
+  populateSelect('f-category', uniqueSorted(rawTasks,'category'), 'All categories');
+  populateSelect('f-who', uniqueSorted(rawTasks,'whoName'), 'All owners');
+}
+
+function getFiltered(){
+  const project = document.getElementById('f-project').value;
+  const category = document.getElementById('f-category').value;
+  const who = document.getElementById('f-who').value;
+  const status = document.getElementById('f-status').value;
+  const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  return rawTasks.filter(t=>{
+    if(project && t.project!==project) return false;
+    if(category && t.category!==category) return false;
+    if(who && t.whoName!==who) return false;
+    if(status && t.status!==status) return false;
+    if(activePerson && t.whoName!==activePerson) return false;
+    if(search){
+      const hay = ((t.activity||'')+' '+(t.project||'')+' '+(t.customer||'')).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function renderKPIs(filtered){
+  const total = filtered.length;
+  const overdue = filtered.filter(t=>t.status==='overdue').length;
+  const duesoon = filtered.filter(t=>t.status==='duesoon').length;
+  const ontrack = filtered.filter(t=>t.status==='ontrack').length;
+  const pending = filtered.filter(t=>t.status==='pending_review').length;
+  const closed = filtered.filter(t=>t.status==='closed').length;
+  const cards = [
+    {cls:'total', label:'Total', value:total, sub:'in current view'},
+    {cls:'overdue', label:'Overdue', value:overdue, sub: total ? Math.round(overdue/total*100)+'%' : '—'},
+    {cls:'duesoon', label:'Due ≤3d', value:duesoon, sub:'needs attention'},
+    {cls:'ontrack', label:'On Track', value:ontrack, sub:'within target'},
+    {cls:'pending', label:'Pending Review', value:pending, sub:'awaiting reviewer'},
+    {cls:'closed', label:'Closed', value:closed, sub: total ? Math.round(closed/total*100)+'% closure' : '—'}
+  ];
+  document.getElementById('kpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi ${c.cls}"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>
+  `).join('');
+}
+
+function renderPersonList(){
+  const people = uniqueSorted(rawTasks,'whoName');
+  const rows = people.map(person=>{
+    const items = rawTasks.filter(t=>t.whoName===person);
+    const total = items.length;
+    const overdue = items.filter(t=>t.status==='overdue').length;
+    const duesoon = items.filter(t=>t.status==='duesoon').length;
+    const ontrack = items.filter(t=>t.status==='ontrack').length;
+    const pending = items.filter(t=>t.status==='pending_review').length;
+    const closed = items.filter(t=>t.status==='closed').length;
+    const pct = k => total ? (k/total*100) : 0;
+    return {person,total,overdue,duesoon,ontrack,pending,closed,pct};
+  }).sort((a,b)=> b.overdue-a.overdue || b.total-a.total);
+
+  document.getElementById('personCount').textContent = people.length + ' owners';
+  document.getElementById('personList').innerHTML = rows.map(r=>`
+    <div class="person-card ${activePerson===r.person?'active':''}" data-person="${r.person}">
+      <div class="person-top"><span class="person-name">${r.person}</span><span class="person-total">${r.total}</span></div>
+      <div class="person-bar">
+        <div style="width:${r.pct(r.overdue)}%;background:${COLORS.overdue}"></div>
+        <div style="width:${r.pct(r.duesoon)}%;background:${COLORS.duesoon}"></div>
+        <div style="width:${r.pct(r.ontrack)}%;background:${COLORS.ontrack}"></div>
+        <div style="width:${r.pct(r.pending)}%;background:${COLORS.pending_review}"></div>
+        <div style="width:${r.pct(r.closed)}%;background:${COLORS.closed}"></div>
+      </div>
+    </div>
+  `).join('') || '<div style="color:var(--faint); font-size:12px;">No owners in current view.</div>';
+
+  document.querySelectorAll('.person-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const p = el.dataset.person;
+      activePerson = (activePerson===p) ? null : p;
+      renderAll();
+    });
+  });
+}
+
+function withAlpha(hex, alpha){
+  const h = hex.replace('#',''); const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function renderCharts(filtered){
+  const statusCounts = {overdue:0,duesoon:0,ontrack:0,pending_review:0,closed:0};
+  filtered.forEach(t=>statusCounts[t.status]++);
+  const activeStatus = document.getElementById('f-status').value;
+  const statusColors = STATUS_ORDER.map(s=>{
+    const base = COLORS[s];
+    return (!activeStatus || activeStatus===s) ? base : withAlpha(base, 0.25);
+  });
+  const ctx1 = document.getElementById('statusChart');
+  if(statusChart) statusChart.destroy();
+  statusChart = new Chart(ctx1, {
+    type:'doughnut',
+    data:{ labels:STATUS_LABELS, datasets:[{ data:STATUS_ORDER.map(s=>statusCounts[s]), backgroundColor:statusColors, borderColor:'#121B2E', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#8A96AC', font:{family:'IBM Plex Sans', size:10.5}, boxWidth:9, padding:10 } } },
+      onClick:(evt, els)=>{ if(!els.length) return; const clicked = STATUS_ORDER[els[0].index]; const sel = document.getElementById('f-status'); sel.value = (sel.value===clicked)?'':clicked; renderAll(); }
+    }
+  });
+
+  const catCounts = {};
+  filtered.forEach(t=>{ const c = t.category||'Uncategorized'; catCounts[c]=(catCounts[c]||0)+1; });
+  const catLabels = Object.keys(catCounts).sort((a,b)=>catCounts[b]-catCounts[a]);
+  currentCatLabels = catLabels;
+  const activeCategory = document.getElementById('f-category').value;
+  const catColors = catLabels.map((l,i)=>{
+    const base = CATEGORY_PALETTE[i%CATEGORY_PALETTE.length];
+    return (!activeCategory || activeCategory===l) ? base : withAlpha(base, 0.25);
+  });
+  const ctx2 = document.getElementById('categoryChart');
+  if(categoryChart) categoryChart.destroy();
+  categoryChart = new Chart(ctx2, {
+    type:'bar',
+    data:{ labels:catLabels, datasets:[{ data:catLabels.map(l=>catCounts[l]), backgroundColor:catColors, borderRadius:5, maxBarThickness:24 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{ x:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}, precision:0} }, y:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:11}} } },
+      onClick:(evt, els)=>{ if(!els.length) return; const clicked = currentCatLabels[els[0].index]; const sel = document.getElementById('f-category'); sel.value = (sel.value===clicked)?'':clicked; renderAll(); }
+    }
+  });
+}
+
+function fmtDate(s){ if(!s) return '—'; const d = new Date(s); if(isNaN(d)) return s; return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+
+function actionCellFor(t){
+  if(t.workflow_status === 'open' && myProfile && t.who === myProfile.id){
+    return `<button class="btn small primary" data-action="complete" data-id="${t.id}">Mark Complete</button>`;
+  }
+  if(t.workflow_status === 'pending_review' && myProfile && t.reviewer === myProfile.id){
+    return `<button class="btn small primary" data-action="close" data-id="${t.id}">Accept &amp; Close</button>`;
+  }
+  return '<span style="color:var(--faint); font-size:11.5px;">—</span>';
+}
+
+function renderTable(filtered){
+  const sorted = [...filtered].sort((a,b)=> a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0));
+  const tbody = document.getElementById('tableBody');
+  const emptyState = document.getElementById('emptyState');
+  if(sorted.length===0){ tbody.innerHTML=''; emptyState.style.display='block'; }
+  else{
+    emptyState.style.display='none';
+    tbody.innerHTML = sorted.map(t=>`
+      <tr>
+        <td data-label="Project">${t.project || '—'}</td>
+        <td data-label="Activity" class="activity-cell"><div class="activity-title">${t.activity || '—'}</div><div class="activity-meta">Opened ${fmtDate(t.open_date)}</div></td>
+        <td data-label="Category">${t.category || '—'}</td>
+        <td data-label="Target" style="font-family:'IBM Plex Mono',monospace; white-space:nowrap;">${fmtDate(t.target_date)}</td>
+        <td data-label="Owner"><span class="who-chip">${t.whoName}</span></td>
+        <td data-label="Reviewer"><span class="who-chip">${t.reviewerName}</span></td>
+        <td data-label="Status"><span class="badge ${t.status}">${t.statusLabel}</span><div class="activity-meta">${t.statusDetail}</div></td>
+        <td data-label="Action">${actionCellFor(t)}</td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('button[data-action]').forEach(btn=>{
+      btn.addEventListener('click', ()=> handleWorkflowAction(btn.dataset.action, Number(btn.dataset.id)));
+    });
+  }
+  document.getElementById('countLine').textContent = `Showing ${sorted.length} of ${rawTasks.length} tasks`;
+}
+
+function renderAll(){
+  const filtered = getFiltered();
+  renderKPIs(filtered);
+  renderPersonList();
+  renderCharts(filtered);
+  renderTable(filtered);
+}
+
+async function handleWorkflowAction(action, taskId){
+  try{
+    if(action === 'complete'){
+      const dateStr = prompt('Actual completion date (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
+      if(!dateStr) return;
+      const { error } = await db.rpc('mark_complete', { p_task_id: taskId, p_completion_date: dateStr });
+      if(error) throw error;
+      showBanner('globalBanner', 'Marked complete — now awaiting the assigned reviewer.', 'success');
+    } else if(action === 'close'){
+      const dateStr = prompt('Closure date (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
+      if(!dateStr) return;
+      const { error } = await db.rpc('close_task', { p_task_id: taskId, p_closure_date: dateStr });
+      if(error) throw error;
+      showBanner('globalBanner', 'Task accepted and closed.', 'success');
+    }
+    await loadTasks();
+  }catch(err){
+    console.error(err);
+    showBanner('globalBanner', 'Action failed: ' + err.message, 'error');
+  }
+}
+
+function attachDashboardEvents(){
+  ['f-project','f-category','f-who','f-status'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', renderAll);
+  });
+  document.getElementById('searchBox').addEventListener('input', renderAll);
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    ['f-project','f-category','f-who','f-status'].forEach(id=> document.getElementById(id).value='');
+    document.getElementById('searchBox').value='';
+    activePerson = null;
+    renderAll();
+  });
+}
+
+// ---------------- data loading ----------------
+async function loadProfiles(){
+  const { data, error } = await db.from('profiles').select('id, display_name, email, is_admin');
+  if(error) throw error;
+  profiles = data;
+  profileById = {};
+  data.forEach(p=> profileById[p.id] = p);
+  myProfile = profileById[currentUser.id] || null;
+}
+
+async function loadTasks(){
+  const { data, error } = await db.from('tasks').select('*');
+  if(error) throw error;
+  rawTasks = enrich(data);
+  initFilters();
+  renderAll();
+}
+
+function populateWhoReviewerSelects(){
+  const opts = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
+    .map(p=>`<option value="${p.id}">${p.display_name}</option>`).join('');
+  document.getElementById('nt-who').innerHTML = opts;
+  document.getElementById('nt-reviewer').innerHTML = opts;
+  if(myProfile) document.getElementById('nt-who').value = myProfile.id;
+  populateDatalist('projectList', uniqueSorted(rawTasks,'project'));
+  populateDatalist('customerList', uniqueSorted(rawTasks,'customer'));
+  populateDatalist('categoryList', uniqueSorted(rawTasks,'category'));
+}
+
+async function handleNewTaskSubmit(e){
+  e.preventDefault();
+  const btn = document.getElementById('ntSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try{
+    const row = {
+      project: document.getElementById('nt-project').value.trim(),
+      activity: document.getElementById('nt-activity').value.trim(),
+      customer: document.getElementById('nt-customer').value.trim(),
+      category: document.getElementById('nt-category').value.trim(),
+      open_date: document.getElementById('nt-open').value || null,
+      target_date: document.getElementById('nt-target').value,
+      who: document.getElementById('nt-who').value,
+      reviewer: document.getElementById('nt-reviewer').value
+    };
+    const { error } = await db.from('tasks').insert(row);
+    if(error) throw error;
+    showBanner('globalBanner', 'Task created.', 'success');
+    document.getElementById('newTaskForm').reset();
+    if(myProfile) document.getElementById('nt-who').value = myProfile.id;
+    document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
+    await loadTasks();
+    populateWhoReviewerSelects();
+    switchView('dashboardView');
+  }catch(err){
+    console.error(err);
+    showBanner('globalBanner', 'Could not create task: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Create task';
+  }
+}
+
+async function handlePasswordSubmit(e){
+  e.preventDefault();
+  const a = document.getElementById('pw-new').value;
+  const b = document.getElementById('pw-confirm').value;
+  if(a !== b){ showBanner('globalBanner', 'Passwords do not match.', 'error'); return; }
+  try{
+    const { error } = await db.auth.updateUser({ password: a });
+    if(error) throw error;
+    showBanner('globalBanner', 'Password updated.', 'success');
+    document.getElementById('passwordForm').reset();
+  }catch(err){
+    console.error(err);
+    showBanner('globalBanner', 'Could not update password: ' + err.message, 'error');
+  }
+}
+
+// ---------------- nav + auth wiring ----------------
+function switchView(viewId){
+  document.querySelectorAll('.view').forEach(v=> v.classList.toggle('active', v.id===viewId));
+  document.querySelectorAll('.nav-link').forEach(n=> n.classList.toggle('active', n.dataset.view===viewId));
+}
+
+async function onSignedIn(){
+  currentUser = (await db.auth.getUser()).data.user;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  try{
+    await loadProfiles();
+    document.getElementById('whoAmI').textContent = (myProfile && myProfile.display_name) || currentUser.email;
+    document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
+    await loadTasks();
+    populateWhoReviewerSelects();
+  }catch(err){
+    console.error(err);
+    showBanner('globalBanner', 'Could not load data: ' + err.message, 'error');
+  }
+}
+
+function onSignedOut(){
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  currentUser = null; myProfile = null; rawTasks = [];
+}
+
+async function handleLoginSubmit(e){
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  showBanner('authBanner', 'Signing in…', 'info');
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if(error){
+    showBanner('authBanner', 'Sign-in failed: ' + error.message, 'error');
+  } else {
+    document.getElementById('authBanner').style.display = 'none';
+  }
+}
+
+function init(){
+  if(CONFIG.supabaseUrl.startsWith('PASTE-')){
+    showBanner('authBanner', 'CONFIG.supabaseUrl / supabaseAnonKey are still placeholders — fill them in at the top of the <script> block.', 'error');
+    return;
+  }
+  db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+
+  document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+  document.getElementById('newTaskForm').addEventListener('submit', handleNewTaskSubmit);
+  document.getElementById('passwordForm').addEventListener('submit', handlePasswordSubmit);
+  document.getElementById('signOutBtn').addEventListener('click', ()=> db.auth.signOut());
+  document.querySelectorAll('.nav-link').forEach(n=> n.addEventListener('click', ()=> switchView(n.dataset.view)));
+  attachDashboardEvents();
+
+  db.auth.onAuthStateChange((event, session)=>{
+    if(session && session.user){ onSignedIn(); } else { onSignedOut(); }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
