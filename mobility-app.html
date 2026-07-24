@@ -540,10 +540,11 @@ function renderCharts(filtered){
   const ctx3 = document.getElementById('customerChart');
   if(customerChart) customerChart.destroy();
   customerChart = new Chart(ctx3, {
-    type:'pie',
-    data:{ labels:custLabels, datasets:[{ data:custLabels.map(l=>custCounts[l]), backgroundColor:custColors, borderColor:'#121B2E', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ position:'bottom', labels:{ color:'#8A96AC', font:{family:'IBM Plex Sans', size:10}, boxWidth:9, padding:8 } } },
+    type:'bar',
+    data:{ labels:custLabels, datasets:[{ data:custLabels.map(l=>custCounts[l]), backgroundColor:custColors, borderRadius:5, maxBarThickness:24 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{ x:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}, precision:0} }, y:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:11}} } },
       onClick:(evt, els)=>{ if(!els.length) return; const clicked = currentCustomerLabels[els[0].index]; const sel = document.getElementById('f-customer'); sel.value = (sel.value===clicked)?'':clicked; renderAll(); }
     }
   });
