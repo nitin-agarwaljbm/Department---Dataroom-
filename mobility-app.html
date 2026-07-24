@@ -215,7 +215,7 @@
             <div class="filter-group">
               <label>Status</label>
               <select class="filter-input" id="f-status">
-                <option value="">All statuses</option>
+                <option value="">Active (excl. closed)</option>
                 <option value="overdue">Overdue</option>
                 <option value="duesoon">Due soon (≤3d)</option>
                 <option value="ontrack">On track</option>
@@ -400,12 +400,12 @@ function initFilters(){
   populateSelect('f-who', uniqueSorted(rawTasks,'whoName'), 'All owners');
 }
 
-function getFiltered(){
+function getFilteredBase(opts){
+  opts = opts || {};
   const project = document.getElementById('f-project').value;
   const category = document.getElementById('f-category').value;
   const customer = document.getElementById('f-customer').value;
   const who = document.getElementById('f-who').value;
-  const status = document.getElementById('f-status').value;
   const openFrom = document.getElementById('f-open-from').value;
   const openTo = document.getElementById('f-open-to').value;
   const search = document.getElementById('searchBox').value.trim().toLowerCase();
@@ -414,10 +414,9 @@ function getFiltered(){
     if(category && t.category!==category) return false;
     if(customer && t.customer!==customer) return false;
     if(who && t.whoName!==who) return false;
-    if(status && t.status!==status) return false;
     if(openFrom && (!t.open_date || t.open_date < openFrom)) return false;
     if(openTo && (!t.open_date || t.open_date > openTo)) return false;
-    if(activePerson && t.whoName!==activePerson) return false;
+    if(!opts.ignorePerson && activePerson && t.whoName!==activePerson) return false;
     if(search){
       const hay = ((t.activity||'')+' '+(t.project||'')+' '+(t.customer||'')).toLowerCase();
       if(!hay.includes(search)) return false;
@@ -426,30 +425,52 @@ function getFiltered(){
   });
 }
 
+// No status picked -> hide closed by default (it's done, keep the active view uncluttered).
+// Pick "Closed" explicitly in the Status filter (or click the Closed KPI/chart slice) to see them.
+function applyStatusFilter(tasks){
+  const status = document.getElementById('f-status').value;
+  return tasks.filter(t=> status ? t.status === status : t.status !== 'closed');
+}
+
+function getFiltered(){
+  return applyStatusFilter(getFilteredBase());
+}
+
+function setStatusFilter(status){
+  const sel = document.getElementById('f-status');
+  sel.value = (!status || sel.value === status) ? '' : status;
+  renderAll();
+}
+
 function renderKPIs(filtered){
+  const closed = getFilteredBase().filter(t=>t.status==='closed').length;
   const total = filtered.length;
   const overdue = filtered.filter(t=>t.status==='overdue').length;
   const duesoon = filtered.filter(t=>t.status==='duesoon').length;
   const ontrack = filtered.filter(t=>t.status==='ontrack').length;
   const pending = filtered.filter(t=>t.status==='pending_review').length;
-  const closed = filtered.filter(t=>t.status==='closed').length;
+  const grandTotal = total + closed;
   const cards = [
-    {cls:'total', label:'Total', value:total, sub:'in current view'},
-    {cls:'overdue', label:'Overdue', value:overdue, sub: total ? Math.round(overdue/total*100)+'%' : '—'},
-    {cls:'duesoon', label:'Due ≤3d', value:duesoon, sub:'needs attention'},
-    {cls:'ontrack', label:'On Track', value:ontrack, sub:'within target'},
-    {cls:'pending', label:'Pending Review', value:pending, sub:'awaiting reviewer'},
-    {cls:'closed', label:'Closed', value:closed, sub: total ? Math.round(closed/total*100)+'% closure' : '—'}
+    {cls:'total', label:'Total', value:total, sub:'active in current view', status:null},
+    {cls:'overdue', label:'Overdue', value:overdue, sub: total ? Math.round(overdue/total*100)+'%' : '—', status:'overdue'},
+    {cls:'duesoon', label:'Due ≤3d', value:duesoon, sub:'needs attention', status:'duesoon'},
+    {cls:'ontrack', label:'On Track', value:ontrack, sub:'within target', status:'ontrack'},
+    {cls:'pending', label:'Pending Review', value:pending, sub:'awaiting reviewer', status:'pending_review'},
+    {cls:'closed', label:'Closed', value:closed, sub: grandTotal ? Math.round(closed/grandTotal*100)+'% closure' : '—', status:'closed'}
   ];
   document.getElementById('kpiRow').innerHTML = cards.map(c=>`
-    <div class="kpi ${c.cls}"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>
+    <div class="kpi ${c.cls}" data-status="${c.status||''}" style="cursor:pointer;"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>
   `).join('');
+  document.querySelectorAll('#kpiRow .kpi').forEach(el=>{
+    el.addEventListener('click', ()=> setStatusFilter(el.dataset.status));
+  });
 }
 
 function renderPersonList(){
-  const people = uniqueSorted(rawTasks,'whoName');
+  const scoped = applyStatusFilter(getFilteredBase({ignorePerson:true}));
+  const people = uniqueSorted(scoped,'whoName');
   const rows = people.map(person=>{
-    const items = rawTasks.filter(t=>t.whoName===person);
+    const items = scoped.filter(t=>t.whoName===person);
     const total = items.length;
     const overdue = items.filter(t=>t.status==='overdue').length;
     const duesoon = items.filter(t=>t.status==='duesoon').length;
