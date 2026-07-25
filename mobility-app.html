@@ -629,8 +629,8 @@ function renderTable(filtered){
         <td data-label="Activity" class="activity-cell"><div class="activity-title">${t.activity || '—'}</div><div class="activity-meta">Opened ${fmtDate(t.open_date)}</div></td>
         <td data-label="Category">${t.category || '—'}</td>
         <td data-label="Target" style="font-family:'IBM Plex Mono',monospace; white-space:nowrap;">${fmtDate(t.target_date)}</td>
-        <td data-label="Owner"><span class="who-chip">${t.whoName}</span></td>
-        <td data-label="Reviewer"><span class="who-chip">${t.reviewerName}</span></td>
+        <td data-label="Owner"><span class="who-chip">${t.whoName}</span>${t.owner_hours ? `<div class="activity-meta">${t.owner_hours}h logged</div>` : ''}</td>
+        <td data-label="Reviewer"><span class="who-chip">${t.reviewerName}</span>${t.reviewer_hours ? `<div class="activity-meta">${t.reviewer_hours}h logged</div>` : ''}</td>
         <td data-label="Status"><span class="badge ${t.status}">${t.statusLabel}</span><div class="activity-meta">${t.statusDetail}</div></td>
         <td data-label="Action">${actionCellFor(t)}</td>
       </tr>
@@ -650,18 +650,33 @@ function renderAll(){
   renderTable(filtered);
 }
 
+function promptHours(label){
+  const raw = prompt(label, '');
+  if(raw === null) return undefined; // cancelled
+  const hours = parseFloat(raw);
+  if(isNaN(hours) || hours < 0){
+    alert('Please enter a valid non-negative number of hours.');
+    return null;
+  }
+  return hours;
+}
+
 async function handleWorkflowAction(action, taskId){
   try{
     if(action === 'complete'){
       const dateStr = prompt('Actual completion date (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
       if(!dateStr) return;
-      const { error } = await db.rpc('mark_complete', { p_task_id: taskId, p_completion_date: dateStr });
+      const hours = promptHours('Hours spent on this task (this session):');
+      if(hours === undefined || hours === null) return;
+      const { error } = await db.rpc('mark_complete', { p_task_id: taskId, p_completion_date: dateStr, p_hours_spent: hours });
       if(error) throw error;
       showBanner('globalBanner', 'Marked complete — now awaiting the assigned reviewer.', 'success');
     } else if(action === 'close'){
       const dateStr = prompt('Closure date (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
       if(!dateStr) return;
-      const { error } = await db.rpc('close_task', { p_task_id: taskId, p_closure_date: dateStr });
+      const hours = promptHours('Hours spent reviewing this task:');
+      if(hours === undefined || hours === null) return;
+      const { error } = await db.rpc('close_task', { p_task_id: taskId, p_closure_date: dateStr, p_hours_spent: hours });
       if(error) throw error;
       showBanner('globalBanner', 'Task accepted and closed.', 'success');
     } else if(action === 'recall'){
@@ -670,8 +685,9 @@ async function handleWorkflowAction(action, taskId){
       if(error) throw error;
       showBanner('globalBanner', 'Submission recalled — task is open again.', 'success');
     } else if(action === 'reject'){
-      if(!confirm('Reject this submission and send it back to the owner?')) return;
-      const { error } = await db.rpc('reject_task', { p_task_id: taskId });
+      const hours = promptHours('Hours spent reviewing before rejecting:');
+      if(hours === undefined || hours === null) return;
+      const { error } = await db.rpc('reject_task', { p_task_id: taskId, p_hours_spent: hours });
       if(error) throw error;
       showBanner('globalBanner', 'Task rejected — sent back to the owner.', 'success');
     }
