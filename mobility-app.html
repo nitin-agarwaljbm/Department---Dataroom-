@@ -871,17 +871,28 @@ function renderTimeKPIs(filtered){
   `).join('');
 }
 
-function barChart(canvasId, existing, labels, data, colorOffset){
+function barChart(canvasId, existing, labels, data, colorOffset, activeValue, onBarClick){
   if(existing) existing.destroy();
-  const colors = labels.map((l,i)=> CATEGORY_PALETTE[(i+(colorOffset||0))%CATEGORY_PALETTE.length]);
+  const colors = labels.map((l,i)=>{
+    const base = CATEGORY_PALETTE[(i+(colorOffset||0))%CATEGORY_PALETTE.length];
+    return (!activeValue || activeValue===l) ? base : withAlpha(base, 0.25);
+  });
   return new Chart(document.getElementById(canvasId), {
     type:'bar',
     data:{ labels, datasets:[{ data, backgroundColor:colors, borderRadius:5, maxBarThickness:24 }] },
     options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
       plugins:{legend:{display:false}},
-      scales:{ x:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}} }, y:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:11}} } }
+      scales:{ x:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}} }, y:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:11}} } },
+      onClick: onBarClick ? (evt, els)=>{ if(!els.length) return; onBarClick(labels[els[0].index]); } : undefined,
+      onHover: onBarClick ? (evt, els)=>{ evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; } : undefined
     }
   });
+}
+
+function toggleTaFilter(elId, value){
+  const el = document.getElementById(elId);
+  el.value = (el.value === value) ? '' : value;
+  renderTimeAnalysis();
 }
 
 function renderTimeCharts(filtered){
@@ -889,7 +900,8 @@ function renderTimeCharts(filtered){
   const projTotals = {};
   filtered.forEach(t=>{ const p = t.project||'Unspecified'; projTotals[p] = (projTotals[p]||0) + (t.owner_hours||0) + (t.reviewer_hours||0); });
   const projLabels = Object.keys(projTotals).sort((a,b)=>projTotals[b]-projTotals[a]);
-  projectTimeChart = barChart('projectTimeChart', projectTimeChart, projLabels, projLabels.map(l=>+projTotals[l].toFixed(1)), 0);
+  const activeProject = document.getElementById('ta-project').value;
+  projectTimeChart = barChart('projectTimeChart', projectTimeChart, projLabels, projLabels.map(l=>+projTotals[l].toFixed(1)), 0, activeProject, (label)=> toggleTaFilter('ta-project', label));
 
   // Person-wise total time (owner role + reviewer role combined)
   const personTotals = {};
@@ -898,7 +910,8 @@ function renderTimeCharts(filtered){
     if(t.reviewerName) personTotals[t.reviewerName] = (personTotals[t.reviewerName]||0) + (t.reviewer_hours||0);
   });
   const personLabels = Object.keys(personTotals).sort((a,b)=>personTotals[b]-personTotals[a]);
-  personTimeChart = barChart('personTimeChart', personTimeChart, personLabels, personLabels.map(l=>+personTotals[l].toFixed(1)), 2);
+  const activeWho = document.getElementById('ta-who').value;
+  personTimeChart = barChart('personTimeChart', personTimeChart, personLabels, personLabels.map(l=>+personTotals[l].toFixed(1)), 2, activeWho, (label)=> toggleTaFilter('ta-who', label));
 
   // Avg owner-hours per activity, by person (only counting tasks where they actually logged time)
   const ownerSums = {}, ownerCounts = {};
@@ -910,7 +923,7 @@ function renderTimeCharts(filtered){
   });
   const avgLabels = Object.keys(ownerSums).sort((a,b)=> (ownerSums[b]/ownerCounts[b]) - (ownerSums[a]/ownerCounts[a]));
   const avgData = avgLabels.map(l=> +(ownerSums[l]/ownerCounts[l]).toFixed(1));
-  avgPerPersonChart = barChart('avgPerPersonChart', avgPerPersonChart, avgLabels, avgData, 4);
+  avgPerPersonChart = barChart('avgPerPersonChart', avgPerPersonChart, avgLabels, avgData, 4, activeWho, (label)=> toggleTaFilter('ta-who', label));
 
   // Owner vs reviewer split (team-wide)
   const ownerHrs = filtered.reduce((s,t)=> s + (t.owner_hours||0), 0);
@@ -932,13 +945,29 @@ function renderTimeCharts(filtered){
     monthTotals[month] = (monthTotals[month]||0) + (t.owner_hours||0) + (t.reviewer_hours||0);
   });
   const monthLabels = Object.keys(monthTotals).sort();
+  const activeMonth = (document.getElementById('ta-open-from').value||'').slice(0,7);
+  const monthColors = monthLabels.map(l=> (!document.getElementById('ta-open-from').value || activeMonth===l) ? (COLORS.accent||'#5B8DEF') : withAlpha(COLORS.accent||'#5B8DEF', 0.25));
   if(timeTrendChart) timeTrendChart.destroy();
   timeTrendChart = new Chart(document.getElementById('timeTrendChart'), {
     type:'bar',
-    data:{ labels:monthLabels, datasets:[{ data:monthLabels.map(l=>+monthTotals[l].toFixed(1)), backgroundColor:COLORS.accent||'#5B8DEF', borderRadius:5, maxBarThickness:36 }] },
+    data:{ labels:monthLabels, datasets:[{ data:monthLabels.map(l=>+monthTotals[l].toFixed(1)), backgroundColor:monthColors, borderRadius:5, maxBarThickness:36 }] },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}},
-      scales:{ y:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}} }, x:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:10.5}} } }
+      scales:{ y:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}} }, x:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:10.5}} } },
+      onClick:(evt, els)=>{
+        if(!els.length) return;
+        const month = monthLabels[els[0].index];
+        const fromEl = document.getElementById('ta-open-from'), toEl = document.getElementById('ta-open-to');
+        if(fromEl.value.slice(0,7) === month){
+          fromEl.value = ''; toEl.value = '';
+        } else {
+          const [y,m] = month.split('-').map(Number);
+          fromEl.value = month + '-01';
+          toEl.value = new Date(y, m, 0).toISOString().slice(0,10); // last day of month
+        }
+        renderTimeAnalysis();
+      },
+      onHover:(evt, els)=>{ evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
     }
   });
 }
