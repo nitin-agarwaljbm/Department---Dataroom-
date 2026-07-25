@@ -86,9 +86,9 @@
   .kpi-sub{font-size:11px; color:var(--faint); margin-top:3px;}
 
   .reviewer-toggle-bar{
-    display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; user-select:none;
     background:var(--panel); border:1px solid var(--border); border-radius:10px;
-    padding:12px 16px; margin-bottom:16px; font-size:13px; color:var(--text); width:fit-content;
+    padding:12px 16px; margin-bottom:14px; font-size:13px; color:var(--text); width:100%;
   }
   .reviewer-toggle-bar input{display:none;}
   .reviewer-toggle-bar .switch{
@@ -218,15 +218,17 @@
     <!-- ---------- DASHBOARD VIEW ---------- -->
     <div id="dashboardView" class="view active">
       <div class="kpi-row" id="kpiRow"></div>
-      <label class="reviewer-toggle-bar">
-        <input type="checkbox" id="reviewerOnlyToggle">
-        <span class="switch"></span>
-        <span>Show only tasks where I'm the reviewer</span>
-      </label>
       <div class="layout">
-        <div class="panel">
-          <div class="panel-title">By Responsible Person <span class="count" id="personCount"></span></div>
-          <div class="person-list" id="personList"></div>
+        <div>
+          <label class="reviewer-toggle-bar">
+            <span>As reviewer</span>
+            <input type="checkbox" id="reviewerOnlyToggle">
+            <span class="switch"></span>
+          </label>
+          <div class="panel">
+            <div class="panel-title">By Responsible Person <span class="count" id="personCount"></span></div>
+            <div class="person-list" id="personList"></div>
+          </div>
         </div>
         <div>
           <div class="filter-bar">
