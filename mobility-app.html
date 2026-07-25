@@ -202,6 +202,7 @@
       <div class="brand"><div class="seal">MOB</div><div class="brand-title">Mobility Issues Tracker</div></div>
       <div class="nav-links">
         <div class="nav-link active" data-view="dashboardView">Dashboard</div>
+        <div class="nav-link" data-view="timeAnalysisView">Time Analysis</div>
         <div class="nav-link" data-view="newTaskView">New Task</div>
         <div class="nav-link" data-view="passwordView">Change Password</div>
       </div>
@@ -274,6 +275,42 @@
           <div class="footer-note" id="countLine">—</div>
         </div>
       </div>
+    </div>
+
+    <!-- ---------- TIME ANALYSIS VIEW ---------- -->
+    <div id="timeAnalysisView" class="view">
+      <div class="filter-bar">
+        <div class="filter-group"><label>Project</label><select class="filter-input" id="ta-project"></select></div>
+        <div class="filter-group"><label>Owner</label><select class="filter-input" id="ta-who"></select></div>
+        <div class="filter-group"><label>Open From</label><input type="date" class="filter-input" id="ta-open-from"></div>
+        <div class="filter-group"><label>Open To</label><input type="date" class="filter-input" id="ta-open-to"></div>
+        <button class="btn clear-btn" id="taResetBtn">✕ Clear filters</button>
+      </div>
+
+      <div class="kpi-row" id="taKpiRow"></div>
+
+      <div class="charts-row">
+        <div class="panel"><div class="panel-title">Project-wise Total Time Spent</div><div class="chart-box"><canvas id="projectTimeChart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">Person-wise Total Time Spent</div><div class="chart-box"><canvas id="personTimeChart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">Avg Hours per Activity by Person</div><div class="chart-box"><canvas id="avgPerPersonChart"></canvas></div></div>
+      </div>
+      <div class="charts-row" style="grid-template-columns:1fr 2fr;">
+        <div class="panel"><div class="panel-title">Owner vs Reviewer Time Split</div><div class="chart-box"><canvas id="ownerReviewerSplitChart"></canvas></div></div>
+        <div class="panel"><div class="panel-title">Time Logged by Open Month</div><div class="chart-box"><canvas id="timeTrendChart"></canvas></div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="timeTable">
+          <thead>
+            <tr>
+              <th>Project</th><th>Activity</th><th>Owner</th><th>Owner Hrs</th><th>Reviewer</th><th>Reviewer Hrs</th><th>Total Hrs</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="timeTableBody"></tbody>
+        </table>
+        <div class="empty-state" id="timeEmptyState" style="display:none;">No tasks with logged time match the current filters.</div>
+      </div>
+      <div class="footer-note" id="timeCountLine">—</div>
     </div>
 
     <!-- ---------- NEW TASK VIEW ---------- -->
@@ -371,6 +408,7 @@ let rawTasks = [];        // enriched tasks
 let statusChart=null, categoryChart=null, customerChart=null;
 let currentCustomerLabels = [];
 let currentCatLabels = [];
+let projectTimeChart=null, personTimeChart=null, avgPerPersonChart=null, ownerReviewerSplitChart=null, timeTrendChart=null;
 let activePerson = null;
 let reviewerOnlyMode = false;
 
@@ -769,6 +807,7 @@ async function handleNewTaskSubmit(e){
     document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
     await loadTasks();
     populateWhoReviewerSelects();
+    initTimeFilters();
     switchView('dashboardView');
   }catch(err){
     console.error(err);
@@ -794,10 +833,162 @@ async function handlePasswordSubmit(e){
   }
 }
 
+// ---------------- time analysis ----------------
+function initTimeFilters(){
+  populateSelect('ta-project', uniqueSorted(rawTasks,'project'), 'All projects');
+  populateSelect('ta-who', uniqueSorted(rawTasks,'whoName'), 'All owners');
+}
+
+function getTimeFiltered(){
+  const project = document.getElementById('ta-project').value;
+  const who = document.getElementById('ta-who').value;
+  const openFrom = document.getElementById('ta-open-from').value;
+  const openTo = document.getElementById('ta-open-to').value;
+  return rawTasks.filter(t=>{
+    if(project && t.project!==project) return false;
+    if(who && t.whoName!==who) return false;
+    if(openFrom && (!t.open_date || t.open_date < openFrom)) return false;
+    if(openTo && (!t.open_date || t.open_date > openTo)) return false;
+    return true;
+  });
+}
+
+function renderTimeKPIs(filtered){
+  const ownerHrs = filtered.reduce((s,t)=> s + (t.owner_hours||0), 0);
+  const reviewerHrs = filtered.reduce((s,t)=> s + (t.reviewer_hours||0), 0);
+  const totalHrs = ownerHrs + reviewerHrs;
+  const loggedTasks = filtered.filter(t=> (t.owner_hours||0) + (t.reviewer_hours||0) > 0);
+  const avgPerTask = loggedTasks.length ? (totalHrs / loggedTasks.length) : 0;
+  const cards = [
+    {cls:'total', label:'Total Hours Logged', value:totalHrs.toFixed(1), sub:'owner + reviewer'},
+    {cls:'ontrack', label:'Owner Hours', value:ownerHrs.toFixed(1), sub:'doing the work'},
+    {cls:'pending', label:'Reviewer Hours', value:reviewerHrs.toFixed(1), sub:'reviewing'},
+    {cls:'duesoon', label:'Tasks With Time Logged', value:loggedTasks.length, sub:'of ' + filtered.length + ' in view'},
+    {cls:'closed', label:'Avg Hours / Task', value:avgPerTask.toFixed(1), sub:'across logged tasks'}
+  ];
+  document.getElementById('taKpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi ${c.cls}"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>
+  `).join('');
+}
+
+function barChart(canvasId, existing, labels, data, colorOffset){
+  if(existing) existing.destroy();
+  const colors = labels.map((l,i)=> CATEGORY_PALETTE[(i+(colorOffset||0))%CATEGORY_PALETTE.length]);
+  return new Chart(document.getElementById(canvasId), {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderRadius:5, maxBarThickness:24 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{ x:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}} }, y:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:11}} } }
+    }
+  });
+}
+
+function renderTimeCharts(filtered){
+  // Project-wise total time
+  const projTotals = {};
+  filtered.forEach(t=>{ const p = t.project||'Unspecified'; projTotals[p] = (projTotals[p]||0) + (t.owner_hours||0) + (t.reviewer_hours||0); });
+  const projLabels = Object.keys(projTotals).sort((a,b)=>projTotals[b]-projTotals[a]);
+  projectTimeChart = barChart('projectTimeChart', projectTimeChart, projLabels, projLabels.map(l=>+projTotals[l].toFixed(1)), 0);
+
+  // Person-wise total time (owner role + reviewer role combined)
+  const personTotals = {};
+  filtered.forEach(t=>{
+    if(t.whoName) personTotals[t.whoName] = (personTotals[t.whoName]||0) + (t.owner_hours||0);
+    if(t.reviewerName) personTotals[t.reviewerName] = (personTotals[t.reviewerName]||0) + (t.reviewer_hours||0);
+  });
+  const personLabels = Object.keys(personTotals).sort((a,b)=>personTotals[b]-personTotals[a]);
+  personTimeChart = barChart('personTimeChart', personTimeChart, personLabels, personLabels.map(l=>+personTotals[l].toFixed(1)), 2);
+
+  // Avg owner-hours per activity, by person (only counting tasks where they actually logged time)
+  const ownerSums = {}, ownerCounts = {};
+  filtered.forEach(t=>{
+    if(t.whoName && (t.owner_hours||0) > 0){
+      ownerSums[t.whoName] = (ownerSums[t.whoName]||0) + t.owner_hours;
+      ownerCounts[t.whoName] = (ownerCounts[t.whoName]||0) + 1;
+    }
+  });
+  const avgLabels = Object.keys(ownerSums).sort((a,b)=> (ownerSums[b]/ownerCounts[b]) - (ownerSums[a]/ownerCounts[a]));
+  const avgData = avgLabels.map(l=> +(ownerSums[l]/ownerCounts[l]).toFixed(1));
+  avgPerPersonChart = barChart('avgPerPersonChart', avgPerPersonChart, avgLabels, avgData, 4);
+
+  // Owner vs reviewer split (team-wide)
+  const ownerHrs = filtered.reduce((s,t)=> s + (t.owner_hours||0), 0);
+  const reviewerHrs = filtered.reduce((s,t)=> s + (t.reviewer_hours||0), 0);
+  if(ownerReviewerSplitChart) ownerReviewerSplitChart.destroy();
+  ownerReviewerSplitChart = new Chart(document.getElementById('ownerReviewerSplitChart'), {
+    type:'doughnut',
+    data:{ labels:['Owner (doing)','Reviewer (reviewing)'], datasets:[{ data:[+ownerHrs.toFixed(1), +reviewerHrs.toFixed(1)], backgroundColor:[COLORS.ontrack, COLORS.pending_review], borderColor:'#121B2E', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#8A96AC', font:{family:'IBM Plex Sans', size:10.5}, boxWidth:9, padding:10 } } }
+    }
+  });
+
+  // Time logged by open month
+  const monthTotals = {};
+  filtered.forEach(t=>{
+    if(!t.open_date) return;
+    const month = t.open_date.slice(0,7);
+    monthTotals[month] = (monthTotals[month]||0) + (t.owner_hours||0) + (t.reviewer_hours||0);
+  });
+  const monthLabels = Object.keys(monthTotals).sort();
+  if(timeTrendChart) timeTrendChart.destroy();
+  timeTrendChart = new Chart(document.getElementById('timeTrendChart'), {
+    type:'bar',
+    data:{ labels:monthLabels, datasets:[{ data:monthLabels.map(l=>+monthTotals[l].toFixed(1)), backgroundColor:COLORS.accent||'#5B8DEF', borderRadius:5, maxBarThickness:36 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ y:{ grid:{color:'#1B2740'}, ticks:{color:'#8A96AC', font:{family:'IBM Plex Mono', size:10}} }, x:{ grid:{display:false}, ticks:{color:'#E8ECF3', font:{family:'IBM Plex Sans', size:10.5}} } }
+    }
+  });
+}
+
+function renderTimeTable(filtered){
+  const withHours = filtered.filter(t=> (t.owner_hours||0) + (t.reviewer_hours||0) > 0)
+    .sort((a,b)=> ((b.owner_hours||0)+(b.reviewer_hours||0)) - ((a.owner_hours||0)+(a.reviewer_hours||0)));
+  const tbody = document.getElementById('timeTableBody');
+  const emptyState = document.getElementById('timeEmptyState');
+  if(withHours.length===0){ tbody.innerHTML=''; emptyState.style.display='block'; }
+  else{
+    emptyState.style.display='none';
+    tbody.innerHTML = withHours.map(t=>`
+      <tr>
+        <td data-label="Project">${t.project || '—'}</td>
+        <td data-label="Activity" class="activity-cell">${t.activity || '—'}</td>
+        <td data-label="Owner"><span class="who-chip">${t.whoName}</span></td>
+        <td data-label="Owner Hrs">${(t.owner_hours||0).toFixed(1)}</td>
+        <td data-label="Reviewer"><span class="who-chip">${t.reviewerName}</span></td>
+        <td data-label="Reviewer Hrs">${(t.reviewer_hours||0).toFixed(1)}</td>
+        <td data-label="Total Hrs" style="font-family:'IBM Plex Mono',monospace;">${((t.owner_hours||0)+(t.reviewer_hours||0)).toFixed(1)}</td>
+        <td data-label="Status"><span class="badge ${t.status}">${t.statusLabel}</span></td>
+      </tr>
+    `).join('');
+  }
+  document.getElementById('timeCountLine').textContent = `Showing ${withHours.length} of ${filtered.length} tasks in view with time logged`;
+}
+
+function renderTimeAnalysis(){
+  const filtered = getTimeFiltered();
+  renderTimeKPIs(filtered);
+  renderTimeCharts(filtered);
+  renderTimeTable(filtered);
+}
+
+function attachTimeAnalysisEvents(){
+  ['ta-project','ta-who','ta-open-from','ta-open-to'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', renderTimeAnalysis);
+  });
+  document.getElementById('taResetBtn').addEventListener('click', ()=>{
+    ['ta-project','ta-who','ta-open-from','ta-open-to'].forEach(id=> document.getElementById(id).value='');
+    renderTimeAnalysis();
+  });
+}
+
 // ---------------- nav + auth wiring ----------------
 function switchView(viewId){
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('active', v.id===viewId));
   document.querySelectorAll('.nav-link').forEach(n=> n.classList.toggle('active', n.dataset.view===viewId));
+  if(viewId === 'timeAnalysisView') renderTimeAnalysis();
 }
 
 async function onSignedIn(){
@@ -810,6 +1001,7 @@ async function onSignedIn(){
     document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
     await loadTasks();
     populateWhoReviewerSelects();
+    initTimeFilters();
   }catch(err){
     console.error(err);
     showBanner('globalBanner', 'Could not load data: ' + err.message, 'error');
@@ -848,6 +1040,7 @@ function init(){
   document.getElementById('signOutBtn').addEventListener('click', ()=> db.auth.signOut());
   document.querySelectorAll('.nav-link').forEach(n=> n.addEventListener('click', ()=> switchView(n.dataset.view)));
   attachDashboardEvents();
+  attachTimeAnalysisEvents();
 
   db.auth.onAuthStateChange((event, session)=>{
     if(session && session.user){ onSignedIn(); } else { onSignedOut(); }
