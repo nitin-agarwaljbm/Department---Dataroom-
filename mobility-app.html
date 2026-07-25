@@ -19,6 +19,17 @@
     --closed: #6E7A90; --closed-bg: rgba(110,122,144,0.12);
     --accent: #5B8DEF; --accent-2: #9E7BE0;
   }
+  html[data-theme="light"]{
+    --bg: #F4F6FB; --panel: #FFFFFF; --panel-2: #F0F2F8; --border: #DBE1EC;
+    --text: #1A2233; --muted: #5B6478; --faint: #8891A3;
+    --accent: #3C6FE0; --accent-2: #7C5CD1;
+  }
+  .theme-toggle{
+    width:34px; height:34px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--text); cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; font-size:15px; line-height:1;
+  }
+  .theme-toggle:hover{border-color:var(--accent);}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -208,6 +219,7 @@
       </div>
     </div>
     <div class="topnav-right">
+      <button class="theme-toggle" id="themeToggle"></button>
       <span>Signed in as <b id="whoAmI">—</b></span>
       <button class="btn small" id="signOutBtn">Sign out</button>
     </div>
@@ -385,6 +397,11 @@
 </div>
 
 <script>
+(function(){
+  const saved = localStorage.getItem('mob-theme');
+  if(saved === 'light') document.documentElement.dataset.theme = 'light';
+})();
+
 // ============ CONFIG — fill in after creating your Supabase project ============
 const CONFIG = {
   supabaseUrl: "https://taqowuunuiytgmyacuca.supabase.co",
@@ -1056,7 +1073,23 @@ async function handleLoginSubmit(e){
   }
 }
 
+function updateThemeToggleIcon(){
+  document.getElementById('themeToggle').textContent =
+    document.documentElement.dataset.theme === 'light' ? '🌙' : '☀️';
+}
+
+function initThemeToggle(){
+  updateThemeToggleIcon();
+  document.getElementById('themeToggle').addEventListener('click', ()=>{
+    const isLight = document.documentElement.dataset.theme === 'light';
+    if(isLight){ delete document.documentElement.dataset.theme; localStorage.setItem('mob-theme','dark'); }
+    else{ document.documentElement.dataset.theme = 'light'; localStorage.setItem('mob-theme','light'); }
+    updateThemeToggleIcon();
+  });
+}
+
 function init(){
+  initThemeToggle();
   if(CONFIG.supabaseUrl.startsWith('PASTE-')){
     showBanner('authBanner', 'CONFIG.supabaseUrl / supabaseAnonKey are still placeholders — fill them in at the top of the <script> block.', 'error');
     return;
