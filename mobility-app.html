@@ -143,6 +143,9 @@
   thead th{text-align:left; padding:9px 10px; font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--panel);}
   tbody tr{border-bottom:1px solid var(--border);}
   tbody tr:hover{background:var(--row-hover-bg);}
+  tbody tr.group-row{background:var(--panel-2);}
+  tbody tr.group-row:hover{background:var(--panel-2);}
+  tbody tr.group-row td{padding:7px 10px; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:var(--accent);}
   tbody td{padding:9px 10px; vertical-align:top;}
   .activity-cell{max-width:300px;}
   .activity-title{font-weight:500; line-height:1.35;}
@@ -691,14 +694,34 @@ function actionCellFor(t){
   return '<span style="color:var(--faint); font-size:11.5px;">—</span>';
 }
 
+function customerGroupRank(customer){
+  if(customer === 'VC') return 0;
+  if(customer === 'VG') return 1;
+  return 2;
+}
+
 function renderTable(filtered){
-  const sorted = [...filtered].sort((a,b)=> a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0));
+  const sorted = [...filtered].sort((a,b)=>{
+    const ca = a.customer || 'Unspecified', cb = b.customer || 'Unspecified';
+    const ra = customerGroupRank(ca), rb = customerGroupRank(cb);
+    if(ra !== rb) return ra - rb;
+    if(ra === 2 && ca !== cb) return ca.localeCompare(cb);
+    return a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0);
+  });
   const tbody = document.getElementById('tableBody');
   const emptyState = document.getElementById('emptyState');
   if(sorted.length===0){ tbody.innerHTML=''; emptyState.style.display='block'; }
   else{
     emptyState.style.display='none';
-    tbody.innerHTML = sorted.map(t=>`
+    let html = '';
+    let lastCustomer = null;
+    sorted.forEach(t=>{
+      const customer = t.customer || 'Unspecified';
+      if(customer !== lastCustomer){
+        html += `<tr class="group-row"><td colspan="8">${customer}</td></tr>`;
+        lastCustomer = customer;
+      }
+      html += `
       <tr>
         <td data-label="Project">${t.project || '—'}</td>
         <td data-label="Activity" class="activity-cell"><div class="activity-title">${t.activity || '—'}</div><div class="activity-meta">Opened ${fmtDate(t.open_date)}</div></td>
@@ -708,8 +731,9 @@ function renderTable(filtered){
         <td data-label="Reviewer"><span class="who-chip">${t.reviewerName}</span>${t.reviewer_hours ? `<div class="activity-meta">${t.reviewer_hours}h logged</div>` : ''}</td>
         <td data-label="Status"><span class="badge ${t.status}">${t.statusLabel}</span><div class="activity-meta">${t.statusDetail}</div></td>
         <td data-label="Action">${actionCellFor(t)}</td>
-      </tr>
-    `).join('');
+      </tr>`;
+    });
+    tbody.innerHTML = html;
     tbody.querySelectorAll('button[data-action]').forEach(btn=>{
       btn.addEventListener('click', ()=> handleWorkflowAction(btn.dataset.action, Number(btn.dataset.id)));
     });
