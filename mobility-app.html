@@ -701,27 +701,13 @@ function customerGroupRank(customer){
 }
 
 function renderTable(filtered){
-  const sorted = [...filtered].sort((a,b)=>{
-    const ca = a.customer || 'Unspecified', cb = b.customer || 'Unspecified';
-    const ra = customerGroupRank(ca), rb = customerGroupRank(cb);
-    if(ra !== rb) return ra - rb;
-    if(ra === 2 && ca !== cb) return ca.localeCompare(cb);
-    return a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0);
-  });
+  const sorted = [...filtered].sort((a,b)=> a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0));
   const tbody = document.getElementById('tableBody');
   const emptyState = document.getElementById('emptyState');
   if(sorted.length===0){ tbody.innerHTML=''; emptyState.style.display='block'; }
   else{
     emptyState.style.display='none';
-    let html = '';
-    let lastCustomer = null;
-    sorted.forEach(t=>{
-      const customer = t.customer || 'Unspecified';
-      if(customer !== lastCustomer){
-        html += `<tr class="group-row"><td colspan="8">${customer}</td></tr>`;
-        lastCustomer = customer;
-      }
-      html += `
+    tbody.innerHTML = sorted.map(t=>`
       <tr>
         <td data-label="Project">${t.project || '—'}</td>
         <td data-label="Activity" class="activity-cell"><div class="activity-title">${t.activity || '—'}</div><div class="activity-meta">Opened ${fmtDate(t.open_date)}</div></td>
@@ -731,9 +717,8 @@ function renderTable(filtered){
         <td data-label="Reviewer"><span class="who-chip">${t.reviewerName}</span>${t.reviewer_hours ? `<div class="activity-meta">${t.reviewer_hours}h logged</div>` : ''}</td>
         <td data-label="Status"><span class="badge ${t.status}">${t.statusLabel}</span><div class="activity-meta">${t.statusDetail}</div></td>
         <td data-label="Action">${actionCellFor(t)}</td>
-      </tr>`;
-    });
-    tbody.innerHTML = html;
+      </tr>
+    `).join('');
     tbody.querySelectorAll('button[data-action]').forEach(btn=>{
       btn.addEventListener('click', ()=> handleWorkflowAction(btn.dataset.action, Number(btn.dataset.id)));
     });
@@ -818,8 +803,23 @@ function attachDashboardEvents(){
 }
 
 function printTaskList(){
-  const sorted = [...getFiltered()].sort((a,b)=> a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0));
-  const rowsHtml = sorted.map(t=>`
+  const sorted = [...getFiltered()].sort((a,b)=>{
+    const ca = a.customer || 'Unspecified', cb = b.customer || 'Unspecified';
+    const ra = customerGroupRank(ca), rb = customerGroupRank(cb);
+    if(ra !== rb) return ra - rb;
+    if(ra === 2 && ca !== cb) return ca.localeCompare(cb);
+    return a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0);
+  });
+
+  let rowsHtml = '';
+  let lastCustomer = null;
+  sorted.forEach(t=>{
+    const customer = t.customer || 'Unspecified';
+    if(customer !== lastCustomer){
+      rowsHtml += `<tr class="group-row"><td colspan="8">${customer}</td></tr>`;
+      lastCustomer = customer;
+    }
+    rowsHtml += `
     <tr>
       <td>${t.project || '—'}</td>
       <td>${t.activity || '—'}</td>
@@ -829,8 +829,8 @@ function printTaskList(){
       <td>${t.whoName}</td>
       <td>${t.reviewerName}</td>
       <td>${t.statusLabel}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  });
 
   const html = `<!DOCTYPE html>
 <html>
@@ -844,12 +844,13 @@ function printTaskList(){
   table{ width:100%; border-collapse:collapse; font-size:11px; }
   th, td{ border:1px solid #999; padding:5px 7px; text-align:left; vertical-align:top; }
   th{ background:#f0f0f0; }
+  tr.group-row td{ background:#e8e8e8; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-size:10.5px; }
   @media print{ @page{ size:landscape; margin:12mm; } }
 </style>
 </head>
 <body>
   <h1>Mobility Issues — Task List</h1>
-  <div class="meta">Generated ${new Date().toLocaleString('en-GB')} — ${sorted.length} task(s)</div>
+  <div class="meta">Generated ${new Date().toLocaleString('en-GB')} — ${sorted.length} task(s), grouped by Customer</div>
   <table>
     <thead>
       <tr><th>Project</th><th>Activity</th><th>Category</th><th>Open</th><th>Target</th><th>Owner</th><th>Reviewer</th><th>Status</th></tr>
