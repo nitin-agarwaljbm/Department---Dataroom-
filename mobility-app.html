@@ -192,19 +192,27 @@
   <div class="auth-card">
     <div class="auth-seal">MOB</div>
     <div class="auth-title">Mobility Issues Tracker</div>
-    <div class="auth-sub">SIGN IN WITH THE ACCOUNT NITIN CREATED FOR YOU</div>
+    <div class="auth-sub" id="authSubtitle">SIGN IN WITH YOUR ACCOUNT</div>
     <div id="authBanner" class="banner"></div>
     <form id="loginForm" class="panel">
+      <div class="field" id="signupNameField" style="display:none;">
+        <label>Your name</label>
+        <input type="text" id="signupName" autocomplete="name">
+      </div>
       <div class="field">
         <label>Email</label>
         <input type="email" id="loginEmail" required autocomplete="username">
+        <div class="hint" id="signupEmailHint" style="display:none; font-size:11px; color:var(--faint); margin-top:5px;">Must be a @jbmgroup.com address.</div>
       </div>
       <div class="field">
         <label>Password</label>
-        <input type="password" id="loginPassword" required autocomplete="current-password">
+        <input type="password" id="loginPassword" required autocomplete="current-password" minlength="6">
       </div>
-      <button type="submit" class="btn primary" style="width:100%; justify-content:center; padding:11px;">Sign in</button>
+      <button type="submit" class="btn primary" id="authSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Sign in</button>
     </form>
+    <div style="text-align:center; margin-top:14px; font-size:12.5px; color:var(--muted);">
+      <span id="authToggleText">New user?</span> <a href="#" id="authToggleLink" style="color:var(--accent); text-decoration:none;">Sign up</a>
+    </div>
   </div>
 </div>
 
@@ -1071,16 +1079,45 @@ function onSignedOut(){
   currentUser = null; myProfile = null; rawTasks = [];
 }
 
+let authMode = 'signin';
+
+function setAuthMode(mode){
+  authMode = mode;
+  const isSignup = mode === 'signup';
+  document.getElementById('signupNameField').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('signupEmailHint').style.display = isSignup ? 'block' : 'none';
+  document.getElementById('authSubtitle').textContent = isSignup ? 'CREATE YOUR ACCOUNT' : 'SIGN IN WITH YOUR ACCOUNT';
+  document.getElementById('authSubmitBtn').textContent = isSignup ? 'Sign up' : 'Sign in';
+  document.getElementById('authToggleText').textContent = isSignup ? 'Already have an account?' : 'New user?';
+  document.getElementById('authToggleLink').textContent = isSignup ? 'Sign in' : 'Sign up';
+  document.getElementById('authBanner').style.display = 'none';
+}
+
 async function handleLoginSubmit(e){
   e.preventDefault();
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
-  showBanner('authBanner', 'Signing in…', 'info');
-  const { error } = await db.auth.signInWithPassword({ email, password });
-  if(error){
-    showBanner('authBanner', 'Sign-in failed: ' + error.message, 'error');
+
+  if(authMode === 'signup'){
+    const name = document.getElementById('signupName').value.trim();
+    showBanner('authBanner', 'Creating your account…', 'info');
+    const { error } = await db.auth.signUp({
+      email, password,
+      options: { data: { display_name: name || undefined } }
+    });
+    if(error){
+      showBanner('authBanner', 'Sign-up failed: ' + error.message, 'error');
+    } else {
+      document.getElementById('authBanner').style.display = 'none';
+    }
   } else {
-    document.getElementById('authBanner').style.display = 'none';
+    showBanner('authBanner', 'Signing in…', 'info');
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if(error){
+      showBanner('authBanner', 'Sign-in failed: ' + error.message, 'error');
+    } else {
+      document.getElementById('authBanner').style.display = 'none';
+    }
   }
 }
 
@@ -1114,6 +1151,10 @@ function init(){
   db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
 
   document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+  document.getElementById('authToggleLink').addEventListener('click', (e)=>{
+    e.preventDefault();
+    setAuthMode(authMode === 'signup' ? 'signin' : 'signup');
+  });
   document.getElementById('newTaskForm').addEventListener('submit', handleNewTaskSubmit);
   document.getElementById('passwordForm').addEventListener('submit', handlePasswordSubmit);
   document.getElementById('signOutBtn').addEventListener('click', ()=> db.auth.signOut());
