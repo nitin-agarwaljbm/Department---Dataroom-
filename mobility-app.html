@@ -274,6 +274,7 @@
             <div class="filter-group"><label>Open To</label><input type="date" class="filter-input" id="f-open-to"></div>
             <div class="filter-group grow"><label>Search activity / project</label><input type="text" class="filter-input" id="searchBox" placeholder="Type to filter…"></div>
             <button class="btn clear-btn" id="resetBtn">✕ Clear filters</button>
+            <button class="btn" id="printBtn">🖨 Print list</button>
           </div>
 
           <div class="charts-row">
@@ -789,6 +790,56 @@ function attachDashboardEvents(){
     document.getElementById('reviewerOnlyToggle').checked = false;
     renderAll();
   });
+  document.getElementById('printBtn').addEventListener('click', printTaskList);
+}
+
+function printTaskList(){
+  const sorted = [...getFiltered()].sort((a,b)=> a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0));
+  const rowsHtml = sorted.map(t=>`
+    <tr>
+      <td>${t.project || '—'}</td>
+      <td>${t.activity || '—'}</td>
+      <td>${t.category || '—'}</td>
+      <td>${fmtDate(t.open_date)}</td>
+      <td>${fmtDate(t.target_date)}</td>
+      <td>${t.whoName}</td>
+      <td>${t.reviewerName}</td>
+      <td>${t.statusLabel}</td>
+    </tr>
+  `).join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mobility Issues - Task List</title>
+<style>
+  body{ font-family: Arial, Helvetica, sans-serif; margin:24px; color:#111; }
+  h1{ font-size:18px; margin:0 0 4px; }
+  .meta{ font-size:11px; color:#555; margin-bottom:16px; }
+  table{ width:100%; border-collapse:collapse; font-size:11px; }
+  th, td{ border:1px solid #999; padding:5px 7px; text-align:left; vertical-align:top; }
+  th{ background:#f0f0f0; }
+  @media print{ @page{ size:landscape; margin:12mm; } }
+</style>
+</head>
+<body>
+  <h1>Mobility Issues — Task List</h1>
+  <div class="meta">Generated ${new Date().toLocaleString('en-GB')} — ${sorted.length} task(s)</div>
+  <table>
+    <thead>
+      <tr><th>Project</th><th>Activity</th><th>Category</th><th>Open</th><th>Target</th><th>Owner</th><th>Reviewer</th><th>Status</th></tr>
+    </thead>
+    <tbody>${rowsHtml || '<tr><td colspan="8">No tasks match the current filters.</td></tr>'}</tbody>
+  </table>
+  <script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups for this site to print.'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 // ---------------- data loading ----------------
