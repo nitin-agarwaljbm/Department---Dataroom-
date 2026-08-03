@@ -284,6 +284,15 @@
             <div class="filter-group"><label>Project</label><select class="filter-input" id="f-project"></select></div>
             <div class="filter-group"><label>Category</label><select class="filter-input" id="f-category"></select></div>
             <div class="filter-group"><label>Customer</label><select class="filter-input" id="f-customer"></select></div>
+            <div class="filter-group">
+              <label>Priority</label>
+              <select class="filter-input" id="f-priority">
+                <option value="">All priorities</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
             <div class="filter-group"><label>Owner</label><select class="filter-input" id="f-who"></select></div>
             <div class="filter-group">
               <label>Status</label>
@@ -611,6 +620,7 @@ function getFilteredBase(opts){
   const project = document.getElementById('f-project').value;
   const category = document.getElementById('f-category').value;
   const customer = document.getElementById('f-customer').value;
+  const priority = document.getElementById('f-priority').value;
   const who = document.getElementById('f-who').value;
   const openFrom = document.getElementById('f-open-from').value;
   const openTo = document.getElementById('f-open-to').value;
@@ -620,6 +630,7 @@ function getFilteredBase(opts){
     if(project && t.project!==project) return false;
     if(category && t.category!==category) return false;
     if(customer && t.customer!==customer) return false;
+    if(priority && t.priority!==priority) return false;
     if(who && t.whoName!==who) return false;
     if(openFrom && (!t.open_date || t.open_date < openFrom)) return false;
     if(openTo && (!t.open_date || t.open_date > openTo)) return false;
@@ -1009,7 +1020,7 @@ async function postStatusUpdate(){
 }
 
 function attachDashboardEvents(){
-  ['f-project','f-category','f-customer','f-who','f-status','f-open-from','f-open-to'].forEach(id=>{
+  ['f-project','f-category','f-customer','f-priority','f-who','f-status','f-open-from','f-open-to'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderAll);
   });
   document.getElementById('searchBox').addEventListener('input', renderAll);
@@ -1018,7 +1029,7 @@ function attachDashboardEvents(){
     renderAll();
   });
   document.getElementById('resetBtn').addEventListener('click', ()=>{
-    ['f-project','f-category','f-customer','f-who','f-status','f-open-from','f-open-to'].forEach(id=> document.getElementById(id).value='');
+    ['f-project','f-category','f-customer','f-priority','f-who','f-status','f-open-from','f-open-to'].forEach(id=> document.getElementById(id).value='');
     document.getElementById('searchBox').value='';
     activePerson = null;
     reviewerOnlyMode = false;
