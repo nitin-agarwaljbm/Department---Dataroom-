@@ -187,6 +187,50 @@
   .status-msg-meta b{color:var(--accent);}
   .status-msg-text{font-size:13px; color:var(--text); white-space:pre-wrap; line-height:1.4;}
   .status-empty{color:var(--faint); font-size:12px; text-align:center; padding:16px;}
+
+  .multiselect{position:relative;}
+  .multiselect-toggle{
+    width:100%; text-align:left; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:7px; font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; cursor:pointer;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .multiselect-toggle:hover{border-color:var(--accent);}
+  .multiselect-toggle::after{content:'▾'; color:var(--muted); font-size:11px; flex-shrink:0;}
+  .multiselect-dropdown{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:60;
+    box-shadow:0 12px 28px rgba(0,0,0,0.35);
+  }
+  .checkbox-list{
+    display:flex; flex-direction:column; gap:2px; max-height:180px; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:6px;
+  }
+  .checkbox-list label{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; text-transform:none; letter-spacing:0;
+    font-weight:400; color:var(--text); border-radius:6px; padding:7px 8px; cursor:pointer; margin:0;
+  }
+  .checkbox-list label:hover{background:var(--panel-2);}
+  .checkbox-list input{width:auto; padding:0; flex-shrink:0;}
+  .checkbox-list label.checked{background:var(--accent-tint); color:var(--accent);}
+
+  .bell-btn{position:relative;}
+  .bell-badge{
+    position:absolute; top:-4px; right:-4px; background:var(--overdue); color:#fff;
+    font-size:9.5px; font-weight:700; border-radius:9px; min-width:16px; height:16px;
+    display:flex; align-items:center; justify-content:center; padding:0 3px; font-family:'IBM Plex Mono',monospace;
+  }
+  .notif-dropdown{
+    position:absolute; top:calc(100% + 8px); right:0; width:340px; max-height:400px; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    z-index:900; padding:8px;
+  }
+  .notif-item{
+    padding:10px 12px; border-radius:8px; cursor:pointer; border-bottom:1px solid var(--border);
+  }
+  .notif-item:last-child{border-bottom:none;}
+  .notif-item:hover{background:var(--panel-2);}
+  .notif-item-title{font-size:12.5px; font-weight:600; color:var(--text); margin-bottom:2px;}
+  .notif-item-meta{font-size:10.5px; color:var(--faint); font-family:'IBM Plex Mono',monospace;}
+  .notif-item-msg{font-size:11.5px; color:var(--muted); margin-top:3px; white-space:pre-wrap;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 
   /* change password inline panel */
@@ -255,6 +299,12 @@
       </div>
     </div>
     <div class="topnav-right">
+      <div style="position:relative;">
+        <button class="theme-toggle bell-btn" id="bellBtn">🔔<span class="bell-badge" id="bellBadge" style="display:none;"></span></button>
+        <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+          <div id="notifList"></div>
+        </div>
+      </div>
       <button class="theme-toggle" id="themeToggle"></button>
       <span>Signed in as <b id="whoAmI">—</b></span>
       <button class="btn small" id="signOutBtn">Sign out</button>
@@ -426,6 +476,13 @@
               <select id="nt-reviewer" required></select>
             </div>
           </div>
+          <div class="field">
+            <label>Contributors <span style="text-transform:none; letter-spacing:0;">(optional — can be @-mentioned in status updates)</span></label>
+            <div class="multiselect">
+              <button type="button" class="multiselect-toggle" id="nt-contributors-toggle">Select contributors…</button>
+              <div class="checkbox-list multiselect-dropdown" id="nt-contributors" style="display:none;"></div>
+            </div>
+          </div>
           <button type="submit" class="btn primary" id="ntSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Create task</button>
         </form>
       </div>
@@ -507,13 +564,21 @@
           <select id="td-reviewer" disabled></select>
         </div>
       </div>
+      <div class="field">
+        <label>Contributors <span style="text-transform:none; letter-spacing:0; color:var(--accent);">(editable)</span></label>
+        <div class="multiselect">
+          <button type="button" class="multiselect-toggle" id="td-contributors-toggle">Select contributors…</button>
+          <div class="checkbox-list multiselect-dropdown" id="td-contributors" style="display:none;"></div>
+        </div>
+      </div>
       <button class="btn primary" id="taskDetailSaveBtn" style="width:100%; justify-content:center; padding:11px; margin-bottom:20px;">Save Changes</button>
 
       <div class="panel-title" style="font-size:13px;">Status Updates</div>
       <div id="statusThread" class="status-thread"></div>
       <div class="field" style="margin-top:12px;">
         <label>Post a status update</label>
-        <textarea id="td-newStatus" placeholder="What's the latest on this?"></textarea>
+        <div class="hint" id="mentionHint" style="font-size:11px; color:var(--faint); margin-bottom:6px;"></div>
+        <textarea id="td-newStatus" placeholder="What's the latest on this? Type @Name to tag someone."></textarea>
       </div>
       <button class="btn primary" id="postStatusBtn" style="width:100%; justify-content:center; padding:11px;">Post Update</button>
     </div>
@@ -908,6 +973,7 @@ async function handleWorkflowAction(action, taskId){
 
 // ---------------- task detail modal ----------------
 let currentDetailTaskId = null;
+let currentTaggableCandidates = [];
 
 function populateDetailWhoReviewerSelects(){
   const opts = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
@@ -932,12 +998,29 @@ async function openTaskDetail(taskId){
   populateDetailWhoReviewerSelects();
   document.getElementById('td-who').value = t.who || '';
   document.getElementById('td-reviewer').value = t.reviewer || '';
+  renderCheckboxList('td-contributors', t.contributors || []);
   document.getElementById('td-newStatus').value = '';
   document.getElementById('taskDetailBanner').style.display = 'none';
   document.getElementById('statusThread').innerHTML = '<div class="status-empty">Loading…</div>';
   document.getElementById('taskDetailOverlay').style.display = 'flex';
 
+  refreshTaggableCandidates(taskId);
+
   await loadStatusThread(taskId);
+}
+
+// Who can be @-mentioned in a status update on this task: owner, reviewer, contributors.
+// Always re-reads from the latest rawTasks (not a snapshot from when the modal opened),
+// so it stays correct even if contributors were just changed and saved.
+function refreshTaggableCandidates(taskId){
+  const t = rawTasks.find(x=>x.id === taskId);
+  if(!t) return;
+  const taggableIds = new Set([t.who, t.reviewer, ...(t.contributors||[])].filter(Boolean));
+  currentTaggableCandidates = [...taggableIds].map(id=>profileById[id]).filter(Boolean);
+  const hintEl = document.getElementById('mentionHint');
+  hintEl.textContent = currentTaggableCandidates.length
+    ? 'Tag someone: ' + currentTaggableCandidates.map(p=>'@'+p.display_name).join(', ')
+    : '';
 }
 
 function closeTaskDetail(){
@@ -980,23 +1063,34 @@ async function saveTaskDetail(){
   const btn = document.getElementById('taskDetailSaveBtn');
   btn.disabled = true; btn.textContent = 'Saving…';
   try{
-    // Only Customer and Priority are editable in this box; every other
-    // field is shown for reference only (disabled inputs), so only these
-    // two are sent to the database.
+    // Only Customer, Priority and Contributors are editable in this box; every
+    // other field is shown for reference only (disabled inputs).
     const row = {
       customer: document.getElementById('td-customer').value.trim(),
-      priority: document.getElementById('td-priority').value || null
+      priority: document.getElementById('td-priority').value || null,
+      contributors: getCheckedIds('td-contributors')
     };
     const { error } = await db.from('tasks').update(row).eq('id', currentDetailTaskId);
     if(error) throw error;
     showBanner('taskDetailBanner', 'Changes saved.', 'success');
     await loadTasks();
+    refreshTaggableCandidates(currentDetailTaskId);
+    await loadNotifications();
   }catch(err){
     console.error(err);
     showBanner('taskDetailBanner', 'Could not save: ' + err.message, 'error');
   }finally{
     btn.disabled = false; btn.textContent = 'Save Changes';
   }
+}
+
+function detectMentions(message, candidates){
+  const found = new Set();
+  candidates.forEach(p=>{
+    const escaped = p.display_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if(new RegExp('@' + escaped, 'i').test(message)) found.add(p.id);
+  });
+  return [...found];
 }
 
 async function postStatusUpdate(){
@@ -1007,16 +1101,91 @@ async function postStatusUpdate(){
   const btn = document.getElementById('postStatusBtn');
   btn.disabled = true; btn.textContent = 'Posting…';
   try{
-    const { error } = await db.from('task_status_updates').insert({ task_id: currentDetailTaskId, message });
+    refreshTaggableCandidates(currentDetailTaskId);
+    const mentions = detectMentions(message, currentTaggableCandidates);
+    const { error } = await db.from('task_status_updates').insert({ task_id: currentDetailTaskId, message, mentions });
     if(error) throw error;
     textarea.value = '';
     await loadStatusThread(currentDetailTaskId);
+    await loadNotifications();
   }catch(err){
     console.error(err);
     showBanner('taskDetailBanner', 'Could not post update: ' + err.message, 'error');
   }finally{
     btn.disabled = false; btn.textContent = 'Post Update';
   }
+}
+
+// ---------------- notifications (@mentions, unread until you reply) ----------------
+let activeNotifications = [];
+let notificationPollTimer = null;
+
+async function loadNotifications(){
+  if(!myProfile) return;
+  try{
+    const { data, error } = await db.from('task_status_updates')
+      .select('task_id, author, mentions, message, created_at');
+    if(error) throw error;
+
+    const lastMentionAt = {}, lastMentionMsg = {}, lastMyPostAt = {};
+    (data||[]).forEach(u=>{
+      const t = new Date(u.created_at).getTime();
+      if((u.mentions||[]).includes(myProfile.id) && (!lastMentionAt[u.task_id] || t > lastMentionAt[u.task_id])){
+        lastMentionAt[u.task_id] = t;
+        lastMentionMsg[u.task_id] = u.message;
+      }
+      if(u.author === myProfile.id && (!lastMyPostAt[u.task_id] || t > lastMyPostAt[u.task_id])){
+        lastMyPostAt[u.task_id] = t;
+      }
+    });
+
+    activeNotifications = Object.keys(lastMentionAt)
+      .filter(taskId => !lastMyPostAt[taskId] || lastMentionAt[taskId] > lastMyPostAt[taskId])
+      .map(taskId => ({ taskId: Number(taskId), at: lastMentionAt[taskId], message: lastMentionMsg[taskId] }))
+      .sort((a,b)=> b.at - a.at);
+
+    renderNotifications();
+  }catch(err){
+    console.error('loadNotifications failed:', err);
+  }
+}
+
+function renderNotifications(){
+  const badge = document.getElementById('bellBadge');
+  if(activeNotifications.length){
+    badge.style.display = 'flex';
+    badge.textContent = activeNotifications.length;
+  } else {
+    badge.style.display = 'none';
+  }
+  const list = document.getElementById('notifList');
+  if(!activeNotifications.length){
+    list.innerHTML = '<div class="status-empty">No new @mentions.</div>';
+    return;
+  }
+  list.innerHTML = activeNotifications.map(n=>{
+    const t = rawTasks.find(x=>x.id === n.taskId);
+    const title = t ? `${t.project || 'Untitled'} — ${t.activity || ''}` : ('Task #' + n.taskId);
+    const when = new Date(n.at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    return `<div class="notif-item" data-task-id="${n.taskId}">
+      <div class="notif-item-title">${title}</div>
+      <div class="notif-item-meta">${when}</div>
+      <div class="notif-item-msg">${(n.message||'').replace(/</g,'&lt;').slice(0,140)}</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.notif-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.getElementById('notifDropdown').style.display = 'none';
+      openTaskDetail(Number(el.dataset.taskId));
+    });
+  });
+}
+
+function toggleNotifDropdown(){
+  const dd = document.getElementById('notifDropdown');
+  const opening = dd.style.display === 'none';
+  dd.style.display = opening ? 'block' : 'none';
+  if(opening) loadNotifications();
 }
 
 function attachDashboardEvents(){
@@ -1122,12 +1291,54 @@ async function loadTasks(){
   renderAll();
 }
 
+function updateMultiselectSummary(containerId){
+  const toggle = document.getElementById(containerId + '-toggle');
+  if(!toggle) return;
+  const checked = getCheckedIds(containerId);
+  if(!checked.length){
+    toggle.textContent = 'Select contributors…';
+  } else {
+    const names = checked.map(id=> (profileById[id]&&profileById[id].display_name) || '?');
+    toggle.textContent = names.length <= 2 ? names.join(', ') : `${names.length} selected: ${names.slice(0,2).join(', ')}…`;
+  }
+}
+
+function renderCheckboxList(containerId, selectedIds){
+  const container = document.getElementById(containerId);
+  const selected = new Set(selectedIds||[]);
+  container.innerHTML = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name)).map(p=>`
+    <label class="${selected.has(p.id)?'checked':''}">
+      <input type="checkbox" value="${p.id}" ${selected.has(p.id)?'checked':''}>
+      ${p.display_name}
+    </label>
+  `).join('');
+  container.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      cb.closest('label').classList.toggle('checked', cb.checked);
+      updateMultiselectSummary(containerId);
+    });
+  });
+  updateMultiselectSummary(containerId);
+}
+
+function getCheckedIds(containerId){
+  return [...document.getElementById(containerId).querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
+}
+
+function toggleMultiselect(containerId){
+  const dd = document.getElementById(containerId);
+  const opening = dd.style.display === 'none';
+  document.querySelectorAll('.multiselect-dropdown').forEach(el=> el.style.display = 'none');
+  dd.style.display = opening ? 'block' : 'none';
+}
+
 function populateWhoReviewerSelects(){
   const opts = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
     .map(p=>`<option value="${p.id}">${p.display_name}</option>`).join('');
   document.getElementById('nt-who').innerHTML = opts;
   document.getElementById('nt-reviewer').innerHTML = opts;
   if(myProfile) document.getElementById('nt-who').value = myProfile.id;
+  renderCheckboxList('nt-contributors', []);
   populateDatalist('projectList', uniqueSorted(rawTasks,'project'));
   populateDatalist('customerList', uniqueSorted(rawTasks,'customer'));
   populateDatalist('categoryList', uniqueSorted(rawTasks,'category'));
@@ -1147,7 +1358,8 @@ async function handleNewTaskSubmit(e){
       open_date: document.getElementById('nt-open').value || null,
       target_date: document.getElementById('nt-target').value,
       who: document.getElementById('nt-who').value,
-      reviewer: document.getElementById('nt-reviewer').value
+      reviewer: document.getElementById('nt-reviewer').value,
+      contributors: getCheckedIds('nt-contributors')
     };
     const { error } = await db.from('tasks').insert(row);
     if(error) throw error;
@@ -1381,6 +1593,9 @@ async function onSignedIn(){
     await loadTasks();
     populateWhoReviewerSelects();
     initTimeFilters();
+    await loadNotifications();
+    if(notificationPollTimer) clearInterval(notificationPollTimer);
+    notificationPollTimer = setInterval(loadNotifications, 60000);
   }catch(err){
     console.error(err);
     showBanner('globalBanner', 'Could not load data: ' + err.message, 'error');
@@ -1391,6 +1606,9 @@ function onSignedOut(){
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
   currentUser = null; myProfile = null; rawTasks = [];
+  if(notificationPollTimer){ clearInterval(notificationPollTimer); notificationPollTimer = null; }
+  activeNotifications = [];
+  document.getElementById('notifDropdown').style.display = 'none';
 }
 
 let authMode = 'signin';
@@ -1482,6 +1700,29 @@ function init(){
   document.getElementById('postStatusBtn').addEventListener('click', postStatusUpdate);
   document.getElementById('taskDetailOverlay').addEventListener('click', (e)=>{
     if(e.target.id === 'taskDetailOverlay') closeTaskDetail();
+  });
+  document.getElementById('bellBtn').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    toggleNotifDropdown();
+  });
+  document.getElementById('nt-contributors-toggle').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    toggleMultiselect('nt-contributors');
+  });
+  document.getElementById('td-contributors-toggle').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    toggleMultiselect('td-contributors');
+  });
+  document.addEventListener('click', (e)=>{
+    const dd = document.getElementById('notifDropdown');
+    if(dd.style.display !== 'none' && !dd.contains(e.target) && e.target.id !== 'bellBtn'){
+      dd.style.display = 'none';
+    }
+    document.querySelectorAll('.multiselect-dropdown').forEach(el=>{
+      if(el.style.display !== 'none' && !el.contains(e.target) && e.target.id !== el.id + '-toggle'){
+        el.style.display = 'none';
+      }
+    });
   });
 
   db.auth.onAuthStateChange((event, session)=>{
