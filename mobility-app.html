@@ -305,6 +305,14 @@
           <div id="notifList"></div>
         </div>
       </div>
+      <button class="theme-toggle" id="printBtn" title="Print list">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+      </button>
+      <button class="theme-toggle" id="fullscreenToggle" title="Toggle full screen"></button>
       <button class="theme-toggle" id="themeToggle"></button>
       <span>Signed in as <b id="whoAmI">—</b></span>
       <button class="btn small" id="signOutBtn">Sign out</button>
@@ -359,7 +367,6 @@
             <div class="filter-group"><label>Open To</label><input type="date" class="filter-input" id="f-open-to"></div>
             <div class="filter-group grow"><label>Search activity / project</label><input type="text" class="filter-input" id="searchBox" placeholder="Type to filter…"></div>
             <button class="btn clear-btn" id="resetBtn">✕ Clear filters</button>
-            <button class="btn" id="printBtn">🖨 Print list</button>
           </div>
 
           <div class="charts-row">
@@ -1627,6 +1634,7 @@ function setAuthMode(mode){
 
 async function handleLoginSubmit(e){
   e.preventDefault();
+  requestFullscreenBestEffort();
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
 
@@ -1651,6 +1659,32 @@ async function handleLoginSubmit(e){
       document.getElementById('authBanner').style.display = 'none';
     }
   }
+}
+
+function requestFullscreenBestEffort(){
+  // Browsers only allow this in direct response to a real user click (e.g. Sign in) --
+  // it will be silently ignored if called from anywhere else, so it's not a guarantee.
+  try{
+    if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch((e)=>{ console.warn('Fullscreen request failed:', e && e.message); });
+    }
+  }catch(e){ console.warn('Fullscreen request threw:', e && e.message); }
+}
+
+function updateFullscreenToggleIcon(){
+  document.getElementById('fullscreenToggle').textContent = document.fullscreenElement ? '⤢' : '⛶';
+}
+
+function initFullscreenToggle(){
+  updateFullscreenToggleIcon();
+  document.getElementById('fullscreenToggle').addEventListener('click', ()=>{
+    if(document.fullscreenElement){
+      document.exitFullscreen().catch(()=>{});
+    } else if(document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(()=>{});
+    }
+  });
+  document.addEventListener('fullscreenchange', updateFullscreenToggleIcon);
 }
 
 function updateThemeToggleIcon(){
@@ -1678,6 +1712,7 @@ function init(){
   document.getElementById('authSealImg').src = LOGO_DATA_URI;
   document.getElementById('navSealImg').src = LOGO_DATA_URI;
   initThemeToggle();
+  initFullscreenToggle();
   if(CONFIG.supabaseUrl.startsWith('PASTE-')){
     showBanner('authBanner', 'CONFIG.supabaseUrl / supabaseAnonKey are still placeholders — fill them in at the top of the <script> block.', 'error');
     return;
@@ -1685,6 +1720,9 @@ function init(){
   db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
 
   document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+  // Bound directly to the click (not the form's submit event) -- some browsers only
+  // treat a direct click as a strong enough "user gesture" to allow fullscreen.
+  document.getElementById('authSubmitBtn').addEventListener('click', requestFullscreenBestEffort);
   document.getElementById('authToggleLink').addEventListener('click', (e)=>{
     e.preventDefault();
     setAuthMode(authMode === 'signup' ? 'signin' : 'signup');
