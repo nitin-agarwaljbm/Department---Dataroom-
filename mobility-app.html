@@ -71,7 +71,7 @@
 
   /* ---- app shell ---- */
   #appScreen{display:none;}
-  .topnav{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:16px 34px; border-bottom:1px solid var(--border); background:var(--panel);}
+  .topnav{position:sticky; top:0; z-index:950; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:16px 34px; border-bottom:1px solid var(--border); background:var(--panel);}
   .topnav-left{display:flex; align-items:center; gap:20px;}
   .brand{display:flex; align-items:center; gap:12px;}
   .seal{width:32px; height:auto; display:block;}
@@ -81,6 +81,7 @@
   .nav-link:hover{color:var(--text); background:var(--panel-2);}
   .nav-link.active{color:var(--text); background:var(--accent-tint); border:1px solid var(--accent);}
   .topnav-right{display:flex; align-items:center; gap:10px; font-size:calc(12.5px * var(--fs)); color:var(--muted); font-family:'IBM Plex Mono',monospace;}
+  .topnav-right .clear-btn{align-self:center;}
   .topnav-right b{color:var(--text);}
   .main-wrap{padding:24px 34px 60px;}
   .view{display:none;}
@@ -134,6 +135,7 @@
   .filter-group{display:flex; flex-direction:column; gap:5px;}
   .filter-group label{margin-bottom:0;}
   select.filter-input, input.filter-input{min-width:140px;}
+  .filter-group .multiselect{min-width:140px;}
   .filter-group.grow{flex:1; min-width:200px;}
   .filter-group.grow input{width:100%;}
   .clear-btn{align-self:flex-end; font-size:calc(12.5px * var(--fs)); padding:9px 14px; border-color:var(--overdue); color:var(--overdue); background:rgba(226,87,76,0.08);}
@@ -160,6 +162,8 @@
   .badge.pending_review{background:var(--pending-bg); color:var(--pending);} .badge.pending_review::before{background:var(--pending);}
   .badge.closed{background:var(--closed-bg); color:var(--closed);} .badge.closed::before{background:var(--closed);}
   .who-chip{font-family:'IBM Plex Mono',monospace; font-size:calc(11px * var(--fs)); padding:2px 8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border);}
+  .tag-chips{margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;}
+  .tag-chip{font-family:'IBM Plex Mono',monospace; font-size:calc(10px * var(--fs)); padding:1px 7px; border-radius:9px; background:var(--accent-tint); color:var(--accent); border:1px solid var(--border);}
   .priority-chip{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:5px; font-family:'IBM Plex Mono',monospace; font-size:calc(10.5px * var(--fs)); font-weight:700; margin-right:6px; vertical-align:middle;}
   .priority-chip.priority-A{background:var(--overdue-bg); color:var(--overdue);}
   .priority-chip.priority-B{background:var(--duesoon-bg); color:var(--duesoon);}
@@ -233,6 +237,14 @@
   .notif-item-title{font-size:calc(12.5px * var(--fs)); font-weight:600; color:var(--text); margin-bottom:2px;}
   .notif-item-meta{font-size:calc(10.5px * var(--fs)); color:var(--faint); font-family:'IBM Plex Mono',monospace;}
   .notif-item-msg{font-size:calc(11.5px * var(--fs)); color:var(--muted); margin-top:3px; white-space:pre-wrap;}
+  .print-dropdown{
+    position:absolute; top:calc(100% + 8px); right:0; width:250px;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    z-index:900; padding:6px;
+  }
+  .print-menu-item{padding:9px 12px; border-radius:8px; cursor:pointer; font-size:12.5px; color:var(--text); line-height:1.5;}
+  .print-menu-item:hover{background:var(--panel-2);}
+  .print-menu-sub{font-size:10.5px; color:var(--faint); font-weight:400;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 
   /* change password inline panel */
@@ -301,19 +313,26 @@
       </div>
     </div>
     <div class="topnav-right">
+      <button class="btn small clear-btn" id="resetBtn">✕ Clear filters</button>
       <div style="position:relative;">
         <button class="theme-toggle bell-btn" id="bellBtn">🔔<span class="bell-badge" id="bellBadge" style="display:none;"></span></button>
         <div class="notif-dropdown" id="notifDropdown" style="display:none;">
           <div id="notifList"></div>
         </div>
       </div>
-      <button class="theme-toggle" id="printBtn" title="Print list">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 6 2 18 2 18 9"></polyline>
-          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-          <rect x="6" y="14" width="12" height="8"></rect>
-        </svg>
-      </button>
+      <div style="position:relative;">
+        <button class="theme-toggle" id="printBtn" title="Print options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+        </button>
+        <div class="print-dropdown" id="printDropdown" style="display:none;">
+          <div class="print-menu-item" id="printOption1">Print list<br><span class="print-menu-sub">Grouped by Customer, current filters</span></div>
+          <div class="print-menu-item" id="printOption2">Print open tasks<br><span class="print-menu-sub">By Priority, with merged Customer/Project columns, Sl, Overdue days &amp; Remarks</span></div>
+        </div>
+      </div>
       <button class="theme-toggle font-size-btn" id="fontDecBtn" title="Decrease font size">A<sup>-</sup></button>
       <button class="theme-toggle font-size-btn" id="fontIncBtn" title="Increase font size">A<sup>+</sup></button>
       <button class="theme-toggle" id="fullscreenToggle" title="Toggle full screen"></button>
@@ -343,9 +362,21 @@
         </div>
         <div>
           <div class="filter-bar">
-            <div class="filter-group"><label>Project</label><select class="filter-input" id="f-project"></select></div>
+            <div class="filter-group">
+              <label>Project</label>
+              <div class="multiselect">
+                <button type="button" class="multiselect-toggle filter-multiselect-toggle" id="f-project-toggle">All projects</button>
+                <div class="checkbox-list multiselect-dropdown" id="f-project" style="display:none;"></div>
+              </div>
+            </div>
             <div class="filter-group"><label>Category</label><select class="filter-input" id="f-category"></select></div>
-            <div class="filter-group"><label>Customer</label><select class="filter-input" id="f-customer"></select></div>
+            <div class="filter-group">
+              <label>Customer</label>
+              <div class="multiselect">
+                <button type="button" class="multiselect-toggle filter-multiselect-toggle" id="f-customer-toggle">All customers</button>
+                <div class="checkbox-list multiselect-dropdown" id="f-customer" style="display:none;"></div>
+              </div>
+            </div>
             <div class="filter-group">
               <label>Priority</label>
               <select class="filter-input" id="f-priority">
@@ -355,7 +386,20 @@
                 <option value="C">C</option>
               </select>
             </div>
-            <div class="filter-group"><label>Owner</label><select class="filter-input" id="f-who"></select></div>
+            <div class="filter-group">
+              <label>Tag</label>
+              <div class="multiselect">
+                <button type="button" class="multiselect-toggle filter-multiselect-toggle" id="f-tag-toggle">All tags</button>
+                <div class="checkbox-list multiselect-dropdown" id="f-tag" style="display:none;"></div>
+              </div>
+            </div>
+            <div class="filter-group">
+              <label>Owner</label>
+              <div class="multiselect">
+                <button type="button" class="multiselect-toggle filter-multiselect-toggle" id="f-who-toggle">All owners</button>
+                <div class="checkbox-list multiselect-dropdown" id="f-who" style="display:none;"></div>
+              </div>
+            </div>
             <div class="filter-group">
               <label>Status</label>
               <select class="filter-input" id="f-status">
@@ -370,7 +414,6 @@
             <div class="filter-group"><label>Open From</label><input type="date" class="filter-input" id="f-open-from"></div>
             <div class="filter-group"><label>Open To</label><input type="date" class="filter-input" id="f-open-to"></div>
             <div class="filter-group grow"><label>Search activity / project</label><input type="text" class="filter-input" id="searchBox" placeholder="Type to filter…"></div>
-            <button class="btn clear-btn" id="resetBtn">✕ Clear filters</button>
           </div>
 
           <div class="charts-row">
@@ -494,6 +537,11 @@
               <div class="checkbox-list multiselect-dropdown" id="nt-contributors" style="display:none;"></div>
             </div>
           </div>
+          <div class="field">
+            <label>Tags <span style="text-transform:none; letter-spacing:0;">(optional — comma-separated words, used for the Tag filter)</span></label>
+            <input type="text" id="nt-tags" list="tagList" placeholder="e.g. urgent, rework, escalation">
+            <datalist id="tagList"></datalist>
+          </div>
           <button type="submit" class="btn primary" id="ntSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Create task</button>
         </form>
       </div>
@@ -524,12 +572,15 @@
   <div class="modal-box">
     <div class="modal-header">
       <div class="panel-title" style="border:none; margin:0; padding:0;">Task Details <span class="count" id="taskDetailSlLabel"></span></div>
-      <button class="btn small" id="taskDetailCloseBtn">✕ Close</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small" id="taskDetailDeleteBtn" style="display:none; border-color:var(--overdue); color:var(--overdue); background:rgba(226,87,76,0.08);">🗑 Delete task</button>
+        <button class="btn small" id="taskDetailCloseBtn">✕ Close</button>
+      </div>
     </div>
     <div id="taskDetailBanner" class="banner"></div>
     <div class="modal-body">
       <div class="field">
-        <label>Project</label>
+        <label>Project <span id="td-project-hint" style="text-transform:none; letter-spacing:0; color:var(--accent);"></span></label>
         <input type="text" id="td-project" list="projectList" disabled>
       </div>
       <div class="field">
@@ -538,8 +589,8 @@
       </div>
       <div class="row2" style="grid-template-columns:1fr 1fr 0.6fr;">
         <div class="field">
-          <label>Customer <span style="text-transform:none; letter-spacing:0; color:var(--accent);">(editable)</span></label>
-          <input type="text" id="td-customer" list="customerList">
+          <label>Customer <span id="td-customer-hint" style="text-transform:none; letter-spacing:0; color:var(--accent);"></span></label>
+          <input type="text" id="td-customer" list="customerList" disabled>
         </div>
         <div class="field">
           <label>Category</label>
@@ -567,11 +618,11 @@
       </div>
       <div class="row2">
         <div class="field">
-          <label>Who (owner)</label>
+          <label>Who (owner) <span id="td-who-hint" style="text-transform:none; letter-spacing:0; color:var(--accent);"></span></label>
           <select id="td-who" disabled></select>
         </div>
         <div class="field">
-          <label>Reviewer</label>
+          <label>Reviewer <span id="td-reviewer-hint" style="text-transform:none; letter-spacing:0; color:var(--accent);"></span></label>
           <select id="td-reviewer" disabled></select>
         </div>
       </div>
@@ -581,6 +632,10 @@
           <button type="button" class="multiselect-toggle" id="td-contributors-toggle">Select contributors…</button>
           <div class="checkbox-list multiselect-dropdown" id="td-contributors" style="display:none;"></div>
         </div>
+      </div>
+      <div class="field">
+        <label>Tags <span style="text-transform:none; letter-spacing:0; color:var(--accent);">(editable — comma-separated words)</span></label>
+        <input type="text" id="td-tags" list="tagList" placeholder="e.g. urgent, rework, escalation">
       </div>
       <button class="btn primary" id="taskDetailSaveBtn" style="width:100%; justify-content:center; padding:11px; margin-bottom:20px;">Save Changes</button>
 
@@ -676,6 +731,14 @@ function enrich(tasks){
 }
 
 function uniqueSorted(arr, key){ return [...new Set(arr.map(x=>x[key]).filter(v=>v))].sort(); }
+function uniqueTags(arr){
+  const set = new Set();
+  arr.forEach(t=> (t.tags||[]).forEach(tag=> set.add(tag)));
+  return [...set].sort();
+}
+function parseTags(str){
+  return [...new Set((str||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean))];
+}
 function populateSelect(id, values, allLabel){
   const el = document.getElementById(id);
   el.innerHTML = `<option value="">${allLabel}</option>` + values.map(v=>`<option value="${v}">${v}</option>`).join('');
@@ -684,30 +747,80 @@ function populateDatalist(id, values){
   document.getElementById(id).innerHTML = values.map(v=>`<option value="${v}">`).join('');
 }
 
+const filterMultiselectAllLabels = {
+  'f-project': 'All projects', 'f-customer': 'All customers', 'f-tag': 'All tags', 'f-who': 'All owners'
+};
+
+function updateFilterMultiselectSummary(containerId){
+  const toggle = document.getElementById(containerId + '-toggle');
+  if(!toggle) return;
+  const checked = getCheckedIds(containerId);
+  if(!checked.length){
+    toggle.textContent = filterMultiselectAllLabels[containerId] || 'All';
+  } else if(checked.length <= 2){
+    toggle.textContent = checked.join(', ');
+  } else {
+    toggle.textContent = `${checked.length} selected: ${checked.slice(0,2).join(', ')}…`;
+  }
+}
+
+function toggleFilterCheckbox(containerId, value){
+  const container = document.getElementById(containerId);
+  const cb = [...container.querySelectorAll('input[type=checkbox]')].find(c=>c.value===value);
+  if(!cb) return;
+  cb.checked = !cb.checked;
+  cb.closest('label').classList.toggle('checked', cb.checked);
+  updateFilterMultiselectSummary(containerId);
+  renderAll();
+}
+
+function renderValueCheckboxList(containerId, values, selectedValues){
+  const container = document.getElementById(containerId);
+  const selected = new Set(selectedValues||[]);
+  container.innerHTML = values.map(v=>`
+    <label class="${selected.has(v)?'checked':''}">
+      <input type="checkbox" value="${String(v).replace(/"/g,'&quot;')}" ${selected.has(v)?'checked':''}>
+      <span>${v}</span>
+    </label>
+  `).join('');
+  container.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      cb.closest('label').classList.toggle('checked', cb.checked);
+      updateFilterMultiselectSummary(containerId);
+      renderAll();
+    });
+  });
+  updateFilterMultiselectSummary(containerId);
+}
+
 function initFilters(){
-  populateSelect('f-project', uniqueSorted(rawTasks,'project'), 'All projects');
+  renderValueCheckboxList('f-project', uniqueSorted(rawTasks,'project'), getCheckedIds('f-project'));
   populateSelect('f-category', uniqueSorted(rawTasks,'category'), 'All categories');
-  populateSelect('f-customer', uniqueSorted(rawTasks,'customer'), 'All customers');
-  populateSelect('f-who', uniqueSorted(rawTasks,'whoName'), 'All owners');
+  renderValueCheckboxList('f-customer', uniqueSorted(rawTasks,'customer'), getCheckedIds('f-customer'));
+  renderValueCheckboxList('f-tag', uniqueTags(rawTasks), getCheckedIds('f-tag'));
+  renderValueCheckboxList('f-who', uniqueSorted(rawTasks,'whoName'), getCheckedIds('f-who'));
+  populateDatalist('tagList', uniqueTags(rawTasks));
 }
 
 function getFilteredBase(opts){
   opts = opts || {};
-  const project = document.getElementById('f-project').value;
+  const projects = getCheckedIds('f-project');
   const category = document.getElementById('f-category').value;
-  const customer = document.getElementById('f-customer').value;
+  const customers = getCheckedIds('f-customer');
   const priority = document.getElementById('f-priority').value;
-  const who = document.getElementById('f-who').value;
+  const tags = getCheckedIds('f-tag');
+  const owners = getCheckedIds('f-who');
   const openFrom = document.getElementById('f-open-from').value;
   const openTo = document.getElementById('f-open-to').value;
   const search = document.getElementById('searchBox').value.trim().toLowerCase();
   return rawTasks.filter(t=>{
     if(reviewerOnlyMode && !(myProfile && t.reviewer === myProfile.id)) return false;
-    if(project && t.project!==project) return false;
+    if(projects.length && !projects.includes(t.project)) return false;
     if(category && t.category!==category) return false;
-    if(customer && t.customer!==customer) return false;
+    if(customers.length && !customers.includes(t.customer)) return false;
     if(priority && t.priority!==priority) return false;
-    if(who && t.whoName!==who) return false;
+    if(tags.length && !tags.some(tag=> (t.tags||[]).includes(tag))) return false;
+    if(owners.length && !owners.includes(t.whoName)) return false;
     if(openFrom && (!t.open_date || t.open_date < openFrom)) return false;
     if(openTo && (!t.open_date || t.open_date > openTo)) return false;
     if(!opts.ignorePerson && activePerson && t.whoName!==activePerson) return false;
@@ -847,10 +960,10 @@ function renderCharts(filtered){
   filtered.forEach(t=>{ const c = t.customer||'Unspecified'; custCounts[c]=(custCounts[c]||0)+1; });
   const custLabels = Object.keys(custCounts).sort((a,b)=>custCounts[b]-custCounts[a]);
   currentCustomerLabels = custLabels;
-  const activeCustomer = document.getElementById('f-customer').value;
+  const activeCustomers = getCheckedIds('f-customer');
   const custColors = custLabels.map((l,i)=>{
     const base = CATEGORY_PALETTE[i%CATEGORY_PALETTE.length];
-    return (!activeCustomer || activeCustomer===l) ? base : withAlpha(base, 0.25);
+    return (!activeCustomers.length || activeCustomers.includes(l)) ? base : withAlpha(base, 0.25);
   });
   const ctx3 = document.getElementById('customerChart');
   if(customerChart) customerChart.destroy();
@@ -860,7 +973,7 @@ function renderCharts(filtered){
     options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
       plugins:{legend:{display:false}},
       scales:{ x:{ grid:{color: themeColors().grid}, ticks:{color: themeColors().muted, font:{family:'IBM Plex Mono', size:10}, precision:0} }, y:{ grid:{display:false}, ticks:{color: themeColors().text, font:{family:'IBM Plex Sans', size:11}} } },
-      onClick:(evt, els)=>{ if(!els.length) return; const clicked = currentCustomerLabels[els[0].index]; const sel = document.getElementById('f-customer'); sel.value = (sel.value===clicked)?'':clicked; renderAll(); }
+      onClick:(evt, els)=>{ if(!els.length) return; toggleFilterCheckbox('f-customer', currentCustomerLabels[els[0].index]); }
     }
   });
 }
@@ -907,7 +1020,7 @@ function renderTable(filtered){
     tbody.innerHTML = sorted.map(t=>`
       <tr data-task-row="${t.id}" style="cursor:pointer;" title="Double-click for details">
         <td data-label="Project">${t.project || '—'}</td>
-        <td data-label="Activity" class="activity-cell"><div class="activity-title">${t.priority ? `<span class="priority-chip priority-${t.priority}">${t.priority}</span>` : ''}${t.activity || '—'}</div><div class="activity-meta">Opened ${fmtDate(t.open_date)}</div></td>
+        <td data-label="Activity" class="activity-cell"><div class="activity-title">${t.priority ? `<span class="priority-chip priority-${t.priority}">${t.priority}</span>` : ''}${t.activity || '—'}</div><div class="activity-meta">Opened ${fmtDate(t.open_date)}</div>${(t.tags && t.tags.length) ? `<div class="tag-chips">${t.tags.map(tag=>`<span class="tag-chip">${tag}</span>`).join('')}</div>` : ''}</td>
         <td data-label="Category">${t.category || '—'}</td>
         <td data-label="Target" style="font-family:'IBM Plex Mono',monospace; white-space:nowrap;">${fmtDate(t.target_date)}</td>
         <td data-label="Owner"><span class="who-chip">${t.whoName}</span>${t.owner_hours ? `<div class="activity-meta">${t.owner_hours}h logged</div>` : ''}</td>
@@ -1009,7 +1122,18 @@ async function openTaskDetail(taskId){
   populateDetailWhoReviewerSelects();
   document.getElementById('td-who').value = t.who || '';
   document.getElementById('td-reviewer').value = t.reviewer || '';
+  const isAdmin = !!(myProfile && myProfile.is_admin);
+  document.getElementById('td-who').disabled = !isAdmin;
+  document.getElementById('td-reviewer').disabled = !isAdmin;
+  document.getElementById('td-project').disabled = !isAdmin;
+  document.getElementById('td-customer').disabled = !isAdmin;
+  document.getElementById('td-who-hint').textContent = isAdmin ? '(editable — admin only)' : '';
+  document.getElementById('td-reviewer-hint').textContent = isAdmin ? '(editable — admin only)' : '';
+  document.getElementById('td-project-hint').textContent = isAdmin ? '(editable — admin only)' : '';
+  document.getElementById('td-customer-hint').textContent = isAdmin ? '(editable — admin only)' : '';
+  document.getElementById('taskDetailDeleteBtn').style.display = isAdmin ? 'inline-flex' : 'none';
   renderCheckboxList('td-contributors', t.contributors || []);
+  document.getElementById('td-tags').value = (t.tags || []).join(', ');
   document.getElementById('td-newStatus').value = '';
   document.getElementById('taskDetailBanner').style.display = 'none';
   document.getElementById('statusThread').innerHTML = '<div class="status-empty">Loading…</div>';
@@ -1074,13 +1198,21 @@ async function saveTaskDetail(){
   const btn = document.getElementById('taskDetailSaveBtn');
   btn.disabled = true; btn.textContent = 'Saving…';
   try{
-    // Only Customer, Priority and Contributors are editable in this box; every
-    // other field is shown for reference only (disabled inputs).
+    // Priority, Contributors and Tags are editable by anyone involved in the task;
+    // Owner/Reviewer/Customer/Project are reassignable by admins only (also
+    // enforced server-side by guard_owner_reviewer_columns_trigger /
+    // guard_customer_project_columns_trigger).
     const row = {
-      customer: document.getElementById('td-customer').value.trim(),
       priority: document.getElementById('td-priority').value || null,
-      contributors: getCheckedIds('td-contributors')
+      contributors: getCheckedIds('td-contributors'),
+      tags: parseTags(document.getElementById('td-tags').value)
     };
+    if(myProfile && myProfile.is_admin){
+      row.who = document.getElementById('td-who').value;
+      row.reviewer = document.getElementById('td-reviewer').value;
+      row.customer = document.getElementById('td-customer').value.trim();
+      row.project = document.getElementById('td-project').value.trim();
+    }
     const { error } = await db.from('tasks').update(row).eq('id', currentDetailTaskId);
     if(error) throw error;
     showBanner('taskDetailBanner', 'Changes saved.', 'success');
@@ -1092,6 +1224,26 @@ async function saveTaskDetail(){
     showBanner('taskDetailBanner', 'Could not save: ' + err.message, 'error');
   }finally{
     btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
+
+async function deleteCurrentTask(){
+  if(!currentDetailTaskId) return;
+  if(!(myProfile && myProfile.is_admin)) return;
+  if(!confirm('Permanently delete task #' + currentDetailTaskId + '? This cannot be undone.')) return;
+  const btn = document.getElementById('taskDetailDeleteBtn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  try{
+    const { error } = await db.from('tasks').delete().eq('id', currentDetailTaskId);
+    if(error) throw error;
+    closeTaskDetail();
+    showBanner('globalBanner', 'Task deleted.', 'success');
+    await loadTasks();
+  }catch(err){
+    console.error(err);
+    showBanner('taskDetailBanner', 'Could not delete: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = '🗑 Delete task';
   }
 }
 
@@ -1200,8 +1352,14 @@ function toggleNotifDropdown(){
 }
 
 function attachDashboardEvents(){
-  ['f-project','f-category','f-customer','f-priority','f-who','f-status','f-open-from','f-open-to'].forEach(id=>{
+  ['f-category','f-priority','f-status','f-open-from','f-open-to'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderAll);
+  });
+  ['f-project','f-customer','f-tag','f-who'].forEach(id=>{
+    document.getElementById(id + '-toggle').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      toggleMultiselect(id);
+    });
   });
   document.getElementById('searchBox').addEventListener('input', renderAll);
   document.getElementById('reviewerOnlyToggle').addEventListener('change', (e)=>{
@@ -1209,14 +1367,33 @@ function attachDashboardEvents(){
     renderAll();
   });
   document.getElementById('resetBtn').addEventListener('click', ()=>{
-    ['f-project','f-category','f-customer','f-priority','f-who','f-status','f-open-from','f-open-to'].forEach(id=> document.getElementById(id).value='');
+    ['f-category','f-priority','f-status','f-open-from','f-open-to'].forEach(id=> document.getElementById(id).value='');
+    ['f-project','f-customer','f-tag','f-who'].forEach(id=>{
+      document.getElementById(id).querySelectorAll('input[type=checkbox]').forEach(cb=>{
+        cb.checked = false;
+        cb.closest('label').classList.remove('checked');
+      });
+      updateFilterMultiselectSummary(id);
+    });
     document.getElementById('searchBox').value='';
     activePerson = null;
     reviewerOnlyMode = false;
     document.getElementById('reviewerOnlyToggle').checked = false;
     renderAll();
   });
-  document.getElementById('printBtn').addEventListener('click', printTaskList);
+  document.getElementById('printBtn').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const dd = document.getElementById('printDropdown');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('printOption1').addEventListener('click', ()=>{
+    document.getElementById('printDropdown').style.display = 'none';
+    printTaskList();
+  });
+  document.getElementById('printOption2').addEventListener('click', ()=>{
+    document.getElementById('printDropdown').style.display = 'none';
+    printOpenTasksByPriority();
+  });
 }
 
 function printTaskList(){
@@ -1273,6 +1450,147 @@ function printTaskList(){
       <tr><th>Project</th><th>Activity</th><th>Category</th><th>Open</th><th>Target</th><th>Owner</th><th>Reviewer</th><th>Status</th></tr>
     </thead>
     <tbody>${rowsHtml || '<tr><td colspan="8">No tasks match the current filters.</td></tr>'}</tbody>
+  </table>
+  <script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups for this site to print.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+// Option 2: only open (not pending-review/closed) tasks, grouped Category -> Customer ->
+// Project, with an Overdue-days column and every status-update remark for that task.
+function priorityRank(p){ return p === 'A' ? 0 : p === 'B' ? 1 : p === 'C' ? 2 : 3; }
+function priorityGroupLabel(p){ return p ? ('Priority ' + p) : 'No Priority'; }
+
+async function printOpenTasksByPriority(){
+  const openTasks = getFilteredBase().filter(t=> t.workflow_status === 'open');
+  if(!openTasks.length){ alert('No open tasks match the current filters.'); return; }
+
+  let remarksByTask = {};
+  try{
+    const { data, error } = await db.from('task_status_updates')
+      .select('task_id, message, created_at, author')
+      .in('task_id', openTasks.map(t=>t.id))
+      .order('created_at', { ascending: true });
+    if(error) throw error;
+    (data||[]).forEach(u=>{
+      const when = new Date(u.created_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+      const line = `[${when}] ${nameOf(u.author)}: ${u.message}`;
+      remarksByTask[u.task_id] = remarksByTask[u.task_id] ? remarksByTask[u.task_id] + '  |  ' + line : line;
+    });
+  }catch(err){
+    console.error(err);
+    alert('Could not load remarks for printing: ' + err.message);
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  function overdueDaysOf(t){
+    const target = parseDate(t.target_date);
+    if(!target) return '—';
+    const diff = daysBetween(today, target);
+    return diff < 0 ? Math.abs(diff) : '—';
+  }
+
+  // Group header: Priority. Within a priority group, Customer then Project columns
+  // are merged (rowspan) across consecutive rows that share the same text.
+  const sorted = [...openTasks].sort((a,b)=>{
+    const pa = priorityRank(a.priority), pb = priorityRank(b.priority);
+    if(pa !== pb) return pa - pb;
+    const cuA = a.customer || 'Unspecified', cuB = b.customer || 'Unspecified';
+    const ra = customerGroupRank(cuA), rb = customerGroupRank(cuB);
+    if(ra !== rb) return ra - rb;
+    if(cuA !== cuB) return cuA.localeCompare(cuB);
+    const prA = a.project || 'Unspecified', prB = b.project || 'Unspecified';
+    if(prA !== prB) return prA.localeCompare(prB);
+    return a.statusRank-b.statusRank || new Date(a.target_date||0)-new Date(b.target_date||0);
+  });
+
+  const n = sorted.length;
+  const customerSpan = new Array(n).fill(0);
+  const projectSpan = new Array(n).fill(0);
+  for(let i=0;i<n;i++){
+    const t = sorted[i];
+    const prevT = i>0 ? sorted[i-1] : null;
+    const samePriorityAsPrev = prevT && priorityRank(prevT.priority) === priorityRank(t.priority);
+    const sameCustomerAsPrev = samePriorityAsPrev && (prevT.customer||'Unspecified') === (t.customer||'Unspecified');
+    if(!sameCustomerAsPrev){
+      let span = 1;
+      for(let j=i+1;j<n;j++){
+        const tj = sorted[j];
+        if(priorityRank(tj.priority)===priorityRank(t.priority) && (tj.customer||'Unspecified')===(t.customer||'Unspecified')) span++;
+        else break;
+      }
+      customerSpan[i] = span;
+    }
+    const sameProjectAsPrev = sameCustomerAsPrev && (prevT.project||'Unspecified') === (t.project||'Unspecified');
+    if(!sameProjectAsPrev){
+      let span = 1;
+      for(let j=i+1;j<n;j++){
+        const tj = sorted[j];
+        if(priorityRank(tj.priority)===priorityRank(t.priority) && (tj.customer||'Unspecified')===(t.customer||'Unspecified') && (tj.project||'Unspecified')===(t.project||'Unspecified')) span++;
+        else break;
+      }
+      projectSpan[i] = span;
+    }
+  }
+
+  let rowsHtml = '';
+  let lastPriorityRank = null;
+  let sl = 0;
+  sorted.forEach((t,i)=>{
+    const pRank = priorityRank(t.priority);
+    if(pRank !== lastPriorityRank){
+      rowsHtml += `<tr class="group-row pri-row"><td colspan="11">${priorityGroupLabel(t.priority)}</td></tr>`;
+      lastPriorityRank = pRank;
+    }
+    sl++;
+    const remarks = (remarksByTask[t.id] || '—').replace(/</g,'&lt;');
+    rowsHtml += '<tr>';
+    if(customerSpan[i] > 0) rowsHtml += `<td class="merged-cell" rowspan="${customerSpan[i]}">${t.customer || 'Unspecified'}</td>`;
+    if(projectSpan[i] > 0) rowsHtml += `<td class="merged-cell" rowspan="${projectSpan[i]}">${t.project || 'Unspecified'}</td>`;
+    rowsHtml += `
+      <td>${sl}</td>
+      <td>${t.activity || '—'}</td>
+      <td>${fmtDate(t.open_date)}</td>
+      <td>${fmtDate(t.target_date)}</td>
+      <td>${t.whoName}</td>
+      <td>${t.reviewerName}</td>
+      <td>${t.statusLabel}</td>
+      <td style="text-align:center;">${overdueDaysOf(t)}</td>
+      <td>${remarks}</td>
+    </tr>`;
+  });
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TrackIt - Open Tasks by Priority</title>
+<style>
+  body{ font-family: Arial, Helvetica, sans-serif; margin:24px; color:#111; }
+  h1{ font-size:18px; margin:0 0 4px; }
+  .meta{ font-size:11px; color:#555; margin-bottom:16px; }
+  table{ width:100%; border-collapse:collapse; font-size:10.5px; }
+  th, td{ border:1px solid #999; padding:5px 7px; text-align:left; vertical-align:top; }
+  th{ background:#f0f0f0; }
+  tr.pri-row td{ background:#333; color:#fff; font-weight:bold; text-transform:uppercase; letter-spacing:0.6px; font-size:11.5px; }
+  td.merged-cell{ vertical-align:middle; font-weight:600; background:#f5f5f5; }
+  @media print{ @page{ size:landscape; margin:12mm; } }
+</style>
+</head>
+<body>
+  <h1>TrackIt — Open Tasks (by Priority)</h1>
+  <div class="meta">Generated ${new Date().toLocaleString('en-GB')} — ${sorted.length} open task(s)</div>
+  <table>
+    <thead>
+      <tr><th>Customer</th><th>Project</th><th>Sl</th><th>Activity</th><th>Open</th><th>Target</th><th>Owner</th><th>Reviewer</th><th>Status</th><th>Overdue (days)</th><th>Remarks</th></tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
   </table>
   <script>window.onload = function(){ window.print(); };<\/script>
 </body>
@@ -1353,6 +1671,7 @@ function populateWhoReviewerSelects(){
   populateDatalist('projectList', uniqueSorted(rawTasks,'project'));
   populateDatalist('customerList', uniqueSorted(rawTasks,'customer'));
   populateDatalist('categoryList', uniqueSorted(rawTasks,'category'));
+  populateDatalist('tagList', uniqueTags(rawTasks));
 }
 
 async function handleNewTaskSubmit(e){
@@ -1370,7 +1689,8 @@ async function handleNewTaskSubmit(e){
       target_date: document.getElementById('nt-target').value,
       who: document.getElementById('nt-who').value,
       reviewer: document.getElementById('nt-reviewer').value,
-      contributors: getCheckedIds('nt-contributors')
+      contributors: getCheckedIds('nt-contributors'),
+      tags: parseTags(document.getElementById('nt-tags').value)
     };
     const { error } = await db.from('tasks').insert(row);
     if(error) throw error;
@@ -1760,6 +2080,7 @@ function init(){
   attachTimeAnalysisEvents();
   document.getElementById('taskDetailCloseBtn').addEventListener('click', closeTaskDetail);
   document.getElementById('taskDetailSaveBtn').addEventListener('click', saveTaskDetail);
+  document.getElementById('taskDetailDeleteBtn').addEventListener('click', deleteCurrentTask);
   document.getElementById('postStatusBtn').addEventListener('click', postStatusUpdate);
   document.getElementById('taskDetailOverlay').addEventListener('click', (e)=>{
     if(e.target.id === 'taskDetailOverlay') closeTaskDetail();
@@ -1780,6 +2101,10 @@ function init(){
     const dd = document.getElementById('notifDropdown');
     if(dd.style.display !== 'none' && !dd.contains(e.target) && e.target.id !== 'bellBtn'){
       dd.style.display = 'none';
+    }
+    const pdd = document.getElementById('printDropdown');
+    if(pdd.style.display !== 'none' && !pdd.contains(e.target) && !e.target.closest('#printBtn')){
+      pdd.style.display = 'none';
     }
     document.querySelectorAll('.multiselect-dropdown').forEach(el=>{
       if(el.style.display !== 'none' && !el.contains(e.target) && e.target.id !== el.id + '-toggle'){
