@@ -34,6 +34,9 @@
   }
   .theme-toggle:hover{border-color:var(--accent);}
   .font-size-btn{font-family:'IBM Plex Sans', sans-serif; font-weight:700; font-size:calc(13px * var(--fs));}
+  .field-inline-add{display:flex; gap:8px; align-items:stretch;}
+  .field-inline-add select{flex:1;}
+  .field-inline-add .btn{flex-shrink:0; padding:0 14px; font-weight:700;}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -54,6 +57,60 @@
   }
   textarea{resize:vertical; min-height:60px;}
   input:focus, select:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  .rte-toolbar{
+    display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+    background:var(--panel-2); border:1px solid var(--border); border-bottom:none;
+    border-radius:7px 7px 0 0; padding:6px;
+  }
+  .rte-toolbar button{
+    width:30px; height:30px; border-radius:5px; border:1px solid transparent; background:transparent;
+    color:var(--text); cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:calc(13px * var(--fs));
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .rte-toolbar button:hover{border-color:var(--border); background:var(--panel);}
+  .rte-toolbar button.active{border-color:var(--accent); background:var(--accent-tint); color:var(--accent);}
+  .rte-toolbar button.table-btn{width:auto; padding:0 10px; gap:5px; font-size:calc(12px * var(--fs));}
+  .rte-toolbar input[type=color]{width:30px; height:30px; padding:2px; border-radius:5px; border:1px solid var(--border); background:var(--panel); cursor:pointer;}
+  .rte-toolbar .rte-sep{width:1px; height:20px; background:var(--border); margin:0 2px;}
+  .rte-toolbar.disabled{pointer-events:none; opacity:0.5;}
+  .rte-view-controls{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+  .rte-view-controls select{width:auto; min-width:160px; padding:7px 10px; font-size:calc(12.5px * var(--fs));}
+  .btn.small.active{border-color:var(--accent); background:var(--accent-tint); color:var(--accent);}
+  .rte-body ins.tc-add{background:rgba(79,169,127,0.18); color:var(--ontrack); text-decoration:underline; text-decoration-style:solid;}
+  .rte-body del.tc-del{background:rgba(226,87,76,0.14); color:var(--overdue); text-decoration:line-through;}
+  .rte-body.view-readonly{background:var(--panel);}
+  .rte-btn-group{
+    display:flex; align-items:center; gap:1px; padding:2px 4px 2px 3px; border-radius:6px;
+    border:1px solid var(--border); background:var(--panel);
+  }
+  .rte-btn-group::before{
+    content: attr(data-group-label); font-size:8.5px; text-transform:uppercase; letter-spacing:0.5px;
+    color:var(--muted); font-weight:700; padding:0 4px 0 1px; font-family:'IBM Plex Sans',sans-serif;
+  }
+  .rte-btn-group.delete-group{border-color:rgba(226,87,76,0.35);}
+  .rte-btn-group.delete-group .rte-icon-btn{color:var(--overdue);}
+  .rte-icon-btn{
+    width:26px; height:26px; border-radius:5px; border:1px solid transparent; background:transparent;
+    color:var(--text); cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .rte-icon-btn:hover:not(:disabled){border-color:var(--border); background:var(--panel-2);}
+  .rte-icon-btn:disabled{color:var(--faint); opacity:0.5; cursor:not-allowed;}
+  .rte-body{
+    min-height:300px; max-height:58vh; overflow-y:auto;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:0 0 7px 7px;
+    padding:12px; font-family:'IBM Plex Sans',sans-serif; font-size:calc(13.5px * var(--fs)); line-height:1.5;
+  }
+  .rte-body:focus{outline:none; border-color:var(--accent);}
+  .rte-body[contenteditable="false"]{opacity:0.7; cursor:not-allowed;}
+  .rte-body table{border-collapse:collapse; margin:8px 0;}
+  .rte-body table td, .rte-body table th{border:1px solid var(--border); padding:6px 8px; min-width:40px; position:relative;}
+  .rte-body ul, .rte-body ol{padding-left:24px; margin:8px 0;}
+  .rte-body-wrap{position:relative;}
+  .rte-resize-overlay{position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:0 0 7px 7px;}
+  .rte-col-handle{position:absolute; width:6px; margin-left:-3px; cursor:col-resize; pointer-events:auto;}
+  .rte-col-handle:hover{background:rgba(91,141,239,0.4);}
+  .rte-row-handle{position:absolute; height:6px; margin-top:-3px; cursor:row-resize; pointer-events:auto;}
+  .rte-row-handle:hover{background:rgba(91,141,239,0.4);}
   .field{margin-bottom:16px;}
   .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px;}
   .banner{padding:12px 16px; border-radius:8px; font-size:calc(13px * var(--fs)); font-family:'IBM Plex Mono',monospace; margin-bottom:16px; display:none;}
@@ -161,6 +218,11 @@
   .badge.ontrack{background:var(--ontrack-bg); color:var(--ontrack);} .badge.ontrack::before{background:var(--ontrack);}
   .badge.pending_review{background:var(--pending-bg); color:var(--pending);} .badge.pending_review::before{background:var(--pending);}
   .badge.closed{background:var(--closed-bg); color:var(--closed);} .badge.closed::before{background:var(--closed);}
+  .badge.draft{background:var(--closed-bg); color:var(--closed);} .badge.draft::before{background:var(--closed);}
+  .badge.pending_modification{background:var(--duesoon-bg); color:var(--duesoon);} .badge.pending_modification::before{background:var(--duesoon);}
+  .badge.pending_approval{background:var(--pending-bg); color:var(--pending);} .badge.pending_approval::before{background:var(--pending);}
+  .badge.approved{background:var(--ontrack-bg); color:var(--ontrack);} .badge.approved::before{background:var(--ontrack);}
+  .badge.pending_feedback{background:var(--overdue-bg); color:var(--overdue);} .badge.pending_feedback::before{background:var(--overdue);}
   .who-chip{font-family:'IBM Plex Mono',monospace; font-size:calc(11px * var(--fs)); padding:2px 8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border);}
   .tag-chips{margin-top:4px; display:flex; flex-wrap:wrap; gap:4px;}
   .tag-chip{font-family:'IBM Plex Mono',monospace; font-size:calc(10px * var(--fs)); padding:1px 7px; border-radius:9px; background:var(--accent-tint); color:var(--accent); border:1px solid var(--border);}
@@ -183,6 +245,11 @@
     background:var(--panel); border:1px solid var(--border); border-radius:12px;
     width:100%; max-width:640px; padding:20px 24px; max-height:calc(100vh - 80px); overflow-y:auto;
   }
+  .modal-box-wide{max-width:1180px; max-height:calc(100vh - 40px);}
+  #newLetterOverlay, #letterDetailOverlay{padding:20px 16px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  .row4{display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px;}
+  input.field-compact{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .modal-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
   .status-thread{
     max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;
@@ -309,6 +376,7 @@
         <div class="nav-link active" data-view="dashboardView">Dashboard</div>
         <div class="nav-link" data-view="timeAnalysisView">Time Analysis</div>
         <div class="nav-link" data-view="newTaskView">New Task</div>
+        <div class="nav-link" data-view="lettersView">Letters</div>
         <div class="nav-link" data-view="passwordView">Change Password</div>
       </div>
     </div>
@@ -547,6 +615,66 @@
       </div>
     </div>
 
+    <!-- ---------- LETTERS VIEW ---------- -->
+    <div id="lettersView" class="view">
+      <div class="kpi-row" id="letterKpiRow"></div>
+      <div class="layout">
+        <div>
+          <div class="panel">
+            <div class="panel-title">By Authority <span class="count" id="letterAuthorityCount"></span></div>
+            <div class="person-list" id="letterAuthorityList"></div>
+          </div>
+        </div>
+        <div>
+          <div class="filter-bar">
+            <div class="filter-group"><label>Direction</label>
+              <select class="filter-input" id="lf-direction">
+                <option value="">All directions</option>
+                <option value="inbound">Inbound</option>
+                <option value="outbound">Outbound</option>
+              </select>
+            </div>
+            <div class="filter-group"><label>Company</label><select class="filter-input" id="lf-company"></select></div>
+            <div class="filter-group"><label>Stakeholder Type</label><select class="filter-input" id="lf-stype"></select></div>
+            <div class="filter-group"><label>Status</label>
+              <select class="filter-input" id="lf-status">
+                <option value="">Active (excl. Approved)</option>
+                <option value="draft">Draft</option>
+                <option value="pending_modification">Pending modification</option>
+                <option value="pending_approval">Pending approval</option>
+                <option value="pending_feedback">Pending feedback</option>
+                <option value="approved">Approved</option>
+              </select>
+            </div>
+            <div class="filter-group"><label>Date From</label><input type="date" class="filter-input" id="lf-date-from"></div>
+            <div class="filter-group"><label>Date To</label><input type="date" class="filter-input" id="lf-date-to"></div>
+            <div class="filter-group grow"><label>Search ref / subject / stakeholder</label><input type="text" class="filter-input" id="letterSearchBox" placeholder="Type to filter…"></div>
+            <button class="btn primary" id="newLetterBtn" style="align-self:flex-end;">+ New Letter</button>
+          </div>
+
+          <div class="charts-row">
+            <div class="panel"><div class="panel-title">Status Mix</div><div class="chart-box"><canvas id="letterStatusChart"></canvas></div></div>
+            <div class="panel"><div class="panel-title">By Direction</div><div class="chart-box"><canvas id="letterDirectionChart"></canvas></div></div>
+            <div class="panel"><div class="panel-title">By Company</div><div class="chart-box"><canvas id="letterCompanyChart"></canvas></div></div>
+          </div>
+
+          <div class="table-wrap">
+            <table id="lettersTable">
+              <thead>
+                <tr>
+                  <th>Ref No.</th><th>Date</th><th>Company</th><th>Direction</th><th>Stakeholder</th><th>Subject</th>
+                  <th>Preparer</th><th>Modifier</th><th>Approver</th><th>Status</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="lettersTableBody"></tbody>
+            </table>
+            <div class="empty-state" id="lettersEmptyState" style="display:none;">No letters match the current filters.</div>
+          </div>
+          <div class="footer-note" id="lettersCountLine"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ---------- CHANGE PASSWORD VIEW ---------- -->
     <div id="passwordView" class="view">
       <div class="panel inline-panel">
@@ -651,6 +779,402 @@
   </div>
 </div>
 
+<!-- ---------- NEW LETTER MODAL ---------- -->
+<div id="newLetterOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box modal-box-wide">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">New Letter</div>
+      <button class="btn small" id="newLetterCloseBtn">✕ Close</button>
+    </div>
+    <div id="newLetterBanner" class="banner"></div>
+    <div class="modal-body">
+      <form id="newLetterForm">
+        <div class="row4">
+          <div class="field">
+            <label>Reference Number</label>
+            <input type="text" id="nl-ref-preview" disabled placeholder="Auto-generated on save">
+          </div>
+          <div class="field">
+            <label>Letter Date</label>
+            <input type="date" id="nl-date" required>
+          </div>
+          <div class="field">
+            <label>Direction</label>
+            <select id="nl-direction">
+              <option value="outbound">Outbound (sent by us)</option>
+              <option value="inbound">Inbound (received)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Company Name</label>
+            <div class="field-inline-add">
+              <select id="nl-company" required></select>
+              <button type="button" class="btn small" id="nl-company-add" title="Add a new company">+</button>
+            </div>
+            <input type="text" id="nl-company-address-display" class="field-compact" disabled placeholder="Company address" style="margin-top:6px;">
+          </div>
+        </div>
+        <div class="row4">
+          <div class="field">
+            <label>Stakeholder</label>
+            <div class="field-inline-add">
+              <select id="nl-stakeholder" required></select>
+              <button type="button" class="btn small" id="nl-stakeholder-add" title="Add a new stakeholder">+</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Stakeholder Type</label>
+            <input type="text" id="nl-stype-display" class="field-compact" disabled>
+          </div>
+          <div class="field">
+            <label>Address</label>
+            <input type="text" id="nl-address-display" class="field-compact" disabled>
+          </div>
+          <div class="field">
+            <label>Addressed To (person name)</label>
+            <input type="text" id="nl-person">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Subject</label>
+            <input type="text" id="nl-subject" required>
+          </div>
+          <div class="field">
+            <label>Reference to Past Letter(s) <span style="text-transform:none; letter-spacing:0;">(optional)</span></label>
+            <div class="multiselect">
+              <button type="button" class="multiselect-toggle" id="nl-pastrefs-toggle">Select past letters…</button>
+              <div class="checkbox-list multiselect-dropdown" id="nl-pastrefs" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Letter Body</label>
+          <div class="rte-toolbar" data-rte-toolbar-for="nl-body">
+            <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+            <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+            <div class="rte-sep"></div>
+            <input type="color" data-cmd="foreColor" title="Text color" value="#000000">
+            <div class="rte-sep"></div>
+            <button type="button" class="table-btn" data-cmd="insertUnorderedList" title="Bullet list">• List</button>
+            <button type="button" class="table-btn" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+            <div class="rte-sep"></div>
+            <button type="button" data-cmd="justifyLeft" title="Align left">⟸</button>
+            <button type="button" data-cmd="justifyCenter" title="Align center">⟺</button>
+            <button type="button" data-cmd="justifyRight" title="Align right">⟹</button>
+            <button type="button" data-cmd="justifyFull" title="Justify">☰</button>
+            <div class="rte-sep"></div>
+            <div class="rte-btn-group" data-group-label="Insert" title="Insert">
+              <button type="button" class="rte-icon-btn" data-action="table" title="Insert table"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="14" rx="1.5"/><line x1="2" y1="9" x2="16" y2="9"/><line x1="9" y1="2" x2="9" y2="16"/></svg></button>
+              <button type="button" class="rte-icon-btn" data-action="insertrow" title="Insert row below"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="6" rx="1"/><line x1="9" y1="2" x2="9" y2="8"/><line x1="4" y1="13.5" x2="14" y2="13.5"/><line x1="9" y1="11" x2="9" y2="16"/></svg></button>
+              <button type="button" class="rte-icon-btn" data-action="insertcol" title="Insert column right"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="6" height="14" rx="1"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="13.5" y1="4" x2="13.5" y2="14"/><line x1="11" y1="9" x2="16" y2="9"/></svg></button>
+              <button type="button" class="rte-icon-btn" data-action="mergecells" title="Merge with cell to the right"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="4" width="6" height="10" rx="1"/><rect x="10" y="4" width="6" height="10" rx="1"/><polyline points="8.5,6.5 6.5,9 8.5,11.5"/><polyline points="9.5,6.5 11.5,9 9.5,11.5"/></svg></button>
+            </div>
+            <div class="rte-btn-group delete-group" data-group-label="Delete" title="Delete">
+              <button type="button" class="rte-icon-btn" data-action="deltable" title="Delete table"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="14" rx="1.5"/><line x1="2" y1="9" x2="16" y2="9"/><line x1="9" y1="2" x2="9" y2="16"/><line x1="5" y1="5" x2="13" y2="13" stroke-width="1.6"/><line x1="13" y1="5" x2="5" y2="13" stroke-width="1.6"/></svg></button>
+              <button type="button" class="rte-icon-btn" data-action="delrow" title="Delete row"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="6" rx="1"/><line x1="9" y1="2" x2="9" y2="8"/><line x1="4" y1="13.5" x2="14" y2="13.5"/></svg></button>
+              <button type="button" class="rte-icon-btn" data-action="delcol" title="Delete column"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="6" height="14" rx="1"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="11" y1="9" x2="16" y2="9"/></svg></button>
+              <button type="button" class="rte-icon-btn" data-action="unmergecells" title="Unmerge cell"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="4" width="14" height="10" rx="1"/><line x1="9" y1="4" x2="9" y2="14" stroke-dasharray="2,2"/><polyline points="6.5,6.5 4.5,9 6.5,11.5"/><polyline points="11.5,6.5 13.5,9 11.5,11.5"/></svg></button>
+            </div>
+          </div>
+          <div class="rte-body-wrap">
+            <div class="rte-body" id="nl-body" contenteditable="true"></div>
+            <div class="rte-resize-overlay" id="nl-body-overlay"></div>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Signing Authority Name</label>
+            <input type="text" id="nl-sign-name">
+          </div>
+          <div class="field">
+            <label>Signing Authority Designation</label>
+            <input type="text" id="nl-sign-desig">
+          </div>
+        </div>
+        <div class="field">
+          <label>Enclosures <span style="text-transform:none; letter-spacing:0;">(optional)</span></label>
+          <input type="text" id="nl-encl" placeholder="e.g. Annexure A, Copy of agreement">
+        </div>
+        <div class="row3">
+          <div class="field">
+            <label>Preparer <span style="text-transform:none; letter-spacing:0;">(you)</span></label>
+            <input type="text" id="nl-preparer-display" disabled>
+          </div>
+          <div class="field">
+            <label>Modifier</label>
+            <select id="nl-modifier" required></select>
+          </div>
+          <div class="field">
+            <label>Approver</label>
+            <select id="nl-approver" required></select>
+          </div>
+        </div>
+        <button type="submit" class="btn primary" id="nlSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Save Draft</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- LETTER DETAIL MODAL ---------- -->
+<div id="letterDetailOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box modal-box-wide">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Letter Details <span class="count" id="letterDetailRefLabel"></span></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small" id="letterLogBtn">📜 Log</button>
+        <button class="btn small" id="letterPrintBtn" style="display:none;">🖨 Print</button>
+        <button class="btn small" id="letterDeleteBtn" style="display:none; border-color:var(--overdue); color:var(--overdue); background:rgba(226,87,76,0.08);">🗑 Delete</button>
+        <button class="btn small" id="letterDetailCloseBtn">✕ Close</button>
+      </div>
+    </div>
+    <div id="letterDetailBanner" class="banner"></div>
+    <div id="letterFeedbackNoteBanner" class="banner"></div>
+    <div class="modal-body">
+      <div class="row4">
+        <div class="field">
+          <label>Reference Number</label>
+          <input type="text" id="ld-ref" disabled>
+        </div>
+        <div class="field">
+          <label>Letter Date</label>
+          <input type="date" id="ld-date" disabled>
+        </div>
+        <div class="field">
+          <label>Direction</label>
+          <input type="text" id="ld-direction" disabled>
+        </div>
+        <div class="field">
+          <label>Company Name</label>
+          <select id="ld-company" disabled></select>
+          <input type="text" id="ld-company-address-display" class="field-compact" disabled placeholder="Company address" style="margin-top:6px;">
+        </div>
+      </div>
+      <div class="row4">
+        <div class="field">
+          <label>Stakeholder <span id="ld-stakeholder-hint" style="text-transform:none; letter-spacing:0; color:var(--accent);"></span></label>
+          <div class="field-inline-add">
+            <select id="ld-stakeholder" disabled></select>
+            <button type="button" class="btn small" id="ld-stakeholder-add" title="Add a new stakeholder">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Stakeholder Type</label>
+          <input type="text" id="ld-stype" class="field-compact" disabled>
+        </div>
+        <div class="field">
+          <label>Address</label>
+          <input type="text" id="ld-address" class="field-compact" disabled>
+        </div>
+        <div class="field">
+          <label>Addressed To (person name)</label>
+          <input type="text" id="ld-person">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Subject</label>
+          <input type="text" id="ld-subject">
+        </div>
+        <div class="field">
+          <label>Reference to Past Letter(s)</label>
+          <div class="multiselect">
+            <button type="button" class="multiselect-toggle" id="ld-pastrefs-toggle">Select past letters…</button>
+            <div class="checkbox-list multiselect-dropdown" id="ld-pastrefs" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Letter Body</label>
+        <div class="rte-view-controls" id="ld-view-controls">
+          <button type="button" class="btn small active" id="ld-view-clean" data-view="clean">Clean copy</button>
+          <button type="button" class="btn small" id="ld-view-track" data-view="track">Track changes</button>
+          <select id="ld-view-history"><option value="">Earlier versions…</option></select>
+          <button type="button" class="btn small" id="ld-restore-version" style="display:none; border-color:var(--accent); color:var(--accent);">↺ Restore this version</button>
+        </div>
+        <div class="rte-toolbar" id="ld-body-toolbar" data-rte-toolbar-for="ld-body">
+          <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+          <div class="rte-sep"></div>
+          <input type="color" data-cmd="foreColor" title="Text color" value="#000000">
+          <div class="rte-sep"></div>
+          <button type="button" class="table-btn" data-cmd="insertUnorderedList" title="Bullet list">• List</button>
+          <button type="button" class="table-btn" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+          <div class="rte-sep"></div>
+          <button type="button" data-cmd="justifyLeft" title="Align left">⟸</button>
+          <button type="button" data-cmd="justifyCenter" title="Align center">⟺</button>
+          <button type="button" data-cmd="justifyRight" title="Align right">⟹</button>
+          <button type="button" data-cmd="justifyFull" title="Justify">☰</button>
+          <div class="rte-sep"></div>
+          <div class="rte-btn-group" data-group-label="Insert" title="Insert">
+            <button type="button" class="rte-icon-btn" data-action="table" title="Insert table"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="14" rx="1.5"/><line x1="2" y1="9" x2="16" y2="9"/><line x1="9" y1="2" x2="9" y2="16"/></svg></button>
+            <button type="button" class="rte-icon-btn" data-action="insertrow" title="Insert row below"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="6" rx="1"/><line x1="9" y1="2" x2="9" y2="8"/><line x1="4" y1="13.5" x2="14" y2="13.5"/><line x1="9" y1="11" x2="9" y2="16"/></svg></button>
+            <button type="button" class="rte-icon-btn" data-action="insertcol" title="Insert column right"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="6" height="14" rx="1"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="13.5" y1="4" x2="13.5" y2="14"/><line x1="11" y1="9" x2="16" y2="9"/></svg></button>
+            <button type="button" class="rte-icon-btn" data-action="mergecells" title="Merge with cell to the right"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="4" width="6" height="10" rx="1"/><rect x="10" y="4" width="6" height="10" rx="1"/><polyline points="8.5,6.5 6.5,9 8.5,11.5"/><polyline points="9.5,6.5 11.5,9 9.5,11.5"/></svg></button>
+          </div>
+          <div class="rte-btn-group delete-group" data-group-label="Delete" title="Delete">
+            <button type="button" class="rte-icon-btn" data-action="deltable" title="Delete table"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="14" rx="1.5"/><line x1="2" y1="9" x2="16" y2="9"/><line x1="9" y1="2" x2="9" y2="16"/><line x1="5" y1="5" x2="13" y2="13" stroke-width="1.6"/><line x1="13" y1="5" x2="5" y2="13" stroke-width="1.6"/></svg></button>
+            <button type="button" class="rte-icon-btn" data-action="delrow" title="Delete row"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="14" height="6" rx="1"/><line x1="9" y1="2" x2="9" y2="8"/><line x1="4" y1="13.5" x2="14" y2="13.5"/></svg></button>
+            <button type="button" class="rte-icon-btn" data-action="delcol" title="Delete column"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="6" height="14" rx="1"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="11" y1="9" x2="16" y2="9"/></svg></button>
+            <button type="button" class="rte-icon-btn" data-action="unmergecells" title="Unmerge cell"><svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="4" width="14" height="10" rx="1"/><line x1="9" y1="4" x2="9" y2="14" stroke-dasharray="2,2"/><polyline points="6.5,6.5 4.5,9 6.5,11.5"/><polyline points="11.5,6.5 13.5,9 11.5,11.5"/></svg></button>
+          </div>
+        </div>
+        <div class="rte-body-wrap">
+          <div class="rte-body" id="ld-body" contenteditable="false"></div>
+          <div class="rte-resize-overlay" id="ld-body-overlay"></div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Signing Authority Name</label>
+          <input type="text" id="ld-sign-name">
+        </div>
+        <div class="field">
+          <label>Signing Authority Designation</label>
+          <input type="text" id="ld-sign-desig">
+        </div>
+      </div>
+      <div class="field">
+        <label>Enclosures</label>
+        <input type="text" id="ld-encl">
+      </div>
+      <div class="row3">
+        <div class="field">
+          <label>Preparer</label>
+          <select id="ld-preparer" disabled></select>
+        </div>
+        <div class="field">
+          <label>Modifier</label>
+          <select id="ld-modifier" disabled></select>
+        </div>
+        <div class="field">
+          <label>Approver</label>
+          <select id="ld-approver" disabled></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <div id="ld-status-badge"></div>
+      </div>
+      <div id="letterDetailSaveWrap">
+        <button class="btn primary" id="letterDetailSaveBtn" style="width:100%; justify-content:center; padding:11px; margin-bottom:12px;">Save Changes</button>
+      </div>
+      <div id="letterWorkflowActions" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- FORWARD FOR FEEDBACK MODAL ---------- -->
+<div id="forwardFeedbackOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Forward for Feedback</div>
+      <button class="btn small" id="forwardFeedbackCloseBtn">✕ Close</button>
+    </div>
+    <div id="forwardFeedbackBanner" class="banner"></div>
+    <div class="modal-body">
+      <div class="hint" style="font-size:12px; color:var(--faint); margin-bottom:12px;">
+        Sends this letter to someone outside the usual chain to review or edit. They can make changes, then send it back to you to pick up where you left off.
+      </div>
+      <div class="field">
+        <label>Forward To</label>
+        <select id="ff-target"></select>
+      </div>
+      <div class="field">
+        <label>Instructions / Request <span style="text-transform:none; letter-spacing:0;">(optional — shown to them)</span></label>
+        <textarea id="ff-note" placeholder="e.g. Please review the payment terms in para 2 and advise."></textarea>
+      </div>
+      <button type="button" class="btn primary" id="forwardFeedbackSendBtn" style="width:100%; justify-content:center; padding:11px;">Forward</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- REJECT / SEND BACK NOTE MODAL ---------- -->
+<div id="actionNoteOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="panel-title" id="actionNoteTitle" style="border:none; margin:0; padding:0;">Add a note</div>
+      <button class="btn small" id="actionNoteCloseBtn">✕ Close</button>
+    </div>
+    <div id="actionNoteBanner" class="banner"></div>
+    <div class="modal-body">
+      <div class="field">
+        <label id="actionNoteLabel">Comments</label>
+        <textarea id="action-note-text" placeholder=""></textarea>
+      </div>
+      <button type="button" class="btn primary" id="actionNoteSendBtn" style="width:100%; justify-content:center; padding:11px;">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- LETTER ACTIVITY LOG MODAL ---------- -->
+<div id="letterLogOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Activity Log <span class="count" id="letterLogRefLabel"></span></div>
+      <button class="btn small" id="letterLogCloseBtn">✕ Close</button>
+    </div>
+    <div class="modal-body">
+      <div id="letterLogList" class="status-thread"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- ADD COMPANY MODAL ---------- -->
+<div id="newCompanyOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Add Company</div>
+      <button class="btn small" id="newCompanyCloseBtn">✕ Close</button>
+    </div>
+    <div id="newCompanyBanner" class="banner"></div>
+    <div class="modal-body">
+      <form id="newCompanyForm">
+        <div class="field">
+          <label>Company Name</label>
+          <input type="text" id="nc-name" required placeholder="e.g. MH Ecolife Mobility Pvt Ltd">
+        </div>
+        <div class="field">
+          <label>Address <span style="text-transform:none; letter-spacing:0;">(optional — also include phone, fax, website here)</span></label>
+          <textarea id="nc-address" placeholder="e.g. Plot 12, Sector 45, Gurugram, Haryana&#10;Ph: 0124-1234567 | Fax: 0124-1234568 | www.example.com"></textarea>
+        </div>
+        <button type="submit" class="btn primary" style="width:100%; justify-content:center; padding:11px;">Save Company</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- ADD STAKEHOLDER MODAL ---------- -->
+<div id="newStakeholderOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Add Stakeholder</div>
+      <button class="btn small" id="newStakeholderCloseBtn">✕ Close</button>
+    </div>
+    <div id="newStakeholderBanner" class="banner"></div>
+    <div class="modal-body">
+      <form id="newStakeholderForm">
+        <div class="field">
+          <label>Stakeholder Type</label>
+          <input type="text" id="ns-type" list="stakeholderTypeList" required placeholder="Government Authority / Operator / Lender / Other">
+          <datalist id="stakeholderTypeList"></datalist>
+        </div>
+        <div class="field">
+          <label>Stakeholder / Organization Name</label>
+          <input type="text" id="ns-name" required>
+        </div>
+        <div class="field">
+          <label>Address</label>
+          <textarea id="ns-address"></textarea>
+        </div>
+        <button type="submit" class="btn primary" style="width:100%; justify-content:center; padding:11px;">Save Stakeholder</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   const saved = localStorage.getItem('mob-theme');
@@ -688,7 +1212,20 @@ let myProfile = null;     // {id, display_name, email, is_admin}
 let profiles = [];        // all profiles, for name lookups + dropdowns
 let profileById = {};
 let rawTasks = [];        // enriched tasks
+let rawLetters = [];      // enriched letters
+let currentLetterDetailId = null;
+let rawCompanies = [];
+let rawStakeholders = [];
+let newStakeholderTargetPrefix = 'nl';
+let ldSessionBaselineBody = null;   // body as it was when the modal was opened, for Track Changes diffing
+let ldLiveEditedBody = null;        // last known live editable content, restored when switching back to Clean copy
+let ldViewMode = 'clean';           // 'clean' | 'track' | 'history'
+let currentLetterVersions = [];
+let forwardFeedbackLetterId = null;
+let actionNoteContext = null;   // { letterId, action: 'reject' | 'send_back_feedback' }
 let statusChart=null, categoryChart=null, customerChart=null;
+let letterStatusChart=null, letterDirectionChart=null, letterCompanyChart=null;
+let activeAuthority = null;
 let currentCustomerLabels = [];
 let currentCatLabels = [];
 let projectTimeChart=null, personTimeChart=null, avgPerPersonChart=null, ownerReviewerSplitChart=null, timeTrendChart=null;
@@ -1380,6 +1917,7 @@ function attachDashboardEvents(){
     reviewerOnlyMode = false;
     document.getElementById('reviewerOnlyToggle').checked = false;
     renderAll();
+    resetLetterFilters();
   });
   document.getElementById('printBtn').addEventListener('click', (e)=>{
     e.stopPropagation();
@@ -1618,6 +2156,1461 @@ async function loadTasks(){
   rawTasks = enrich(data);
   initFilters();
   renderAll();
+}
+
+// ==================== LETTERS MODULE ====================
+
+function letterDirectionLabel(d){ return d === 'inbound' ? 'Inbound' : 'Outbound'; }
+function letterStatusLabel(s){
+  return { draft:'Draft', pending_modification:'Pending Modification', pending_approval:'Pending Approval', pending_feedback:'Pending Feedback', approved:'Approved' }[s] || s;
+}
+
+function enrichLetters(letters){
+  return letters.map(l=>({
+    ...l,
+    preparerName: nameOf(l.preparer),
+    modifierName: nameOf(l.modifier),
+    approverName: nameOf(l.approver)
+  }));
+}
+
+// ---------------- rich text editor (Letter Body: bold/italic/underline/color/table) ----------------
+
+function sanitizeRichHtml(html){
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+  tmp.querySelectorAll('script,style,iframe,object,embed,link,meta,form').forEach(el=> el.remove());
+  tmp.querySelectorAll('*').forEach(el=>{
+    [...el.attributes].forEach(attr=>{
+      const name = attr.name.toLowerCase();
+      const val = attr.value || '';
+      if(name.startsWith('on') || ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(val))){
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+  return tmp.innerHTML;
+}
+
+// ---------------- track changes (word-level diff) ----------------
+
+function htmlToPlainText(html){
+  return (html||'')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// Classic LCS-based word diff -- fine for letter-length text.
+function wordDiff(oldText, newText){
+  const oldWords = oldText.split(/(\s+)/).filter(w=>w!=='');
+  const newWords = newText.split(/(\s+)/).filter(w=>w!=='');
+  const m = oldWords.length, n = newWords.length;
+  const dp = Array.from({length:m+1}, ()=> new Array(n+1).fill(0));
+  for(let i=m-1;i>=0;i--){
+    for(let j=n-1;j>=0;j--){
+      dp[i][j] = oldWords[i]===newWords[j] ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  const ops = [];
+  let i=0, j=0;
+  while(i<m && j<n){
+    if(oldWords[i]===newWords[j]){ ops.push({type:'same', text:oldWords[i]}); i++; j++; }
+    else if(dp[i+1][j] >= dp[i][j+1]){ ops.push({type:'del', text:oldWords[i]}); i++; }
+    else { ops.push({type:'add', text:newWords[j]}); j++; }
+  }
+  while(i<m){ ops.push({type:'del', text:oldWords[i]}); i++; }
+  while(j<n){ ops.push({type:'add', text:newWords[j]}); j++; }
+  return ops;
+}
+
+function renderTrackChangesHtml(oldHtml, newHtml){
+  const oldText = htmlToPlainText(oldHtml);
+  const newText = htmlToPlainText(newHtml);
+  const ops = wordDiff(oldText, newText);
+  return ops.map(op=>{
+    const escaped = op.text.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+    if(op.type==='add') return `<ins class="tc-add">${escaped}</ins>`;
+    if(op.type==='del') return `<del class="tc-del">${escaped}</del>`;
+    return escaped;
+  }).join('');
+}
+
+const rteSavedRanges = {};
+
+function saveRteSelection(bodyId){
+  const sel = window.getSelection();
+  if(sel.rangeCount > 0){
+    const range = sel.getRangeAt(0);
+    const bodyEl = document.getElementById(bodyId);
+    if(bodyEl && bodyEl.contains(range.commonAncestorContainer)){
+      rteSavedRanges[bodyId] = range.cloneRange();
+    }
+  }
+}
+
+function restoreRteSelection(bodyId){
+  const range = rteSavedRanges[bodyId];
+  if(!range) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function updateRteToolbarState(toolbar){
+  toolbar.querySelectorAll('button[data-cmd]').forEach(btn=>{
+    try{ btn.classList.toggle('active', document.queryCommandState(btn.dataset.cmd)); }catch(e){}
+  });
+}
+
+function setRichTextEditable(bodyId, editable){
+  const bodyEl = document.getElementById(bodyId);
+  if(!bodyEl) return;
+  bodyEl.setAttribute('contenteditable', editable ? 'true' : 'false');
+  const toolbar = document.querySelector(`.rte-toolbar[data-rte-toolbar-for="${bodyId}"]`);
+  if(toolbar) toolbar.classList.toggle('disabled', !editable);
+}
+
+// Finds the table/row/cell (within this editor) that the last saved selection is inside.
+function getCurrentTableContext(bodyId){
+  const bodyEl = document.getElementById(bodyId);
+  const range = rteSavedRanges[bodyId];
+  if(!bodyEl || !range) return null;
+  let node = range.startContainer;
+  let cell = null, table = null;
+  while(node && node !== bodyEl){
+    if(node.nodeType === 1){
+      if(!cell && (node.tagName === 'TD' || node.tagName === 'TH')) cell = node;
+      if(node.tagName === 'TABLE'){ table = node; break; }
+    }
+    node = node.parentNode;
+  }
+  if(!cell || !table) return null;
+  const row = cell.parentElement;
+  const cellIndex = [...row.children].indexOf(cell);
+  return { table, row, cell, cellIndex };
+}
+
+function deleteCurrentTableRow(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx){ alert('Click inside a table row first.'); return; }
+  if(ctx.table.rows.length <= 1) ctx.table.remove();
+  else ctx.row.remove();
+  refreshTableOverlay(bodyId);
+}
+
+function deleteCurrentTableColumn(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx){ alert('Click inside a table column first.'); return; }
+  const rows = [...ctx.table.rows];
+  if(rows[0].children.length <= 1){ ctx.table.remove(); }
+  else{
+    rows.forEach(r=>{ if(r.children[ctx.cellIndex]) r.children[ctx.cellIndex].remove(); });
+  }
+  refreshTableOverlay(bodyId);
+}
+
+function deleteCurrentTable(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx){ alert('Click inside a table first.'); return; }
+  ctx.table.remove();
+  refreshTableOverlay(bodyId);
+}
+
+function insertTableRow(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx) return;
+  const newRow = document.createElement('tr');
+  const colCount = ctx.row.children.length;
+  for(let i=0;i<colCount;i++){
+    const td = document.createElement('td');
+    td.innerHTML = '&nbsp;';
+    newRow.appendChild(td);
+  }
+  ctx.row.after(newRow);
+  refreshTableOverlay(bodyId);
+}
+
+function insertTableColumn(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx) return;
+  [...ctx.table.rows].forEach(r=>{
+    const ref = r.children[ctx.cellIndex];
+    const td = document.createElement(ref && ref.tagName === 'TH' ? 'th' : 'td');
+    td.innerHTML = '&nbsp;';
+    if(ref) ref.after(td); else r.appendChild(td);
+  });
+  refreshTableOverlay(bodyId);
+}
+
+// Merges the current cell with the cell immediately to its right (via colspan).
+function mergeTableCells(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx) return;
+  const nextCell = ctx.cell.nextElementSibling;
+  if(!nextCell){ alert('No cell to the right to merge with.'); return; }
+  const span = (parseInt(ctx.cell.getAttribute('colspan')||'1',10)) + (parseInt(nextCell.getAttribute('colspan')||'1',10));
+  ctx.cell.setAttribute('colspan', span);
+  while(nextCell.firstChild) ctx.cell.appendChild(nextCell.firstChild);
+  nextCell.remove();
+  refreshTableOverlay(bodyId);
+}
+
+// Splits a previously merged cell (colspan > 1) back into separate cells.
+function unmergeTableCells(bodyId){
+  const ctx = getCurrentTableContext(bodyId);
+  if(!ctx) return;
+  const span = parseInt(ctx.cell.getAttribute('colspan')||'1',10);
+  if(span <= 1){ alert('This cell is not merged.'); return; }
+  ctx.cell.removeAttribute('colspan');
+  for(let i=1;i<span;i++){
+    const td = document.createElement(ctx.cell.tagName.toLowerCase());
+    td.innerHTML = '&nbsp;';
+    ctx.cell.after(td);
+  }
+  refreshTableOverlay(bodyId);
+}
+
+// Enables/disables the table Insert/Delete group buttons based on whether the
+// cursor is currently inside a table -- Insert Table itself always stays
+// enabled (you need it precisely when you're NOT in a table yet).
+function updateTableButtonsState(bodyId, toolbar){
+  const inTable = !!getCurrentTableContext(bodyId);
+  toolbar.querySelectorAll('.rte-btn-group:not(.delete-group) button[data-action]:not([data-action="table"])').forEach(btn=>{
+    btn.disabled = !inTable;
+  });
+  toolbar.querySelectorAll('.rte-btn-group.delete-group button[data-action]').forEach(btn=>{
+    btn.disabled = !inTable;
+  });
+}
+
+// Draws invisible drag handles over each table's column/row boundaries so they
+// can be resized -- purely a UI overlay, never part of the saved HTML.
+function refreshTableOverlay(bodyId){
+  const bodyEl = document.getElementById(bodyId);
+  const overlay = document.getElementById(bodyId + '-overlay');
+  if(!bodyEl || !overlay) return;
+  overlay.innerHTML = '';
+  if(bodyEl.getAttribute('contenteditable') !== 'true') return;
+  const wrapRect = overlay.parentElement.getBoundingClientRect();
+  bodyEl.querySelectorAll('table').forEach(table=>{
+    const rows = [...table.rows];
+    if(!rows.length) return;
+    const tableRect = table.getBoundingClientRect();
+    [...rows[0].children].forEach((cell, colIndex)=>{
+      const r = cell.getBoundingClientRect();
+      const handle = document.createElement('div');
+      handle.className = 'rte-col-handle';
+      handle.style.left = (r.right - wrapRect.left) + 'px';
+      handle.style.top = (tableRect.top - wrapRect.top) + 'px';
+      handle.style.height = tableRect.height + 'px';
+      handle.addEventListener('mousedown', (e)=> startColumnResize(e, bodyId, table, colIndex));
+      overlay.appendChild(handle);
+    });
+    rows.forEach((row)=>{
+      const cell = row.children[0];
+      if(!cell) return;
+      const r = cell.getBoundingClientRect();
+      const handle = document.createElement('div');
+      handle.className = 'rte-row-handle';
+      handle.style.top = (r.bottom - wrapRect.top) + 'px';
+      handle.style.left = (tableRect.left - wrapRect.left) + 'px';
+      handle.style.width = tableRect.width + 'px';
+      handle.addEventListener('mousedown', (e)=> startRowResize(e, bodyId, table, row));
+      overlay.appendChild(handle);
+    });
+  });
+}
+
+function startColumnResize(e, bodyId, table, colIndex){
+  e.preventDefault();
+  const startX = e.clientX;
+  const cells = [...table.rows].map(r=> r.children[colIndex]).filter(Boolean);
+  if(!cells.length) return;
+  const startWidth = cells[0].getBoundingClientRect().width;
+  function onMove(ev){
+    const newWidth = Math.max(30, startWidth + (ev.clientX - startX));
+    cells.forEach(c=> c.style.width = newWidth + 'px');
+    refreshTableOverlay(bodyId);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function startRowResize(e, bodyId, table, row){
+  e.preventDefault();
+  const startY = e.clientY;
+  const cells = [...row.children];
+  const startHeight = row.getBoundingClientRect().height;
+  function onMove(ev){
+    const newHeight = Math.max(20, startHeight + (ev.clientY - startY));
+    cells.forEach(c=> c.style.height = newHeight + 'px');
+    refreshTableOverlay(bodyId);
+  }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function initRichTextEditors(){
+  document.querySelectorAll('.rte-toolbar').forEach(toolbar=>{
+    const bodyId = toolbar.dataset.rteToolbarFor;
+    const bodyEl = document.getElementById(bodyId);
+    if(!bodyEl) return;
+
+    bodyEl.addEventListener('mouseup', ()=>{ saveRteSelection(bodyId); updateRteToolbarState(toolbar); updateTableButtonsState(bodyId, toolbar); refreshTableOverlay(bodyId); });
+    bodyEl.addEventListener('keyup', ()=>{ saveRteSelection(bodyId); updateRteToolbarState(toolbar); updateTableButtonsState(bodyId, toolbar); refreshTableOverlay(bodyId); });
+    bodyEl.addEventListener('scroll', ()=> refreshTableOverlay(bodyId));
+    bodyEl.addEventListener('focus', ()=>{ updateRteToolbarState(toolbar); updateTableButtonsState(bodyId, toolbar); });
+    updateTableButtonsState(bodyId, toolbar);
+
+    toolbar.querySelectorAll('button[data-cmd]').forEach(btn=>{
+      btn.addEventListener('mousedown', (e)=> e.preventDefault());
+      btn.addEventListener('click', ()=>{
+        if(bodyEl.getAttribute('contenteditable') !== 'true') return;
+        bodyEl.focus();
+        restoreRteSelection(bodyId);
+        document.execCommand(btn.dataset.cmd, false, null);
+        saveRteSelection(bodyId);
+        updateRteToolbarState(toolbar);
+      });
+    });
+
+    const colorInput = toolbar.querySelector('input[type=color]');
+    if(colorInput){
+      colorInput.addEventListener('mousedown', ()=> saveRteSelection(bodyId));
+      colorInput.addEventListener('input', ()=>{
+        if(bodyEl.getAttribute('contenteditable') !== 'true') return;
+        bodyEl.focus();
+        restoreRteSelection(bodyId);
+        document.execCommand('foreColor', false, colorInput.value);
+      });
+    }
+
+    const tableBtn = toolbar.querySelector('button[data-action="table"]');
+    if(tableBtn){
+      tableBtn.addEventListener('mousedown', (e)=> e.preventDefault());
+      tableBtn.addEventListener('click', ()=>{
+        if(bodyEl.getAttribute('contenteditable') !== 'true') return;
+        const rows = parseInt(prompt('Number of rows:', '2'), 10);
+        if(!rows || rows < 1) return;
+        const cols = parseInt(prompt('Number of columns:', '2'), 10);
+        if(!cols || cols < 1) return;
+        bodyEl.focus();
+        restoreRteSelection(bodyId);
+        let tableHtml = '<table>';
+        for(let r=0; r<rows; r++){
+          tableHtml += '<tr>' + '<td>&nbsp;</td>'.repeat(cols) + '</tr>';
+        }
+        tableHtml += '</table><p><br></p>';
+        document.execCommand('insertHTML', false, tableHtml);
+        saveRteSelection(bodyId);
+        refreshTableOverlay(bodyId);
+        updateTableButtonsState(bodyId, toolbar);
+      });
+    }
+
+    const tableActionFns = {
+      insertrow: insertTableRow,
+      insertcol: insertTableColumn,
+      mergecells: mergeTableCells,
+      delrow: deleteCurrentTableRow,
+      delcol: deleteCurrentTableColumn,
+      deltable: deleteCurrentTable,
+      unmergecells: unmergeTableCells
+    };
+    Object.keys(tableActionFns).forEach(action=>{
+      const btn = toolbar.querySelector(`button[data-action="${action}"]`);
+      if(!btn) return;
+      btn.addEventListener('mousedown', (e)=> e.preventDefault());
+      btn.addEventListener('click', ()=>{
+        if(bodyEl.getAttribute('contenteditable') !== 'true' || btn.disabled) return;
+        tableActionFns[action](bodyId);
+        updateTableButtonsState(bodyId, toolbar);
+      });
+    });
+  });
+  window.addEventListener('resize', ()=>{
+    document.querySelectorAll('.rte-toolbar').forEach(t=> refreshTableOverlay(t.dataset.rteToolbarFor));
+  });
+}
+
+async function loadCompanies(){
+  const { data, error } = await db.from('companies').select('*').order('name');
+  if(error) throw error;
+  rawCompanies = data;
+  populateCompanySelects();
+}
+
+async function loadStakeholders(){
+  const { data, error } = await db.from('stakeholders').select('*').order('name');
+  if(error) throw error;
+  rawStakeholders = data;
+  populateStakeholderSelects();
+}
+
+function populateCompanySelects(){
+  const opts = rawCompanies.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  ['nl-company','ld-company'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Select company…</option>' + opts;
+    if(prev) sel.value = prev;
+  });
+  populateSelect('lf-company', rawCompanies.map(c=>c.name), 'All companies');
+}
+
+function stakeholderLabel(s){ return `${s.name} (${s.stakeholder_type})`; }
+
+// Addresses are stored/printed multi-line, but shown as one compact line in the
+// (read-only) form fields to save vertical space -- hover for the full text.
+function setCompactAddressField(id, address){
+  const el = document.getElementById(id);
+  const oneLine = (address || '')
+    .split(/\n+/).map(line=> line.trim().replace(/,\s*$/, '')).filter(Boolean).join(', ');
+  el.value = oneLine;
+  el.title = oneLine;
+}
+
+function populateStakeholderSelects(){
+  const opts = rawStakeholders.map(s=>`<option value="${s.id}">${stakeholderLabel(s)}</option>`).join('');
+  ['nl-stakeholder','ld-stakeholder'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Select stakeholder…</option>' + opts;
+    if(prev) sel.value = prev;
+  });
+  populateDatalist('stakeholderTypeList', [...new Set(rawStakeholders.map(s=>s.stakeholder_type))].filter(Boolean).sort());
+}
+
+// Client-side preview only -- the real reference number (including the exact
+// sequence number) is generated server-side at insert time, since the client
+// can't reliably see every other user's letters for the same company/FY.
+function refPreviewFor(companyName){
+  if(!companyName) return '';
+  const abbrev = companyName.toUpperCase().trim().split(/\s+/).filter(Boolean).map(w=>w[0]).join('') || 'REF';
+  const today = new Date();
+  const fyStart = (today.getMonth() + 1) >= 4 ? today.getFullYear() : today.getFullYear() - 1;
+  const fyLabel = String(fyStart % 100).padStart(2,'0') + '-' + String((fyStart+1) % 100).padStart(2,'0');
+  return `${abbrev}/${fyLabel}/### (auto-generated on save)`;
+}
+
+function candidatePastLettersFor(stakeholderId, excludeLetterId){
+  if(!stakeholderId) return [];
+  return rawLetters.filter(l=> String(l.stakeholder_id) === String(stakeholderId) && l.id !== excludeLetterId)
+    .sort((a,b)=> new Date(b.letter_date||0) - new Date(a.letter_date||0));
+}
+
+function updatePastRefSummary(containerId){
+  const toggle = document.getElementById(containerId + '-toggle');
+  if(!toggle) return;
+  const checked = getCheckedIds(containerId);
+  toggle.textContent = checked.length ? `${checked.length} letter(s) selected` : 'Select past letters…';
+}
+
+function renderPastRefCheckboxList(containerId, candidates, selectedIds){
+  const container = document.getElementById(containerId);
+  const selected = new Set((selectedIds||[]).map(Number));
+  container.innerHTML = candidates.map(l=>`
+    <label class="${selected.has(l.id)?'checked':''}">
+      <input type="checkbox" value="${l.id}" ${selected.has(l.id)?'checked':''}>
+      <span>${l.reference_number} — ${(l.subject||'').slice(0,40)} (${fmtDate(l.letter_date)})</span>
+    </label>
+  `).join('') || '<div class="status-empty">No earlier letters for this stakeholder yet.</div>';
+  container.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      cb.closest('label').classList.toggle('checked', cb.checked);
+      updatePastRefSummary(containerId);
+    });
+  });
+  updatePastRefSummary(containerId);
+}
+
+function handleNlCompanyChange(){
+  const id = document.getElementById('nl-company').value;
+  const c = rawCompanies.find(x=> String(x.id) === String(id));
+  document.getElementById('nl-ref-preview').value = c ? refPreviewFor(c.name) : '';
+  setCompactAddressField('nl-company-address-display', c ? c.address : '');
+}
+
+function handleNlStakeholderChange(){
+  const id = document.getElementById('nl-stakeholder').value;
+  const s = rawStakeholders.find(x=> String(x.id) === String(id));
+  document.getElementById('nl-stype-display').value = s ? s.stakeholder_type : '';
+  setCompactAddressField('nl-address-display', s ? s.address : '');
+  renderPastRefCheckboxList('nl-pastrefs', candidatePastLettersFor(id, null), []);
+}
+
+function handleLdStakeholderChange(){
+  const id = document.getElementById('ld-stakeholder').value;
+  const s = rawStakeholders.find(x=> String(x.id) === String(id));
+  document.getElementById('ld-stype').value = s ? s.stakeholder_type : '';
+  setCompactAddressField('ld-address', s ? s.address : '');
+  renderPastRefCheckboxList('ld-pastrefs', candidatePastLettersFor(id, currentLetterDetailId), []);
+}
+
+async function loadLetters(){
+  const { data, error } = await db.from('letters').select('*');
+  if(error) throw error;
+  rawLetters = enrichLetters(data);
+  initLetterFilters();
+  renderLetters();
+}
+
+function initLetterFilters(){
+  populateSelect('lf-stype', [...new Set(rawStakeholders.map(s=>s.stakeholder_type))].filter(Boolean).sort(), 'All stakeholder types');
+}
+
+function getFilteredLettersBase(opts){
+  opts = opts || {};
+  const direction = document.getElementById('lf-direction').value;
+  const company = document.getElementById('lf-company').value;
+  const stype = document.getElementById('lf-stype').value;
+  const dateFrom = document.getElementById('lf-date-from').value;
+  const dateTo = document.getElementById('lf-date-to').value;
+  const search = document.getElementById('letterSearchBox').value.trim().toLowerCase();
+  return rawLetters.filter(l=>{
+    if(direction && l.direction !== direction) return false;
+    if(company && l.company_name !== company) return false;
+    if(stype && l.stakeholder_type !== stype) return false;
+    if(dateFrom && (!l.letter_date || l.letter_date < dateFrom)) return false;
+    if(dateTo && (!l.letter_date || l.letter_date > dateTo)) return false;
+    if(!opts.ignoreAuthority && activeAuthority && l.stakeholder_name !== activeAuthority) return false;
+    if(search){
+      const hay = ((l.reference_number||'')+' '+(l.subject||'')+' '+(l.stakeholder_name||'')).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+// No status picked -> hide Approved by default (it's done; still active
+// items -- draft/pending modification/pending approval/pending feedback --
+// are what still need someone's action). Pick "Approved" explicitly in the
+// Status filter to see them, same pattern as Tasks' "Active (excl. closed)".
+function applyLetterStatusFilter(letters){
+  const status = document.getElementById('lf-status').value;
+  return letters.filter(l=> status ? l.workflow_status === status : l.workflow_status !== 'approved');
+}
+
+function getFilteredLetters(opts){
+  return applyLetterStatusFilter(getFilteredLettersBase(opts));
+}
+
+function resetLetterFilters(){
+  ['lf-direction','lf-company','lf-stype','lf-status','lf-date-from','lf-date-to'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('letterSearchBox').value='';
+  activeAuthority = null;
+  renderLetters();
+}
+
+function setLetterStatusFilter(status){
+  const sel = document.getElementById('lf-status');
+  sel.value = (!status || sel.value === status) ? '' : status;
+  renderLetters();
+}
+
+function renderLetterKPIs(filtered){
+  // Approved is counted independently of the current status selection (same
+  // as Tasks' Closed KPI) so it stays accurate even though the default view
+  // -- and therefore "filtered" -- excludes approved letters.
+  const approvedCount = getFilteredLettersBase().filter(l=>l.workflow_status==='approved').length;
+  const counts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0 };
+  filtered.forEach(l=>{ if(counts[l.workflow_status] !== undefined) counts[l.workflow_status]++; });
+  const cards = [
+    { cls:'total', label:'Total', value:filtered.length, sub:'active, excl. approved', status:null },
+    { cls:'closed', label:'Draft', value:counts.draft, sub:'with preparer', status:'draft' },
+    { cls:'duesoon', label:'Pending Modification', value:counts.pending_modification, sub:'with modifier', status:'pending_modification' },
+    { cls:'pending', label:'Pending Approval', value:counts.pending_approval, sub:'with approver', status:'pending_approval' },
+    { cls:'overdue', label:'Pending Feedback', value:counts.pending_feedback, sub:'forwarded out', status:'pending_feedback' },
+    { cls:'ontrack', label:'Approved', value:approvedCount, sub:'locked', status:'approved' }
+  ];
+  document.getElementById('letterKpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi ${c.cls}" data-status="${c.status||''}" style="cursor:pointer;"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>
+  `).join('');
+  document.querySelectorAll('#letterKpiRow .kpi').forEach(el=>{
+    el.addEventListener('click', ()=> setLetterStatusFilter(el.dataset.status));
+  });
+}
+
+function letterActionCellFor(l){
+  if(!myProfile) return '<span style="color:var(--faint); font-size:11.5px;">—</span>';
+  const isPreparer = l.preparer === myProfile.id;
+  const isModifier = l.modifier === myProfile.id;
+  const isApprover = l.approver === myProfile.id;
+  const isPendingWith = l.pending_with === myProfile.id;
+  const buttons = [];
+
+  if(l.workflow_status === 'draft' && isPreparer){
+    buttons.push(`<button class="btn small primary" data-letter-action="submit_modification" data-id="${l.id}">Submit</button>`);
+  }
+  if(l.workflow_status === 'pending_modification'){
+    if(isPreparer) buttons.push(`<button class="btn small" data-letter-action="recall" data-id="${l.id}">Recall</button>`);
+    if(isModifier){
+      buttons.push(`<button class="btn small primary" data-letter-action="forward_approval" data-id="${l.id}">Forward</button>`);
+      buttons.push(`<button class="btn small" data-letter-action="reject" data-id="${l.id}">Send Back</button>`);
+      buttons.push(`<button class="btn small" data-letter-action="forward_feedback" data-id="${l.id}">Forward for Feedback</button>`);
+    }
+  }
+  if(l.workflow_status === 'pending_approval' && isApprover){
+    buttons.push(`<button class="btn small primary" data-letter-action="approve" data-id="${l.id}">Approve</button>`);
+    buttons.push(`<button class="btn small" data-letter-action="reject" data-id="${l.id}">Reject to Modifier</button>`);
+    buttons.push(`<button class="btn small" data-letter-action="forward_feedback" data-id="${l.id}">Forward for Feedback</button>`);
+  }
+  if(l.workflow_status === 'pending_feedback' && isPendingWith){
+    buttons.push(`<button class="btn small primary" data-letter-action="send_back_feedback" data-id="${l.id}">Send Back Feedback</button>`);
+  }
+  if(!buttons.length) return '<span style="color:var(--faint); font-size:11.5px;">—</span>';
+  return `<div style="display:flex; gap:6px; flex-wrap:wrap;">${buttons.join('')}</div>`;
+}
+
+function renderLettersTable(filtered){
+  const sorted = [...filtered].sort((a,b)=> new Date(b.letter_date||0)-new Date(a.letter_date||0));
+  const tbody = document.getElementById('lettersTableBody');
+  const emptyState = document.getElementById('lettersEmptyState');
+  if(sorted.length===0){ tbody.innerHTML=''; emptyState.style.display='block'; }
+  else{
+    emptyState.style.display='none';
+    tbody.innerHTML = sorted.map(l=>`
+      <tr data-letter-row="${l.id}" style="cursor:pointer;" title="Double-click for details">
+        <td data-label="Ref No." style="font-family:'IBM Plex Mono',monospace;">${l.reference_number}</td>
+        <td data-label="Date" style="white-space:nowrap;">${fmtDate(l.letter_date)}</td>
+        <td data-label="Company">${l.company_name || '—'}</td>
+        <td data-label="Direction">${letterDirectionLabel(l.direction)}</td>
+        <td data-label="Stakeholder">${l.stakeholder_name || '—'}${l.stakeholder_type ? `<div class="activity-meta">${l.stakeholder_type}</div>` : ''}</td>
+        <td data-label="Subject">${l.subject || '—'}</td>
+        <td data-label="Preparer"><span class="who-chip">${l.preparerName}</span></td>
+        <td data-label="Modifier"><span class="who-chip">${l.modifierName}</span></td>
+        <td data-label="Approver"><span class="who-chip">${l.approverName}</span></td>
+        <td data-label="Status"><span class="badge ${l.workflow_status}">${letterStatusLabel(l.workflow_status)}</span></td>
+        <td data-label="Action">
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <button class="btn small" data-letter-log="${l.id}" title="View activity log">📜</button>
+            ${letterActionCellFor(l)}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('button[data-letter-action]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{ e.stopPropagation(); handleLetterWorkflowAction(btn.dataset.letterAction, Number(btn.dataset.id)); });
+    });
+    tbody.querySelectorAll('button[data-letter-log]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{ e.stopPropagation(); openLetterLogModal(Number(btn.dataset.letterLog)); });
+    });
+    tbody.querySelectorAll('tr[data-letter-row]').forEach(row=>{
+      row.addEventListener('dblclick', ()=> openLetterDetail(Number(row.dataset.letterRow)));
+    });
+  }
+  document.getElementById('lettersCountLine').textContent = `Showing ${sorted.length} of ${rawLetters.length} letter(s)`;
+}
+
+function renderLetters(){
+  const filtered = getFilteredLetters();
+  renderLetterKPIs(filtered);
+  renderLetterAuthorityList();
+  renderLetterCharts(filtered);
+  renderLettersTable(filtered);
+}
+
+function renderLetterAuthorityList(){
+  const scoped = getFilteredLetters({ignoreAuthority:true});
+  const authorities = uniqueSorted(scoped,'stakeholder_name');
+  const rows = authorities.map(name=>{
+    const items = scoped.filter(l=>l.stakeholder_name===name);
+    const total = items.length;
+    const counts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0, approved:0 };
+    items.forEach(l=>{ if(counts[l.workflow_status] !== undefined) counts[l.workflow_status]++; });
+    const pct = k => total ? (k/total*100) : 0;
+    return { name, total, counts, pct };
+  }).sort((a,b)=> b.total-a.total);
+
+  document.getElementById('letterAuthorityCount').textContent = authorities.length + ' authorities';
+  document.getElementById('letterAuthorityList').innerHTML = rows.map(r=>`
+    <div class="person-card ${activeAuthority===r.name?'active':''}" data-authority="${r.name.replace(/"/g,'&quot;')}">
+      <div class="person-top"><span class="person-name">${r.name}</span><span class="person-total">${r.total}</span></div>
+      <div class="person-bar">
+        <div style="width:${r.pct(r.counts.draft)}%;background:${COLORS.closed}"></div>
+        <div style="width:${r.pct(r.counts.pending_modification)}%;background:${COLORS.duesoon}"></div>
+        <div style="width:${r.pct(r.counts.pending_approval)}%;background:${COLORS.pending_review}"></div>
+        <div style="width:${r.pct(r.counts.pending_feedback)}%;background:${COLORS.overdue}"></div>
+        <div style="width:${r.pct(r.counts.approved)}%;background:${COLORS.ontrack}"></div>
+      </div>
+    </div>
+  `).join('') || '<div style="color:var(--faint); font-size:12px;">No authorities in current view.</div>';
+
+  document.querySelectorAll('#letterAuthorityList .person-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const name = el.dataset.authority;
+      activeAuthority = (activeAuthority===name) ? null : name;
+      renderLetters();
+    });
+  });
+}
+
+function renderLetterCharts(filtered){
+  const statusCounts = { draft:0, pending_modification:0, pending_approval:0, approved:0 };
+  filtered.forEach(l=>{ if(statusCounts[l.workflow_status] !== undefined) statusCounts[l.workflow_status]++; });
+  const statusOrder = ['draft','pending_modification','pending_approval','pending_feedback','approved'];
+  const statusLabels = statusOrder.map(letterStatusLabel);
+  const activeLetterStatus = document.getElementById('lf-status').value;
+  const letterStatusColorMap = { draft:COLORS.closed, pending_modification:COLORS.duesoon, pending_approval:COLORS.pending_review, pending_feedback:COLORS.overdue, approved:COLORS.ontrack };
+  const statusColors = statusOrder.map(s=>{
+    const base = letterStatusColorMap[s];
+    return (!activeLetterStatus || activeLetterStatus===s) ? base : withAlpha(base, 0.25);
+  });
+  if(letterStatusChart) letterStatusChart.destroy();
+  letterStatusChart = new Chart(document.getElementById('letterStatusChart'), {
+    type:'doughnut',
+    data:{ labels:statusLabels, datasets:[{ data:statusOrder.map(s=>statusCounts[s]), backgroundColor:statusColors, borderColor: themeColors().panelBg, borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{ position:'bottom', labels:{ color: themeColors().muted, font:{family:'IBM Plex Sans', size:10.5}, boxWidth:9, padding:10 } } },
+      onClick:(evt, els)=>{ if(!els.length) return; setLetterStatusFilter(statusOrder[els[0].index]); }
+    }
+  });
+
+  const dirCounts = { outbound:0, inbound:0 };
+  filtered.forEach(l=>{ if(dirCounts[l.direction] !== undefined) dirCounts[l.direction]++; });
+  const dirLabels = ['Outbound','Inbound'];
+  const activeDirection = document.getElementById('lf-direction').value;
+  letterDirectionChart = barChart('letterDirectionChart', letterDirectionChart, dirLabels, [dirCounts.outbound, dirCounts.inbound], 0,
+    activeDirection ? (activeDirection==='outbound'?'Outbound':'Inbound') : null,
+    (clicked)=>{
+      const val = clicked === 'Outbound' ? 'outbound' : 'inbound';
+      const sel = document.getElementById('lf-direction');
+      sel.value = (sel.value===val) ? '' : val;
+      renderLetters();
+    });
+
+  const compCounts = {};
+  filtered.forEach(l=>{ const c = l.company_name||'Unspecified'; compCounts[c]=(compCounts[c]||0)+1; });
+  const compLabels = Object.keys(compCounts).sort((a,b)=>compCounts[b]-compCounts[a]);
+  const activeCompany = document.getElementById('lf-company').value;
+  letterCompanyChart = barChart('letterCompanyChart', letterCompanyChart, compLabels, compLabels.map(l=>compCounts[l]), 2,
+    activeCompany || null,
+    (clicked)=>{
+      const sel = document.getElementById('lf-company');
+      sel.value = (sel.value===clicked) ? '' : clicked;
+      renderLetters();
+    });
+}
+
+async function handleLetterWorkflowAction(action, letterId){
+  if(action === 'forward_feedback'){
+    openForwardFeedbackModal(letterId);
+    return;
+  }
+  if(action === 'reject' || action === 'send_back_feedback'){
+    openActionNoteModal(letterId, action);
+    return;
+  }
+  try{
+    if(action === 'submit_modification'){
+      const { error } = await db.rpc('submit_for_modification', { p_letter_id: letterId });
+      if(error) throw error;
+      showBanner('globalBanner', 'Sent to Modifier.', 'success');
+    } else if(action === 'recall'){
+      if(!confirm('Recall this letter back to draft?')) return;
+      const { error } = await db.rpc('recall_letter_submission', { p_letter_id: letterId });
+      if(error) throw error;
+      showBanner('globalBanner', 'Recalled to draft.', 'success');
+    } else if(action === 'forward_approval'){
+      const { error } = await db.rpc('forward_for_approval', { p_letter_id: letterId });
+      if(error) throw error;
+      showBanner('globalBanner', 'Forwarded to Approver.', 'success');
+    } else if(action === 'approve'){
+      if(!confirm('Approve this letter? Once approved it can never be edited again.')) return;
+      const { error } = await db.rpc('approve_letter', { p_letter_id: letterId });
+      if(error) throw error;
+      showBanner('globalBanner', 'Letter approved and locked.', 'success');
+    }
+    await loadLetters();
+    if(currentLetterDetailId === letterId) openLetterDetail(letterId);
+  }catch(err){
+    console.error(err);
+    showBanner('globalBanner', 'Could not update letter: ' + err.message, 'error');
+  }
+}
+
+function populateLetterPeopleSelects(){
+  const opts = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
+    .map(p=>`<option value="${p.id}">${p.display_name}</option>`).join('');
+  ['nl-modifier','nl-approver','ld-preparer','ld-modifier','ld-approver'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = opts;
+    if(prev) sel.value = prev;
+  });
+  if(myProfile) document.getElementById('nl-preparer-display').value = myProfile.display_name;
+}
+
+function openNewLetterModal(){
+  document.getElementById('newLetterForm').reset();
+  populateLetterPeopleSelects();
+  populateCompanySelects();
+  populateStakeholderSelects();
+  document.getElementById('nl-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('nl-ref-preview').value = '';
+  document.getElementById('nl-company-address-display').value = '';
+  document.getElementById('nl-stype-display').value = '';
+  document.getElementById('nl-address-display').value = '';
+  renderPastRefCheckboxList('nl-pastrefs', [], []);
+  document.getElementById('nl-body').innerHTML = '';
+  setRichTextEditable('nl-body', true);
+  document.getElementById('newLetterBanner').style.display = 'none';
+  document.getElementById('newLetterOverlay').style.display = 'flex';
+  refreshTableOverlay('nl-body');
+}
+
+function closeNewLetterModal(){
+  document.getElementById('newLetterOverlay').style.display = 'none';
+}
+
+async function handleNewLetterSubmit(e){
+  e.preventDefault();
+  const btn = document.getElementById('nlSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const companyId = document.getElementById('nl-company').value;
+    const company = rawCompanies.find(c=> String(c.id) === String(companyId));
+    const stakeholderId = document.getElementById('nl-stakeholder').value;
+    const stakeholder = rawStakeholders.find(s=> String(s.id) === String(stakeholderId));
+    if(!company) throw new Error('Please select a Company.');
+    if(!stakeholder) throw new Error('Please select a Stakeholder.');
+    const bodyHtmlValue = sanitizeRichHtml(document.getElementById('nl-body').innerHTML);
+    if(!bodyHtmlValue.replace(/<[^>]*>/g,'').trim()) throw new Error('Letter Body cannot be empty.');
+    const row = {
+      letter_date: document.getElementById('nl-date').value,
+      direction: document.getElementById('nl-direction').value,
+      company_id: company.id,
+      company_name: company.name,
+      stakeholder_id: stakeholder.id,
+      stakeholder_type: stakeholder.stakeholder_type,
+      stakeholder_name: stakeholder.name,
+      recipient_address: stakeholder.address || null,
+      recipient_person: document.getElementById('nl-person').value.trim() || null,
+      subject: document.getElementById('nl-subject').value.trim(),
+      past_reference_ids: getCheckedIds('nl-pastrefs').map(Number),
+      body: bodyHtmlValue,
+      signing_authority_name: document.getElementById('nl-sign-name').value.trim() || null,
+      signing_authority_designation: document.getElementById('nl-sign-desig').value.trim() || null,
+      enclosures: document.getElementById('nl-encl').value.trim() || null,
+      preparer: myProfile.id,
+      modifier: document.getElementById('nl-modifier').value,
+      approver: document.getElementById('nl-approver').value
+    };
+    const { error } = await db.from('letters').insert(row);
+    if(error) throw error;
+    showBanner('globalBanner', 'Letter saved as draft.', 'success');
+    closeNewLetterModal();
+    await loadLetters();
+  }catch(err){
+    console.error(err);
+    showBanner('newLetterBanner', 'Could not save: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Save Draft';
+  }
+}
+
+// Recomputes and re-applies which fields are editable for the given letter,
+// based on the current letter/profile -- deliberately touches only
+// disabled/contenteditable state, never field values, so it's safe to call
+// defensively (e.g. after printing) without risking unsaved edits.
+function reapplyLetterEditableState(letterId){
+  const l = rawLetters.find(x=>x.id === letterId);
+  if(!l) return;
+  const isPreparer = myProfile && l.preparer === myProfile.id;
+  const isModifier = myProfile && l.modifier === myProfile.id;
+  const isApprover = myProfile && l.approver === myProfile.id;
+  const isPendingWith = myProfile && l.pending_with === myProfile.id;
+  const canEditContent = (l.workflow_status === 'draft' && isPreparer)
+    || (l.workflow_status === 'pending_modification' && isModifier)
+    || (l.workflow_status === 'pending_approval' && isApprover)
+    || (l.workflow_status === 'pending_feedback' && isPendingWith);
+
+  ['ld-person','ld-subject','ld-sign-name','ld-sign-desig','ld-encl'].forEach(id=>{
+    document.getElementById(id).disabled = !canEditContent;
+  });
+  // Track Changes / History previews are always read-only regardless of role.
+  setRichTextEditable('ld-body', canEditContent && ldViewMode === 'clean');
+  document.getElementById('ld-stakeholder').disabled = !canEditContent;
+  document.getElementById('ld-stakeholder-add').style.display = canEditContent ? 'inline-flex' : 'none';
+  document.getElementById('ld-stakeholder-hint').textContent = canEditContent ? '(editable)' : '';
+  document.getElementById('letterDetailSaveWrap').style.display = canEditContent ? 'block' : 'none';
+}
+
+function openLetterDetail(letterId){
+  const l = rawLetters.find(x=>x.id === letterId);
+  if(!l) return;
+  currentLetterDetailId = letterId;
+
+  document.getElementById('letterDetailRefLabel').textContent = l.reference_number;
+  document.getElementById('ld-ref').value = l.reference_number || '';
+  document.getElementById('ld-date').value = l.letter_date || '';
+  document.getElementById('ld-direction').value = letterDirectionLabel(l.direction);
+  populateCompanySelects();
+  document.getElementById('ld-company').value = l.company_id || '';
+  setCompactAddressField('ld-company-address-display', (rawCompanies.find(c=> String(c.id) === String(l.company_id)) || {}).address);
+  populateStakeholderSelects();
+  document.getElementById('ld-stakeholder').value = l.stakeholder_id || '';
+  document.getElementById('ld-stype').value = l.stakeholder_type || '';
+  setCompactAddressField('ld-address', l.recipient_address || '');
+  document.getElementById('ld-person').value = l.recipient_person || '';
+  document.getElementById('ld-subject').value = l.subject || '';
+  document.getElementById('ld-body').innerHTML = sanitizeRichHtml(l.body || '');
+  ldSessionBaselineBody = l.body || '';
+  ldLiveEditedBody = l.body || '';
+  ldViewMode = 'clean';
+  document.getElementById('ld-view-clean').classList.add('active');
+  document.getElementById('ld-view-track').classList.remove('active');
+  document.getElementById('ld-view-history').value = '';
+  document.getElementById('ld-restore-version').style.display = 'none';
+  loadLetterVersions(letterId);
+  document.getElementById('ld-sign-name').value = l.signing_authority_name || '';
+  document.getElementById('ld-sign-desig').value = l.signing_authority_designation || '';
+  document.getElementById('ld-encl').value = l.enclosures || '';
+  populateLetterPeopleSelects();
+  document.getElementById('ld-preparer').value = l.preparer || '';
+  document.getElementById('ld-modifier').value = l.modifier || '';
+  document.getElementById('ld-approver').value = l.approver || '';
+  document.getElementById('ld-status-badge').innerHTML = `<span class="badge ${l.workflow_status}">${letterStatusLabel(l.workflow_status)}</span>`;
+  renderPastRefCheckboxList('ld-pastrefs', candidatePastLettersFor(l.stakeholder_id, l.id), l.past_reference_ids || []);
+
+  reapplyLetterEditableState(letterId);
+
+  const isAdmin = !!(myProfile && myProfile.is_admin);
+  document.getElementById('letterDeleteBtn').style.display = (isAdmin && l.workflow_status !== 'approved') ? 'inline-flex' : 'none';
+  document.getElementById('letterPrintBtn').style.display = 'inline-flex';
+
+  const actionsWrap = document.getElementById('letterWorkflowActions');
+  actionsWrap.innerHTML = letterActionCellFor(l);
+  actionsWrap.querySelectorAll('button[data-letter-action]').forEach(btn=>{
+    btn.addEventListener('click', ()=> handleLetterWorkflowAction(btn.dataset.letterAction, Number(btn.dataset.id)));
+  });
+
+  if(l.feedback_note){
+    showBanner('letterFeedbackNoteBanner', `Note from ${nameOf(l.last_action_note_by || l.feedback_requested_by)}: ${l.feedback_note}`, 'info');
+  } else {
+    document.getElementById('letterFeedbackNoteBanner').className = 'banner';
+  }
+
+  document.getElementById('letterDetailBanner').style.display = 'none';
+  document.getElementById('letterDetailOverlay').style.display = 'flex';
+  refreshTableOverlay('ld-body');
+}
+
+function closeLetterDetail(){
+  document.getElementById('letterDetailOverlay').style.display = 'none';
+  currentLetterDetailId = null;
+}
+
+async function saveLetterDetail(){
+  if(!currentLetterDetailId) return;
+  const btn = document.getElementById('letterDetailSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const stakeholderId = document.getElementById('ld-stakeholder').value;
+    const stakeholder = rawStakeholders.find(s=> String(s.id) === String(stakeholderId));
+    if(!stakeholder) throw new Error('Please select a Stakeholder.');
+    // If a Track Changes / earlier-version preview is showing, save the actual
+    // live edited content (not the diff markup or a read-only historical copy).
+    const bodySource = ldViewMode === 'clean' ? document.getElementById('ld-body').innerHTML : ldLiveEditedBody;
+    const bodyHtmlValue = sanitizeRichHtml(bodySource);
+    if(!bodyHtmlValue.replace(/<[^>]*>/g,'').trim()) throw new Error('Letter Body cannot be empty.');
+    const row = {
+      stakeholder_id: stakeholder.id,
+      stakeholder_type: stakeholder.stakeholder_type,
+      stakeholder_name: stakeholder.name,
+      recipient_address: stakeholder.address || null,
+      recipient_person: document.getElementById('ld-person').value.trim() || null,
+      subject: document.getElementById('ld-subject').value.trim(),
+      past_reference_ids: getCheckedIds('ld-pastrefs').map(Number),
+      body: bodyHtmlValue,
+      signing_authority_name: document.getElementById('ld-sign-name').value.trim() || null,
+      signing_authority_designation: document.getElementById('ld-sign-desig').value.trim() || null,
+      enclosures: document.getElementById('ld-encl').value.trim() || null
+    };
+    const { error } = await db.from('letters').update(row).eq('id', currentLetterDetailId);
+    if(error) throw error;
+    ldLiveEditedBody = bodyHtmlValue;
+    showBanner('letterDetailBanner', 'Changes saved.', 'success');
+    await loadLetters();
+    loadLetterVersions(currentLetterDetailId);
+  }catch(err){
+    console.error(err);
+    showBanner('letterDetailBanner', 'Could not save: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
+
+// ---------------- track changes / version history ----------------
+
+async function loadLetterVersions(letterId){
+  try{
+    const { data, error } = await db.from('letter_versions')
+      .select('id, body, edited_by, edited_at')
+      .eq('letter_id', letterId)
+      .order('edited_at', { ascending: false });
+    if(error) throw error;
+    currentLetterVersions = data || [];
+  }catch(err){
+    console.error(err);
+    currentLetterVersions = [];
+  }
+  const sel = document.getElementById('ld-view-history');
+  sel.innerHTML = '<option value="">Earlier versions…</option>' + currentLetterVersions.map(v=>{
+    const when = new Date(v.edited_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    return `<option value="${v.id}">${when} — ${nameOf(v.edited_by)}</option>`;
+  }).join('');
+}
+
+function setLetterBodyViewMode(mode, historyBody){
+  const bodyEl = document.getElementById('ld-body');
+  const l = rawLetters.find(x=>x.id === currentLetterDetailId);
+  if(!l) return;
+  const isPreparer = myProfile && l.preparer === myProfile.id;
+  const isModifier = myProfile && l.modifier === myProfile.id;
+  const isApprover = myProfile && l.approver === myProfile.id;
+  const isPendingWith = myProfile && l.pending_with === myProfile.id;
+  const canEditContent = (l.workflow_status === 'draft' && isPreparer)
+    || (l.workflow_status === 'pending_modification' && isModifier)
+    || (l.workflow_status === 'pending_approval' && isApprover)
+    || (l.workflow_status === 'pending_feedback' && isPendingWith);
+
+  // Leaving Clean copy -- capture whatever's currently live so it isn't lost.
+  if(ldViewMode === 'clean' && mode !== 'clean'){
+    ldLiveEditedBody = sanitizeRichHtml(bodyEl.innerHTML);
+  }
+
+  ldViewMode = mode;
+  document.getElementById('ld-view-clean').classList.toggle('active', mode==='clean');
+  document.getElementById('ld-view-track').classList.toggle('active', mode==='track');
+  document.getElementById('ld-restore-version').style.display = (mode==='history') ? 'inline-flex' : 'none';
+
+  if(mode === 'clean'){
+    bodyEl.innerHTML = ldLiveEditedBody;
+    document.getElementById('ld-view-history').value = '';
+  } else if(mode === 'track'){
+    bodyEl.innerHTML = renderTrackChangesHtml(ldSessionBaselineBody, ldLiveEditedBody);
+  } else if(mode === 'history'){
+    bodyEl.innerHTML = sanitizeRichHtml(historyBody || '');
+  }
+  setRichTextEditable('ld-body', canEditContent && mode === 'clean');
+  refreshTableOverlay('ld-body');
+}
+
+function openForwardFeedbackModal(letterId){
+  forwardFeedbackLetterId = letterId;
+  const sel = document.getElementById('ff-target');
+  sel.innerHTML = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
+    .filter(p=> !myProfile || p.id !== myProfile.id)
+    .map(p=>`<option value="${p.id}">${p.display_name}</option>`).join('');
+  document.getElementById('ff-note').value = '';
+  document.getElementById('forwardFeedbackBanner').style.display = 'none';
+  document.getElementById('forwardFeedbackOverlay').style.display = 'flex';
+}
+
+function closeForwardFeedbackModal(){
+  document.getElementById('forwardFeedbackOverlay').style.display = 'none';
+  forwardFeedbackLetterId = null;
+}
+
+async function handleForwardFeedbackSubmit(){
+  if(!forwardFeedbackLetterId) return;
+  const btn = document.getElementById('forwardFeedbackSendBtn');
+  btn.disabled = true;
+  try{
+    const target = document.getElementById('ff-target').value;
+    if(!target) throw new Error('Please pick who to forward this to.');
+    const note = document.getElementById('ff-note').value.trim() || null;
+    const { error } = await db.rpc('forward_for_feedback', { p_letter_id: forwardFeedbackLetterId, p_target_user: target, p_note: note });
+    if(error) throw error;
+    const letterId = forwardFeedbackLetterId;
+    closeForwardFeedbackModal();
+    showBanner('globalBanner', 'Forwarded for feedback.', 'success');
+    await loadLetters();
+    if(currentLetterDetailId === letterId) openLetterDetail(letterId);
+  }catch(err){
+    console.error(err);
+    showBanner('forwardFeedbackBanner', 'Could not forward: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+// Shared by Reject and Send Back Feedback -- both just need a single note
+// plus a fixed (non-pickable) recipient, unlike Forward for Feedback.
+function openActionNoteModal(letterId, action){
+  actionNoteContext = { letterId, action };
+  const isReject = action === 'reject';
+  document.getElementById('actionNoteTitle').textContent = isReject ? 'Send Back' : 'Send Back Feedback';
+  document.getElementById('actionNoteLabel').textContent = isReject ? 'Reason / suggestions for rework' : 'Your feedback / comments';
+  const textarea = document.getElementById('action-note-text');
+  textarea.value = '';
+  textarea.placeholder = isReject
+    ? 'e.g. Please revise the payment terms in para 2 before resubmitting.'
+    : 'e.g. Looks fine, just fixed a typo in para 3.';
+  document.getElementById('actionNoteBanner').style.display = 'none';
+  document.getElementById('actionNoteOverlay').style.display = 'flex';
+}
+
+function closeActionNoteModal(){
+  document.getElementById('actionNoteOverlay').style.display = 'none';
+  actionNoteContext = null;
+}
+
+async function handleActionNoteSubmit(){
+  if(!actionNoteContext) return;
+  const { letterId, action } = actionNoteContext;
+  const btn = document.getElementById('actionNoteSendBtn');
+  btn.disabled = true;
+  try{
+    const note = document.getElementById('action-note-text').value.trim() || null;
+    const rpcName = action === 'reject' ? 'reject_letter' : 'send_back_feedback';
+    const { error } = await db.rpc(rpcName, { p_letter_id: letterId, p_note: note });
+    if(error) throw error;
+    closeActionNoteModal();
+    showBanner('globalBanner', 'Sent back.', 'success');
+    await loadLetters();
+    if(currentLetterDetailId === letterId) openLetterDetail(letterId);
+  }catch(err){
+    console.error(err);
+    showBanner('actionNoteBanner', 'Could not proceed: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+// ---------------- activity log ----------------
+
+function letterActivityLabel(entry){
+  const actor = nameOf(entry.actor);
+  const target = entry.target_user ? nameOf(entry.target_user) : null;
+  switch(entry.action){
+    case 'created': return `${actor} created this letter`;
+    case 'submitted_for_modification': return `${actor} submitted to the Modifier`;
+    case 'recalled': return `${actor} recalled the submission back to Draft`;
+    case 'forwarded_for_approval': return `${actor} forwarded to the Approver`;
+    case 'approved': return `${actor} approved and locked this letter`;
+    case 'rejected_to_modifier': return `${actor} sent this back to the Modifier` + (entry.note ? `: "${entry.note}"` : '');
+    case 'rejected_to_preparer': return `${actor} sent this back to the Preparer` + (entry.note ? `: "${entry.note}"` : '');
+    case 'forwarded_for_feedback': return `${actor} forwarded to ${target||'someone'} for feedback` + (entry.note ? `: "${entry.note}"` : '');
+    case 'feedback_returned': return `${actor} sent feedback back to ${target||'the sender'}` + (entry.note ? `: "${entry.note}"` : '');
+    default: return `${actor} — ${entry.action}`;
+  }
+}
+
+async function openLetterLogModal(letterId){
+  const l = rawLetters.find(x=>x.id === letterId);
+  document.getElementById('letterLogRefLabel').textContent = l ? l.reference_number : '';
+  document.getElementById('letterLogList').innerHTML = '<div class="status-empty">Loading…</div>';
+  document.getElementById('letterLogOverlay').style.display = 'flex';
+  try{
+    const { data, error } = await db.from('letter_activity_log')
+      .select('id, actor, action, target_user, note, created_at')
+      .eq('letter_id', letterId)
+      .order('created_at', { ascending: false });
+    if(error) throw error;
+    document.getElementById('letterLogList').innerHTML = (data && data.length)
+      ? data.map(entry=>{
+          const when = new Date(entry.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+          return `<div class="status-msg">
+            <div class="status-msg-meta">${when}</div>
+            <div class="status-msg-text">${letterActivityLabel(entry)}</div>
+          </div>`;
+        }).join('')
+      : '<div class="status-empty">No activity yet.</div>';
+  }catch(err){
+    console.error(err);
+    document.getElementById('letterLogList').innerHTML = `<div class="status-empty">Could not load activity log: ${err.message}</div>`;
+  }
+}
+
+function closeLetterLogModal(){
+  document.getElementById('letterLogOverlay').style.display = 'none';
+}
+
+async function deleteLetterDetail(){
+  if(!currentLetterDetailId) return;
+  if(!(myProfile && myProfile.is_admin)) return;
+  if(!confirm('Permanently delete this letter? This cannot be undone.')) return;
+  const btn = document.getElementById('letterDeleteBtn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  try{
+    const { error } = await db.from('letters').delete().eq('id', currentLetterDetailId);
+    if(error) throw error;
+    closeLetterDetail();
+    showBanner('globalBanner', 'Letter deleted.', 'success');
+    await loadLetters();
+  }catch(err){
+    console.error(err);
+    showBanner('letterDetailBanner', 'Could not delete: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = '🗑 Delete';
+  }
+}
+
+function openNewCompanyModal(){
+  document.getElementById('newCompanyForm').reset();
+  document.getElementById('newCompanyBanner').style.display = 'none';
+  document.getElementById('newCompanyOverlay').style.display = 'flex';
+}
+
+function closeNewCompanyModal(){
+  document.getElementById('newCompanyOverlay').style.display = 'none';
+}
+
+async function handleNewCompanySubmit(e){
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  try{
+    const name = document.getElementById('nc-name').value.trim();
+    const address = document.getElementById('nc-address').value.trim() || null;
+    const { data, error } = await db.from('companies').insert({ name, address }).select().single();
+    if(error) throw error;
+    await loadCompanies();
+    document.getElementById('nl-company').value = data.id;
+    handleNlCompanyChange();
+    closeNewCompanyModal();
+  }catch(err){
+    console.error(err);
+    showBanner('newCompanyBanner', 'Could not save: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function openNewStakeholderModal(targetPrefix){
+  newStakeholderTargetPrefix = targetPrefix;
+  document.getElementById('newStakeholderForm').reset();
+  document.getElementById('newStakeholderBanner').style.display = 'none';
+  document.getElementById('newStakeholderOverlay').style.display = 'flex';
+}
+
+function closeNewStakeholderModal(){
+  document.getElementById('newStakeholderOverlay').style.display = 'none';
+}
+
+async function handleNewStakeholderSubmit(e){
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  try{
+    const row = {
+      stakeholder_type: document.getElementById('ns-type').value.trim(),
+      name: document.getElementById('ns-name').value.trim(),
+      address: document.getElementById('ns-address').value.trim() || null
+    };
+    const { data, error } = await db.from('stakeholders').insert(row).select().single();
+    if(error) throw error;
+    await loadStakeholders();
+    const targetId = newStakeholderTargetPrefix + '-stakeholder';
+    document.getElementById(targetId).value = data.id;
+    if(newStakeholderTargetPrefix === 'nl') handleNlStakeholderChange();
+    else handleLdStakeholderChange();
+    closeNewStakeholderModal();
+  }catch(err){
+    console.error(err);
+    showBanner('newStakeholderBanner', 'Could not save: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function printLetter(letterId){
+  const l = rawLetters.find(x=>x.id === letterId);
+  if(!l) return;
+  const bodyHtml = sanitizeRichHtml(l.body || '');
+  const pastRefLines = (l.past_reference_ids||[]).map(id=>{
+    const ref = rawLetters.find(x=>x.id === id);
+    return ref ? `${ref.reference_number} dated ${fmtDate(ref.letter_date)}` : null;
+  }).filter(Boolean);
+  const isDraft = l.workflow_status !== 'approved';
+  // Repeats on every printed page in Chrome/Edge (position:fixed elements are
+  // replicated per page during print) -- this is more reliable than the CSS
+  // @page background approach, which Chrome's print engine doesn't render at all.
+  const watermarkHtml = isDraft ? `<div class="watermark">DRAFT</div>` : '';
+
+  const company = rawCompanies.find(c=> String(c.id) === String(l.company_id));
+  const letterheadHtml = `
+  <div class="company-letterhead">
+    <div class="lh-text">
+      <div class="lh-name">${(l.company_name||'').replace(/</g,'&lt;')}</div>
+      ${company && company.address ? `<div class="lh-address">${company.address.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>` : ''}
+    </div>
+    <img class="lh-logo" src="${LOGO_DATA_URI}" alt="">
+  </div>
+  <hr class="lh-rule">`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${l.reference_number} - Letter</title>
+<style>
+  @page{
+    size: A4; margin: 20mm;
+    @bottom-right{ content: "Page " counter(page) " of " counter(pages); font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #555; }
+  }
+  body{ font-family: 'Times New Roman', Georgia, serif; color:#111; font-size:13px; line-height:1.6; margin:0; position:relative; }
+  .letter-head{ display:flex; justify-content:space-between; margin-bottom:24px; font-family: Arial, Helvetica, sans-serif; font-size:12px; }
+  .address-block{ margin-bottom:18px; }
+  .subject-line{ margin-bottom:14px; }
+  .past-ref{ margin-bottom:14px; }
+  .letter-body p, .letter-body div{ margin:0 0 12px; text-align:justify; }
+  .letter-body table{ border-collapse:collapse; margin:0 0 14px; }
+  .letter-body table td, .letter-body table th{ border:1px solid #999; padding:6px 8px; }
+  .letter-body ul, .letter-body ol{ margin:0 0 12px; padding-left:24px; }
+  .closing{ margin-top:20px; }
+  .signature-block{ margin-top:36px; }
+  .encl{ margin-top:28px; font-size:12px; }
+  .watermark{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-35deg);
+    font-size:120px; font-weight:bold; color:rgba(200,30,30,0.18); font-family:Arial, Helvetica, sans-serif;
+    letter-spacing:14px; z-index:-1; pointer-events:none; white-space:nowrap;
+    print-color-adjust:exact; -webkit-print-color-adjust:exact;
+  }
+  .company-letterhead{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:16px;
+    margin-bottom:10px; font-family: Arial, Helvetica, sans-serif;
+  }
+  .lh-name{ font-size:19px; font-weight:700; color:#2452A6; margin-bottom:4px; }
+  .lh-address{ font-size:12px; color:#222; line-height:1.5; }
+  .lh-logo{ height:52px; width:auto; flex-shrink:0; }
+  .lh-rule{ border:none; border-top:1px solid #bbb; margin:0 0 22px; }
+</style>
+</head>
+<body>
+  ${watermarkHtml}
+  ${letterheadHtml}
+  <div class="letter-head">
+    <div>Date: ${fmtDate(l.letter_date)}</div>
+    <div>Ref: ${(l.reference_number||'').replace(/</g,'&lt;')}</div>
+  </div>
+  <div class="address-block">
+    ${l.recipient_person ? `${l.recipient_person.replace(/</g,'&lt;')}<br>` : ''}
+    ${l.stakeholder_name ? `${l.stakeholder_name.replace(/</g,'&lt;')}<br>` : ''}
+    ${(l.recipient_address||'').replace(/</g,'&lt;').replace(/\n/g,'<br>')}
+  </div>
+  <div class="subject-line"><b>Subject: ${(l.subject||'').replace(/</g,'&lt;')}</b></div>
+  ${pastRefLines.length ? `<div class="past-ref">Ref: ${pastRefLines.map(s=>s.replace(/</g,'&lt;')).join('; ')}</div>` : ''}
+  <div class="letter-body">${bodyHtml}</div>
+  <div class="closing">Thank you.</div>
+  <div class="signature-block">
+    For <b>${(l.company_name||'').replace(/</g,'&lt;')}</b><br><br><br>
+    ${(l.signing_authority_name||'').replace(/</g,'&lt;')}<br>
+    ${(l.signing_authority_designation||'').replace(/</g,'&lt;')}
+  </div>
+  ${l.enclosures ? `<div class="encl">Encl: ${l.enclosures.replace(/</g,'&lt;')}</div>` : ''}
+  <script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups for this site to print.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+function attachLetterEvents(){
+  ['lf-direction','lf-company','lf-stype','lf-status','lf-date-from','lf-date-to'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', renderLetters);
+  });
+  document.getElementById('letterSearchBox').addEventListener('input', renderLetters);
+  document.getElementById('newLetterBtn').addEventListener('click', openNewLetterModal);
+  document.getElementById('newLetterCloseBtn').addEventListener('click', closeNewLetterModal);
+  document.getElementById('newLetterOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'newLetterOverlay') closeNewLetterModal();
+  });
+  document.getElementById('newLetterForm').addEventListener('submit', handleNewLetterSubmit);
+  document.getElementById('nl-company').addEventListener('change', handleNlCompanyChange);
+  document.getElementById('nl-stakeholder').addEventListener('change', handleNlStakeholderChange);
+  document.getElementById('nl-pastrefs-toggle').addEventListener('click', (e)=>{ e.stopPropagation(); toggleMultiselect('nl-pastrefs'); });
+  document.getElementById('nl-company-add').addEventListener('click', openNewCompanyModal);
+  document.getElementById('nl-stakeholder-add').addEventListener('click', ()=> openNewStakeholderModal('nl'));
+
+  document.getElementById('letterDetailCloseBtn').addEventListener('click', closeLetterDetail);
+  document.getElementById('letterDetailOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'letterDetailOverlay') closeLetterDetail();
+  });
+  document.getElementById('letterDetailSaveBtn').addEventListener('click', saveLetterDetail);
+  document.getElementById('letterDeleteBtn').addEventListener('click', deleteLetterDetail);
+  document.getElementById('letterPrintBtn').addEventListener('click', ()=>{
+    const id = currentLetterDetailId;
+    printLetter(id);
+    // Printing opens a popup, which can leave the opener window's focus/UI
+    // looking stuck once it's dismissed -- explicitly restore focus and
+    // re-assert the correct editable state (values are untouched, so any
+    // unsaved edits in progress are preserved).
+    setTimeout(()=>{
+      window.focus();
+      if(currentLetterDetailId === id) reapplyLetterEditableState(id);
+    }, 300);
+  });
+  document.getElementById('ld-stakeholder').addEventListener('change', handleLdStakeholderChange);
+  document.getElementById('ld-pastrefs-toggle').addEventListener('click', (e)=>{ e.stopPropagation(); toggleMultiselect('ld-pastrefs'); });
+  document.getElementById('ld-stakeholder-add').addEventListener('click', ()=> openNewStakeholderModal('ld'));
+
+  document.getElementById('ld-view-clean').addEventListener('click', ()=> setLetterBodyViewMode('clean'));
+  document.getElementById('ld-view-track').addEventListener('click', ()=> setLetterBodyViewMode('track'));
+  document.getElementById('ld-view-history').addEventListener('change', (e)=>{
+    const versionId = e.target.value;
+    if(!versionId){ setLetterBodyViewMode('clean'); return; }
+    const version = currentLetterVersions.find(v=> String(v.id) === String(versionId));
+    setLetterBodyViewMode('history', version ? version.body : '');
+  });
+  document.getElementById('ld-restore-version').addEventListener('click', ()=>{
+    const versionId = document.getElementById('ld-view-history').value;
+    const version = currentLetterVersions.find(v=> String(v.id) === String(versionId));
+    if(!version) return;
+    if(!confirm('Restore this earlier version into the editor? You still need to click Save Changes to keep it.')) return;
+    ldLiveEditedBody = sanitizeRichHtml(version.body);
+    setLetterBodyViewMode('clean');
+  });
+
+  document.getElementById('letterLogBtn').addEventListener('click', ()=>{
+    if(currentLetterDetailId) openLetterLogModal(currentLetterDetailId);
+  });
+  document.getElementById('letterLogCloseBtn').addEventListener('click', closeLetterLogModal);
+  document.getElementById('letterLogOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'letterLogOverlay') closeLetterLogModal();
+  });
+
+  document.getElementById('forwardFeedbackCloseBtn').addEventListener('click', closeForwardFeedbackModal);
+  document.getElementById('forwardFeedbackOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'forwardFeedbackOverlay') closeForwardFeedbackModal();
+  });
+  document.getElementById('forwardFeedbackSendBtn').addEventListener('click', handleForwardFeedbackSubmit);
+
+  document.getElementById('actionNoteCloseBtn').addEventListener('click', closeActionNoteModal);
+  document.getElementById('actionNoteOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'actionNoteOverlay') closeActionNoteModal();
+  });
+  document.getElementById('actionNoteSendBtn').addEventListener('click', handleActionNoteSubmit);
+
+  document.getElementById('newCompanyCloseBtn').addEventListener('click', closeNewCompanyModal);
+  document.getElementById('newCompanyOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'newCompanyOverlay') closeNewCompanyModal();
+  });
+  document.getElementById('newCompanyForm').addEventListener('submit', handleNewCompanySubmit);
+
+  document.getElementById('newStakeholderCloseBtn').addEventListener('click', closeNewStakeholderModal);
+  document.getElementById('newStakeholderOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'newStakeholderOverlay') closeNewStakeholderModal();
+  });
+  document.getElementById('newStakeholderForm').addEventListener('submit', handleNewStakeholderSubmit);
 }
 
 function updateMultiselectSummary(containerId){
@@ -1911,6 +3904,7 @@ function switchView(viewId){
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('active', v.id===viewId));
   document.querySelectorAll('.nav-link').forEach(n=> n.classList.toggle('active', n.dataset.view===viewId));
   if(viewId === 'timeAnalysisView') renderTimeAnalysis();
+  if(viewId === 'lettersView') renderLetters();
 }
 
 async function onSignedIn(){
@@ -1924,6 +3918,10 @@ async function onSignedIn(){
     await loadTasks();
     populateWhoReviewerSelects();
     initTimeFilters();
+    await loadCompanies();
+    await loadStakeholders();
+    await loadLetters();
+    populateLetterPeopleSelects();
     await loadNotifications();
     if(notificationPollTimer) clearInterval(notificationPollTimer);
     notificationPollTimer = setInterval(loadNotifications, 60000);
@@ -1936,7 +3934,7 @@ async function onSignedIn(){
 function onSignedOut(){
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
-  currentUser = null; myProfile = null; rawTasks = [];
+  currentUser = null; myProfile = null; rawTasks = []; rawLetters = []; rawCompanies = []; rawStakeholders = [];
   if(notificationPollTimer){ clearInterval(notificationPollTimer); notificationPollTimer = null; }
   activeNotifications = [];
   document.getElementById('notifDropdown').style.display = 'none';
@@ -2048,6 +4046,7 @@ function initThemeToggle(){
       const active = document.querySelector('.view.active');
       if(active && active.id === 'timeAnalysisView') renderTimeAnalysis();
       else if(active && active.id === 'dashboardView') renderAll();
+      else if(active && active.id === 'lettersView') renderLetters();
     }
   });
 }
@@ -2077,6 +4076,8 @@ function init(){
   document.getElementById('signOutBtn').addEventListener('click', ()=> db.auth.signOut());
   document.querySelectorAll('.nav-link').forEach(n=> n.addEventListener('click', ()=> switchView(n.dataset.view)));
   attachDashboardEvents();
+  attachLetterEvents();
+  initRichTextEditors();
   attachTimeAnalysisEvents();
   document.getElementById('taskDetailCloseBtn').addEventListener('click', closeTaskDetail);
   document.getElementById('taskDetailSaveBtn').addEventListener('click', saveTaskDetail);
@@ -2114,7 +4115,20 @@ function init(){
   });
 
   db.auth.onAuthStateChange((event, session)=>{
-    if(session && session.user){ onSignedIn(); } else { onSignedOut(); }
+    if(session && session.user){
+      // Supabase fires this on every token refresh (roughly hourly, and on tab
+      // focus/visibility change), not just on an actual sign-in. Re-running the
+      // full onSignedIn() pipeline on those events was clobbering open editors
+      // (e.g. resetting dropdown selections mid-edit) -- only do the full
+      // (re)initialization when the signed-in user actually changes.
+      if(!currentUser || currentUser.id !== session.user.id){
+        onSignedIn();
+      } else {
+        currentUser = session.user;
+      }
+    } else {
+      onSignedOut();
+    }
   });
 }
 
