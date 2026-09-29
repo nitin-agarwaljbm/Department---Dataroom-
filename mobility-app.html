@@ -1789,6 +1789,12 @@
         </div>
       </div>
 
+      <div class="panel">
+        <div class="panel-title">Budget Summary <span style="text-transform:none; letter-spacing:0; font-weight:400;">(internal)</span></div>
+        <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">A rollup of the Budget Qty/Rate/Amount figures entered above -- the same breakdown bidders' quotes get compared against once they've submitted. Never shown to bidders.</div>
+        <div class="comparative-wrap"><table id="tdBudgetSummaryTable" class="comparative-table"></table></div>
+      </div>
+
       <div id="tdVendorSection" style="display:none;">
         <div class="panel">
           <div class="panel-title">Vendors</div>
@@ -6288,7 +6294,52 @@ function computeVendorFinancialsFromSnapshot(tender, snapshot){
   };
 }
 
+// Same "Budget" breakdown as the Budget column inside renderComparative()
+// below, but standalone and always visible (even in Draft, before any
+// bidder exists) -- renderComparative() itself only renders once there's
+// at least one vendor to compare against, which is too late for the
+// creator to sanity-check their own budget while still building it.
+function renderBudgetSummary(){
+  const table = document.getElementById('tdBudgetSummaryTable');
+  if(!table || !currentTenderData) return;
+  const tender = currentTenderData;
+  const lineItems = [...currentTenderLineItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
+  const costItems = [...currentTenderCostItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
+  const fin = computeBudgetFinancials(tender, lineItems, costItems, currentTenderInternal);
+
+  const lineItemRowFor = (li, i)=>{
+    const lr = fin.lineResults[i];
+    const pk = fin.perKmMonthly(lr.total);
+    return `<tr><td>${li.activity_name}${isDriverLineItem(li) ? ' <span class="who-chip">Drivers</span>' : ''}</td><td>${fmtNum(lr.qty)}</td><td>${fmtNum(lr.rate)}</td><td>${fmtMoney(lr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
+  };
+  const costItemRowFor = (ci, i)=>{
+    const cr = fin.costResults[i];
+    const pk = fin.perKm(cr.total + cr.gst);
+    const gstNote = cr.gstApplicable ? ` + ${fmtMoney(cr.gst)} GST (${fmtNum(cr.gstRate)}%)` : ' (no GST)';
+    return `<tr><td>${ci.field_name} <span class="who-chip">${costItemKindLabel(ci.kind)}</span></td><td colspan="2">${cr.qty!=null ? fmtNum(cr.qty)+' × '+fmtNum(cr.amount) : fmtNum(cr.amount)}</td><td>${fmtMoney(cr.total)}${gstNote}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
+  };
+  const computedRow = (label, getter, amountGetter, opts)=>{
+    opts = opts || {};
+    const amt = amountGetter ? amountGetter(fin) : null;
+    const pk = amt != null ? fin.perKm(amt) : null;
+    return `<tr class="${opts.totalRow ? 'total-row' : ''}"><td>${label}</td><td colspan="3">${getter(fin)}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
+  };
+
+  table.innerHTML = `
+    <thead><tr><th>Line Item</th><th>Qty</th><th>Rate</th><th>Total</th><th>Per KM</th></tr></thead>
+    <tbody>
+      ${lineItems.map((li,i)=> lineItemRowFor(li,i)).join('')}
+      ${computedRow('Manpower Total (Yearly, Rate × Qty × 12)', f=> fmtMoney(f.manpowerTotal), f=> f.manpowerTotal, {totalRow:true})}
+      ${computedRow('Manpower GST', f=> f.manpowerGstApplicable ? fmtMoney(f.manpowerGst)+' ('+fmtNum(f.manpowerGstRate)+'%)' : 'Not applicable', f=> f.manpowerGstApplicable ? f.manpowerGst : null)}
+      ${costItems.map((ci,i)=> costItemRowFor(ci,i)).join('')}
+      ${computedRow('Sub-Total', f=> fmtMoney(f.subTotal), f=> f.subTotal)}
+      ${computedRow('GST Total', f=> fmtMoney(f.gstTotal), f=> f.gstTotal)}
+      ${computedRow('Grand Total', f=> fmtMoney(f.grandTotal), f=> f.grandTotal, {totalRow:true})}
+    </tbody>`;
+}
+
 function renderComparative(){
+  renderBudgetSummary();
   const container = document.getElementById('comparativeTable');
   const snapRow = document.getElementById('tenderSnapshotRow');
   const lineItems = [...currentTenderLineItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
