@@ -62,6 +62,18 @@
     color:var(--text); opacity:1; cursor:default; resize:none;
   }
   .readonly-value{color:var(--text); font-size:calc(13.5px * var(--fs)); padding:4px 0; font-family:'IBM Plex Sans',sans-serif;}
+  /* Compact label:value summary shown once a tender is locked, instead of
+     a form full of disabled-styled inputs -- short fields sit two to a
+     row, longer free-text ones take the full row with the value below
+     the label, roughly halving the vertical space the same info used to take. */
+  .master-frozen-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 24px; margin-bottom:4px;}
+  .master-frozen-grid .mf-row{grid-column:span 1; display:flex; justify-content:space-between; align-items:baseline; gap:14px; padding:4px 0; border-bottom:1px solid var(--border); line-height:1.3;}
+  .master-frozen-grid .mf-row.full{grid-column:1 / -1; justify-content:flex-start;}
+  .master-frozen-grid .mf-label{color:var(--muted); font-size:calc(10.5px * var(--fs)); text-transform:uppercase; letter-spacing:0.5px; flex:none; white-space:nowrap;}
+  .master-frozen-grid .mf-row.full .mf-label{width:150px;}
+  .master-frozen-grid .mf-value{color:var(--text); font-size:calc(12.5px * var(--fs)); text-align:right; min-width:0;}
+  .master-frozen-grid .mf-row.full .mf-value{text-align:left; white-space:pre-wrap; flex:1;}
+  @media (max-width:560px){ .master-frozen-grid{grid-template-columns:1fr;} .master-frozen-grid .mf-row{grid-column:1;} .master-frozen-grid .mf-row.full{flex-direction:column; gap:2px;} .master-frozen-grid .mf-row.full .mf-label{width:auto;} }
   /* A plain, unboxed table for read-only info -- no container border/background,
      so it never looks like an editable field the way input-styled boxes do. */
   .plain-readonly-table{background:none; border:none;}
@@ -223,6 +235,11 @@
   .activity-title{font-weight:500; line-height:1.35;}
   .activity-meta{font-size:calc(11px * var(--fs)); color:var(--faint); margin-top:2px;}
   .badge{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:calc(10.5px * var(--fs)); font-weight:600; font-family:'IBM Plex Mono',monospace; white-space:nowrap;}
+  /* Same semantic colors as the pill badges, without the pill chrome --
+     for places (like a compact summary row) that want color-coded status
+     text rather than a background+dot indicator. */
+  .badge-plain{background:none !important; padding:0 !important; border-radius:0 !important; font-family:'IBM Plex Sans',sans-serif; font-size:calc(13px * var(--fs));}
+  .badge-plain::before{display:none;}
   .badge::before{content:''; width:6px; height:6px; border-radius:50%;}
   .badge.overdue{background:var(--overdue-bg); color:var(--overdue);} .badge.overdue::before{background:var(--overdue);}
   .badge.duesoon{background:var(--duesoon-bg); color:var(--duesoon);} .badge.duesoon::before{background:var(--duesoon);}
@@ -290,6 +307,13 @@
     width:100%; max-width:640px; padding:20px 24px; max-height:calc(100vh - 80px); overflow-y:auto;
   }
   .modal-box-wide{max-width:1180px; max-height:calc(100vh - 40px);}
+  /* Tender Detail only: Master Details (plus the header/banner above it)
+     stays pinned at the top instead of scrolling away with the rest --
+     the modal box itself stops scrolling and becomes a column, so only
+     .modal-body (Line Items onward) scrolls, inside whatever height is left. */
+  #tenderDetailOverlay .modal-box{display:flex; flex-direction:column; overflow:hidden;}
+  #tenderDetailOverlay .modal-header, #tenderDetailOverlay > .modal-box > .banner, #tenderDetailOverlay > .modal-box > .panel{flex:none;}
+  #tenderDetailOverlay .modal-body{overflow-y:auto; flex:1; min-height:0;}
   #newLetterOverlay, #letterDetailOverlay{padding:20px 16px;}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
   .row4{display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px;}
@@ -378,6 +402,43 @@
     tbody td::before{content:attr(data-label); font-size:calc(10px * var(--fs)); text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); font-weight:600;}
     .table-wrap{max-height:none; overflow:visible; border:none; background:none;}
   }
+
+  /* ---------------- Bidder print summary (2-page A4, for Sr. Management) ---------------- */
+  #vpPrintArea{display:none;}
+  #vpPrintArea .pp-page{
+    background:#fff; color:#111; font-family:'IBM Plex Sans',Arial,sans-serif; font-size:9.6pt; line-height:1.4;
+  }
+  #vpPrintArea h1{font-family:'IBM Plex Serif',Georgia,serif; font-size:16pt; margin:0 0 2px; color:#0B1220;}
+  #vpPrintArea .pp-sub{font-size:9.5pt; color:#555; margin-bottom:10px;}
+  #vpPrintArea .pp-header{display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #0B1220; padding-bottom:8px; margin-bottom:12px;}
+  #vpPrintArea .pp-header .pp-meta{text-align:right; font-size:8.5pt; color:#555;}
+  #vpPrintArea .pp-section-title{font-family:'IBM Plex Serif',Georgia,serif; font-weight:700; font-size:11pt; color:#0B1220; margin:12px 0 5px; padding-bottom:3px; border-bottom:1px solid #ccc;}
+  #vpPrintArea .pp-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 18px; margin-bottom:4px;}
+  #vpPrintArea .pp-row{display:flex; justify-content:space-between; gap:10px; padding:2.5px 0; border-bottom:1px solid #e2e2e2;}
+  #vpPrintArea .pp-row.full{grid-column:1/-1; flex-direction:column; gap:1px;}
+  #vpPrintArea .pp-label{color:#666; font-size:8pt; text-transform:uppercase; letter-spacing:0.4px; flex:none;}
+  #vpPrintArea .pp-row.full .pp-label{width:auto;}
+  #vpPrintArea .pp-value{color:#111; text-align:right; font-weight:500;}
+  #vpPrintArea .pp-row.full .pp-value{text-align:left; white-space:pre-wrap; font-weight:400;}
+  #vpPrintArea table{width:100%; border-collapse:collapse; margin-bottom:6px; font-size:8.8pt;}
+  #vpPrintArea th, #vpPrintArea td{border:1px solid #ccc; padding:3.5px 6px; text-align:right;}
+  #vpPrintArea th:first-child, #vpPrintArea td:first-child{text-align:left;}
+  #vpPrintArea thead th{background:#f0f2f8; font-size:7.8pt; text-transform:uppercase; letter-spacing:0.3px; color:#444;}
+  #vpPrintArea tr{break-inside:avoid;}
+  #vpPrintArea .pp-decision-box{border:1.5px solid #0B1220; border-radius:4px; padding:10px 14px; margin:10px 0; background:#f7f8fc;}
+  #vpPrintArea .pp-decision-box .pp-grand{font-size:15pt; font-weight:700; color:#0B1220;}
+  #vpPrintArea .pp-decision-row{display:flex; justify-content:space-between; padding:2px 0; font-size:9.5pt;}
+  #vpPrintArea .pp-signoff{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:26px;}
+  #vpPrintArea .pp-signoff div{border-top:1px solid #999; padding-top:4px; font-size:8.5pt; color:#555;}
+  #vpPrintArea .pp-footer{margin-top:14px; font-size:7.5pt; color:#888; text-align:center;}
+  @media print{
+    @page{ size:A4; margin:14mm 13mm; }
+    body *{ visibility:hidden; }
+    #vpPrintArea, #vpPrintArea *{ visibility:visible; }
+    #vpPrintArea{ display:block; position:absolute; left:0; top:0; width:100%; }
+    #vpPrintArea .pp-page{ page-break-after:always; }
+    #vpPrintArea .pp-page:last-child{ page-break-after:auto; }
+  }
 </style>
 </head>
 <body>
@@ -444,32 +505,31 @@
 
     <!-- ---------- SELECTED TENDER (DETAIL) ---------- -->
     <div id="vpDetailView" style="display:none;">
-      <button type="button" class="btn small" id="vpBackToListBtn" style="margin-bottom:14px;">← Back to My Tenders</button>
-      <div class="panel">
-      <div class="panel-title">Your Quote — Status <button type="button" class="btn small" id="vpHistoryBtn" style="float:right;">History</button></div>
-      <div class="field"><label>Status</label><div class="readonly-value" id="vp-submission-status">—</div></div>
-      <div id="vpRevisionNoteBox" class="banner error" style="display:none;"></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">Tender Details <span id="vpTenderStatusBadge"></span></div>
-      <div class="field"><label>Location</label><input type="text" id="vp-location" disabled></div>
-      <div class="row2">
-        <div class="field"><label>Subject</label><input type="text" id="vp-subject" disabled></div>
-        <div class="field"><label>Project</label><input type="text" id="vp-project" disabled></div>
-      </div>
-      <div class="field"><label>Type</label><div class="readonly-value" id="vp-billing-type">—</div></div>
-      <div class="field"><label>Background &amp; Justification</label><textarea id="vp-background" disabled></textarea></div>
-      <div class="field"><label>Bus Requirement</label><table id="vpBusMixTable" class="plain-readonly-table"><thead><tr><th>Model</th><th>No. of Buses</th><th>Assured KM / Annum</th></tr></thead><tbody id="vpBusMixTableBody"></tbody></table></div>
       <input type="hidden" id="vp-total-buses"><input type="hidden" id="vp-total-km">
-      <div class="field"><label>Scope of Work</label><textarea id="vp-scope" disabled></textarea></div>
-      <div class="field"><label>Terms</label><textarea id="vp-terms" disabled></textarea></div>
-      <div class="field" id="vpOperatorAgreementField" style="display:none;">
-        <label>Operator Agreement</label>
-        <a href="#" id="vpOperatorAgreementLink" target="_blank" rel="noopener" class="btn" style="width:100%; justify-content:center; padding:11px;">📄 Download Draft Operator Agreement having Scope and Terms in detail</a>
+      <div id="vpStickyTop" style="position:sticky; top:71px; z-index:500; background:var(--bg); padding-top:1px; margin-top:-1px;">
+        <div class="panel">
+          <div class="panel-title">Your Quote — Status
+            <span style="float:right; display:flex; gap:8px;">
+              <button type="button" class="btn small" id="vpBackToListBtn">← Back to My Tenders</button>
+              <button type="button" class="btn small" id="vpPrintBtn" title="Print a 2-page management summary of this bid">🖨 Print</button>
+              <button type="button" class="btn small" id="vpHistoryBtn">History</button>
+            </span>
+          </div>
+          <div class="master-frozen-grid" style="margin-bottom:0;">
+            <div class="mf-row"><span class="mf-label">Status</span><span class="badge badge-plain" id="vp-submission-status">—</span></div>
+            <div class="mf-row"><span class="mf-label">Bidding Closes</span><span class="mf-value" id="vp-closure-date">—</span></div>
+          </div>
+          <div id="vpRevisionNoteBox" class="banner error" style="display:none;"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Tender Details <span id="vpTenderStatusBadge"></span></div>
+          <div id="vpTenderFrozenTop" class="master-frozen-grid"></div>
+        </div>
       </div>
-      <div class="field"><label>Bidding Closes</label><div class="readonly-value" id="vp-closure-date">—</div></div>
-    </div>
+
+      <div class="panel">
+        <div id="vpTenderFrozenBottom" class="master-frozen-grid"></div>
+      </div>
 
     <form id="vendorQuoteForm">
       <div class="panel">
@@ -552,6 +612,7 @@
         <button type="button" class="btn primary" id="vqSubmitBtn" style="flex:1; justify-content:center; padding:12px;">Submit Quote</button>
       </div>
     </form>
+    <div id="vpPrintArea"></div>
     </div>
     <!-- /vpDetailView -->
   </div>
@@ -568,8 +629,6 @@
         <div class="nav-link" data-view="newTaskView">New Task</div>
         <div class="nav-link" data-view="lettersView">Letters</div>
         <div class="nav-link" data-view="tendersView">Vendor Tenders</div>
-        <div class="nav-link" data-view="userManagementView">User Management</div>
-        <div class="nav-link" data-view="passwordView">Change Password</div>
       </div>
     </div>
     <div class="topnav-right">
@@ -597,8 +656,14 @@
       <button class="theme-toggle font-size-btn" id="fontIncBtn" title="Increase font size">A<sup>+</sup></button>
       <button class="theme-toggle" id="fullscreenToggle" title="Toggle full screen"></button>
       <button class="theme-toggle" id="themeToggle"></button>
-      <span>Signed in as <b id="whoAmI">—</b></span>
-      <button class="btn small" id="signOutBtn">Sign out</button>
+      <div style="position:relative;">
+        <button class="btn small" id="userMenuBtn">Signed in as <b id="whoAmI">—</b> ▾</button>
+        <div class="print-dropdown" id="userMenuDropdown" style="display:none;">
+          <div class="print-menu-item nav-link" id="userMenuUserManagement" data-view="userManagementView">User Management</div>
+          <div class="print-menu-item nav-link" id="userMenuChangePassword" data-view="passwordView">Change Password</div>
+          <div class="print-menu-item" id="signOutBtn">Sign out</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1667,63 +1732,72 @@
     <div class="modal-header">
       <div class="panel-title" style="border:none; margin:0; padding:0;" id="tenderDetailTitle">Tender</div>
       <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn small" id="tenderDeleteBtn" title="Delete this tender">🗑 Delete Tender</button>
+        <button class="btn small" id="tenderPrintBtn" title="Print a management summary comparing all bidders">🖨 Print</button>
         <button class="btn small" id="tenderDetailCloseBtn">✕ Close</button>
       </div>
     </div>
     <div id="tenderDetailBanner" class="banner"></div>
+    <div class="panel" style="flex:none;">
+        <div class="panel-title">Master Details</div>
+        <div id="tdMasterFrozenViewTop" class="master-frozen-grid" style="display:none;"></div>
+        <div id="tdMasterEditViewTop">
+          <div class="row2">
+            <div class="field"><label>Location</label><input type="text" id="td-t-location"></div>
+            <div class="field"><label>Target Closure Date <span style="text-transform:none; letter-spacing:0;">(required to float)</span></label><input type="date" id="td-t-closure-date"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Subject</label><input type="text" id="td-t-subject"></div>
+            <div class="field"><label>Project</label><input type="text" id="td-t-project"></div>
+          </div>
+          <div class="field">
+            <label>Type</label>
+            <select id="td-t-billing-type">
+              <option value="">—</option>
+              <option value="per_km">Per KM Basis</option>
+              <option value="management">Management Basis</option>
+            </select>
+            <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Per KM Basis: operator bills actual KM run each month. Management Basis: a per-KM management fee, plus actual manpower cost. Pricing fields below work the same either way.</div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Bus Requirement <span style="text-transform:none; letter-spacing:0;">(add one row per model, e.g. 09M / 12M)</span></label>
+              <div id="td-bus-mix-rows"></div>
+              <button type="button" class="btn small" id="td-bus-mix-add">+ Add model row</button>
+            </div>
+            <div class="field"><label>Availability Factor %</label><input type="number" step="0.01" id="td-t-availability"></div>
+          </div>
+          <input type="hidden" id="td-t-total-buses"><input type="hidden" id="td-t-total-km">
+          <div class="row2">
+            <div class="field">
+              <label>Operator Agreement</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="url" id="td-t-operator-agreement" placeholder="Paste the OneDrive share link" style="flex:1;">
+                <a href="#" id="tdOperatorAgreementLink" target="_blank" rel="noopener" class="btn small" style="display:none; white-space:nowrap;">📄 Open</a>
+              </div>
+              <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Shown to every bidder as "Download Draft Operator Agreement having Scope and Terms in detail."</div>
+            </div>
+            <div class="field"><label>Status</label><div class="readonly-value" id="td-t-status-display">—</div></div>
+          </div>
+        </div>
+    </div>
+
     <div class="modal-body">
       <div class="panel">
-        <div class="panel-title">Master Details</div>
-        <div class="row2">
-          <div class="field"><label>Location</label><input type="text" id="td-t-location"></div>
-          <div class="field"><label>Availability Factor %</label><input type="number" step="0.01" id="td-t-availability"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Subject</label><input type="text" id="td-t-subject"></div>
-          <div class="field"><label>Project</label><input type="text" id="td-t-project"></div>
-        </div>
-        <div class="field">
-          <label>Type</label>
-          <select id="td-t-billing-type">
-            <option value="">—</option>
-            <option value="per_km">Per KM Basis</option>
-            <option value="management">Management Basis</option>
-          </select>
-          <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Per KM Basis: operator bills actual KM run each month. Management Basis: a per-KM management fee, plus actual manpower cost. Pricing fields below work the same either way.</div>
-        </div>
-        <div class="field"><label>Background &amp; Justification</label><textarea id="td-t-background"></textarea></div>
-        <div class="field">
-          <label>Bus Requirement <span style="text-transform:none; letter-spacing:0;">(add one row per model, e.g. 09M / 12M)</span></label>
-          <div id="td-bus-mix-rows"></div>
-          <button type="button" class="btn small" id="td-bus-mix-add">+ Add model row</button>
-        </div>
-        <input type="hidden" id="td-t-total-buses"><input type="hidden" id="td-t-total-km">
-        <div class="field"><label>Scope of Work</label><textarea id="td-t-scope"></textarea></div>
-        <div class="field"><label>Terms</label><textarea id="td-t-terms"></textarea></div>
-        <div class="field">
-          <label>Operator Agreement</label>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="url" id="td-t-operator-agreement" placeholder="Paste the OneDrive share link" style="flex:1;">
-            <a href="#" id="tdOperatorAgreementLink" target="_blank" rel="noopener" class="btn small" style="display:none; white-space:nowrap;">📄 Open</a>
-          </div>
-          <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Shown to every bidder as "Download Draft Operator Agreement having Scope and Terms in detail."</div>
-        </div>
-        <div class="row3">
+        <div id="tdMasterFrozenViewBottom" class="master-frozen-grid" style="display:none;"></div>
+        <div id="tdMasterEditViewBottom">
+          <div class="field"><label>Background &amp; Justification</label><textarea id="td-t-background"></textarea></div>
+          <div class="field"><label>Scope of Work</label><textarea id="td-t-scope"></textarea></div>
+          <div class="field"><label>Terms</label><textarea id="td-t-terms"></textarea></div>
           <div class="field"><label>Benchmark Cost <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label><input type="number" step="0.01" id="td-t-benchmark"></div>
-          <div class="field"><label>Target Closure Date <span style="text-transform:none; letter-spacing:0;">(required to float)</span></label><input type="date" id="td-t-closure-date"></div>
-          <div class="field"><label>Status</label><div class="readonly-value" id="td-t-status-display">—</div></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Approver 1</label><select id="td-t-approver1"></select></div>
-          <div class="field"><label>Approver 2</label><select id="td-t-approver2"></select></div>
-        </div>
-        <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:10px;">Both approvers must sign off before any bidder can be awarded.</div>
-        <button type="button" class="btn primary" id="tenderDetailSaveBtn">Save Master Details</button>
-        <div style="display:flex; justify-content:flex-end; margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
-          <button type="button" class="btn small" id="tenderDeleteBtn" title="Delete this tender">🗑 Delete Tender</button>
+          <div class="row2">
+            <div class="field"><label>Approver 1</label><select id="td-t-approver1"></select></div>
+            <div class="field"><label>Approver 2</label><select id="td-t-approver2"></select></div>
+          </div>
+          <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:10px;">Both approvers must sign off before any bidder can be awarded.</div>
+          <button type="button" class="btn primary" id="tenderDetailSaveBtn">Save Master Details</button>
         </div>
       </div>
-
       <div class="panel">
         <div class="panel-title">Line Items</div>
         <div class="table-wrap">
@@ -1830,8 +1904,7 @@
         <div class="panel-title">Tender Actions</div>
         <div id="tdSubmitForFloatBox" style="margin-bottom:10px;"></div>
         <div id="tdFloatBox" style="margin-bottom:10px;"></div>
-        <div id="tdExtendClosureBox" style="margin-bottom:10px;"></div>
-        <div id="tdStatusBox"></div>
+        <div id="tdExtendClosureBox"></div>
       </div>
     </div>
   </div>
@@ -2638,6 +2711,16 @@ function attachDashboardEvents(){
   document.getElementById('printOption2').addEventListener('click', ()=>{
     document.getElementById('printDropdown').style.display = 'none';
     printOpenTasksByPriority();
+  });
+  document.getElementById('userMenuBtn').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const dd = document.getElementById('userMenuDropdown');
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  });
+  ['userMenuUserManagement','userMenuChangePassword','signOutBtn'].forEach(id=>{
+    document.getElementById(id).addEventListener('click', ()=>{
+      document.getElementById('userMenuDropdown').style.display = 'none';
+    });
   });
 }
 
@@ -4796,8 +4879,59 @@ function renderOperatorAgreementLink(elId, url){
   }
 }
 
+// Once locked, the editable form (all those disabled-styled inputs) is
+// swapped out entirely for a compact label:value summary -- roughly half
+// the vertical space, and the Operator Agreement row only ever shows the
+// Open button, never the raw link text.
+function renderMasterFrozenView(tender){
+  const top = document.getElementById('tdMasterFrozenViewTop');
+  const bottom = document.getElementById('tdMasterFrozenViewBottom');
+  if(!top || !bottom || !tender) return;
+  const companyName = (rawCompanies.find(c=> String(c.id)===String(tender.company_id))||{}).name || '—';
+  const busMixText = (tender.bus_mix||[]).length
+    ? tender.bus_mix.map(r=> `${r.model||''} — ${r.bus_count||0} buses, ${fmtNum(r.assured_km_per_month)} km/yr`).join('\n')
+    : '—';
+  const approver1 = tender.approver_1_id && profileById[tender.approver_1_id] ? profileById[tender.approver_1_id].display_name : '—';
+  const approver2 = tender.approver_2_id && profileById[tender.approver_2_id] ? profileById[tender.approver_2_id].display_name : '—';
+  const benchmark = currentTenderInternal && currentTenderInternal.benchmark_cost;
+  const wf = tenderWorkflowStatusLabel(tender);
+
+  const shortRow = (label, value)=> `<div class="mf-row"><span class="mf-label">${label}</span><span class="mf-value">${(value != null && value !== '') ? value : '—'}</span></div>`;
+  const shortRowWrap = (label, value)=> `<div class="mf-row"><span class="mf-label">${label}</span><span class="mf-value" style="text-align:left; white-space:pre-wrap;">${(value != null && value !== '') ? value : '—'}</span></div>`;
+  const fullRow = (label, value)=> `<div class="mf-row full"><span class="mf-label">${label}</span><div class="mf-value">${(value != null && value !== '') ? value : '—'}</div></div>`;
+
+  // Pinned section stops right after Operator Agreement/Status -- everything
+  // from Background down scrolls with the rest of the modal body instead.
+  top.innerHTML = [
+    shortRow('Location', tender.location_name),
+    shortRow('Target Closure Date', tender.target_closure_date ? fmtDate(tender.target_closure_date) : '—'),
+    shortRow('Subject', tender.subject),
+    shortRow('Project', tender.project),
+    shortRow('Company', companyName),
+    shortRow('Type', billingTypeLabel(tender.billing_type)),
+    shortRowWrap('Bus Requirement', busMixText),
+    shortRow('Availability Factor %', tender.availability_factor),
+    tender.operator_agreement_url ? shortRow('Operator Agreement', `<a href="${tender.operator_agreement_url}" target="_blank" rel="noopener" class="btn small">📄 Open</a>`) : '',
+    shortRow('Status', `<span class="badge ${wf.cls}">${wf.text}</span>`)
+  ].join('');
+
+  bottom.innerHTML = [
+    fullRow('Background', tender.background),
+    fullRow('Scope of Work', tender.scope_of_work),
+    fullRow('Terms', tender.terms),
+    fullRow('Benchmark Cost (internal)', (benchmark != null && benchmark !== '') ? fmtMoney(benchmark) : '—'),
+    shortRow('Approver 1', approver1),
+    shortRow('Approver 2', approver2)
+  ].join('');
+}
+
 function applyTenderEditLock(tender){
   const locked = !tender || tender.status !== 'draft' || tender.submitted_for_float_at != null;
+  document.getElementById('tdMasterEditViewTop').style.display = locked ? 'none' : 'block';
+  document.getElementById('tdMasterFrozenViewTop').style.display = locked ? 'grid' : 'none';
+  document.getElementById('tdMasterEditViewBottom').style.display = locked ? 'none' : 'block';
+  document.getElementById('tdMasterFrozenViewBottom').style.display = locked ? 'grid' : 'none';
+  if(locked) renderMasterFrozenView(tender);
   const masterFieldIds = ['td-t-location','td-t-subject','td-t-project','td-t-billing-type','td-t-background','td-t-availability','td-t-scope','td-t-terms','td-t-operator-agreement','td-t-benchmark','td-t-budget-manpower-gst','td-t-budget-manpower-gst-rate','td-t-closure-date','td-t-approver1','td-t-approver2'];
   masterFieldIds.forEach(id=>{
     const el = document.getElementById(id);
@@ -5061,7 +5195,6 @@ async function openTenderDetail(id){
 
     renderSubmitForFloatBox(tender);
     renderFloatBox(tender);
-    renderStatusBox(tender);
     renderExtendClosureBox(tender);
     applyVendorSectionVisibility(tender);
 
@@ -5262,7 +5395,6 @@ async function handleFloatTender(){
     document.getElementById('td-t-status-display').innerHTML = `<span class="badge open">${tenderStatusLabel('open')}</span>`;
     renderSubmitForFloatBox(currentTenderData);
     renderFloatBox(currentTenderData);
-    renderStatusBox(currentTenderData);
     renderExtendClosureBox(currentTenderData);
     applyTenderEditLock(currentTenderData);
     applyVendorSectionVisibility(currentTenderData);
@@ -5279,7 +5411,7 @@ function renderExtendClosureBox(tender){
   const box = document.getElementById('tdExtendClosureBox');
   if(!box) return;
   const canFloat = !!(myProfile && (myProfile.is_admin || myProfile.can_float_tenders));
-  if(!tender || tender.status === 'draft' || tender.awarded_quote_id != null || !canFloat){
+  if(!tender || tender.status !== 'open' || tender.awarded_quote_id != null || !canFloat){
     box.innerHTML = '';
     return;
   }
@@ -5315,43 +5447,6 @@ async function handleExtendClosureDate(){
     showBanner('tenderDetailBanner', 'Could not extend: ' + err.message, 'error');
   }finally{
     btn.disabled = false;
-  }
-}
-
-function renderStatusBox(tender){
-  const box = document.getElementById('tdStatusBox');
-  if(!box) return;
-  if(!tender || tender.status === 'draft' || !(myProfile && myProfile.is_admin)){
-    box.innerHTML = '';
-    return;
-  }
-  if(tender.status === 'open'){
-    box.innerHTML = `<button type="button" class="btn" id="tdCloseTenderBtn" style="width:100%; justify-content:center; padding:11px;">Close Tender (stop bidding)</button>`;
-    document.getElementById('tdCloseTenderBtn').addEventListener('click', ()=> handleTenderStatusToggle('closed'));
-  } else if(tender.status === 'closed'){
-    box.innerHTML = `<button type="button" class="btn" id="tdReopenTenderBtn" style="width:100%; justify-content:center; padding:11px;">Reopen Tender</button>`;
-    document.getElementById('tdReopenTenderBtn').addEventListener('click', ()=> handleTenderStatusToggle('open'));
-  } else {
-    box.innerHTML = '';
-  }
-}
-
-async function handleTenderStatusToggle(newStatus){
-  if(!currentTenderId) return;
-  const label = newStatus === 'closed' ? 'Close this tender? Vendors will no longer be able to bid.' : 'Reopen this tender for bidding?';
-  if(!confirm(label)) return;
-  try{
-    const { error } = await db.from('vendor_tenders').update({ status: newStatus }).eq('id', currentTenderId);
-    if(error) throw error;
-    if(currentTenderData) currentTenderData.status = newStatus;
-    document.getElementById('td-t-status-display').innerHTML = `<span class="badge ${newStatus}">${tenderStatusLabel(newStatus)}</span>`;
-    renderStatusBox(currentTenderData);
-    applyTenderEditLock(currentTenderData);
-    showBanner('tenderDetailBanner', newStatus === 'closed' ? 'Tender closed.' : 'Tender reopened.', 'success');
-    await loadTenders();
-  }catch(err){
-    console.error(err);
-    showBanner('tenderDetailBanner', 'Could not update status: ' + err.message, 'error');
   }
 }
 
@@ -6504,6 +6599,7 @@ function attachTenderEvents(){
   document.getElementById('tenderDetailOverlay').addEventListener('click', (e)=>{ if(e.target.id==='tenderDetailOverlay') closeTenderDetail(); });
   document.getElementById('tenderDetailSaveBtn').addEventListener('click', saveTenderDetail);
   document.getElementById('tenderDeleteBtn').addEventListener('click', deleteTenderDetail);
+  document.getElementById('tenderPrintBtn').addEventListener('click', handlePrintTender);
   document.getElementById('td-t-budget-manpower-gst').addEventListener('change', saveTenderBudgetsOnly);
   document.getElementById('td-t-budget-manpower-gst-rate').addEventListener('change', saveTenderBudgetsOnly);
   document.getElementById('tenderAddLiFromRoleBtn').addEventListener('click', addTenderLineItemFromRole);
@@ -6711,26 +6807,341 @@ async function handleVendorCompanyProfileSubmit(){
 
 function billingTypeLabel(v){ return { per_km:'Per KM Basis', management:'Management Basis' }[v] || '—'; }
 
+// Same compact label:value summary (and the same pinned-section boundary
+// at Operator Agreement) as the staff-side Tender Detail window -- a
+// bidder never edits this data, so there's no separate edit-view toggle
+// to build, just this one always-read-only rendering.
+function renderVendorTenderSummary(t){
+  const top = document.getElementById('vpTenderFrozenTop');
+  const bottom = document.getElementById('vpTenderFrozenBottom');
+  if(!top || !bottom || !t) return;
+  const busMixText = (t.bus_mix||[]).length
+    ? t.bus_mix.map(r=> `${r.model||''} — ${r.bus_count||0} buses, ${fmtNum(r.assured_km_per_month)} km/yr`).join('\n')
+    : '—';
+
+  const shortRow = (label, value)=> `<div class="mf-row"><span class="mf-label">${label}</span><span class="mf-value">${(value != null && value !== '') ? value : '—'}</span></div>`;
+  const shortRowWrap = (label, value)=> `<div class="mf-row"><span class="mf-label">${label}</span><span class="mf-value" style="text-align:left; white-space:pre-wrap;">${(value != null && value !== '') ? value : '—'}</span></div>`;
+  const fullRow = (label, value)=> `<div class="mf-row full"><span class="mf-label">${label}</span><div class="mf-value">${(value != null && value !== '') ? value : '—'}</div></div>`;
+
+  top.innerHTML = [
+    shortRow('Location', t.location_name),
+    shortRow('Type', billingTypeLabel(t.billing_type)),
+    shortRow('Subject', t.subject),
+    shortRow('Project', t.project),
+    shortRowWrap('Bus Requirement', busMixText),
+    shortRow('Availability Factor %', t.availability_factor),
+    t.operator_agreement_url ? fullRow('Operator Agreement', `<a href="${t.operator_agreement_url}" target="_blank" rel="noopener" class="btn small">📄 Download Draft Operator Agreement having Scope and Terms in detail</a>`) : ''
+  ].join('');
+
+  bottom.innerHTML = [
+    fullRow('Background', t.background),
+    fullRow('Scope of Work', t.scope_of_work),
+    fullRow('Terms', t.terms)
+  ].join('');
+}
+
+// A clean, 2-page A4 management summary of this bid -- built fresh into
+// the hidden #vpPrintArea from the same computeVendorFinancials() figures
+// the on-screen totals use, so what prints always matches what's on
+// screen. window.print()'s own @media print rules hide everything else
+// and show only this.
+function buildVendorPrintDocument(){
+  const t = myVendorTender, q = myVendorQuote;
+  const liveVendor = buildLiveVendorFromInputs();
+  const fin = computeVendorFinancials(t, myVendorLineItems, myVendorCostItems, liveVendor);
+  const printedAt = new Date().toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  const row = (label, value)=> `<div class="pp-row"><span class="pp-label">${label}</span><span class="pp-value">${(value!=null && value!=='') ? value : '—'}</span></div>`;
+  const rowFull = (label, value)=> `<div class="pp-row full"><span class="pp-label">${label}</span><div class="pp-value">${(value!=null && value!=='') ? value : '—'}</div></div>`;
+
+  const busMixText = (t.bus_mix||[]).length
+    ? t.bus_mix.map(r=> `${r.model||''} — ${r.bus_count||0} buses, ${fmtNum(r.assured_km_per_month)} km/yr`).join('\n')
+    : '—';
+  const statusInfo = q.status === 'draft' ? { text:'Draft — not yet submitted' } : vendorFacingStatusLabel(q, t);
+
+  const lineRows = myVendorLineItems.map((li,i)=>{
+    const lr = fin.lineResults[i];
+    const pk = fin.perKmMonthly(lr.total);
+    return `<tr><td>${li.activity_name}</td><td>${fmtNum(lr.qty)}</td><td>${fmtNum(lr.rate)}</td><td>${fmtMoney(lr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
+  }).join('');
+
+  const costRows = myVendorCostItems.map((ci,i)=>{
+    const cr = fin.costResults[i];
+    const pk = fin.perKm(cr.total + cr.gst);
+    return `<tr><td>${ci.field_name}</td><td>${cr.qty!=null ? fmtNum(cr.qty)+' × '+fmtNum(cr.amount) : fmtNum(cr.amount)}</td><td>${cr.gstApplicable ? fmtNum(cr.gstRate)+'%' : '—'}</td><td>${fmtMoney(cr.gst)}</td><td>${fmtMoney(cr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
+  }).join('');
+
+  const header = (pageLabel)=> `
+    <div class="pp-header">
+      <div><h1>Vendor Bid Summary</h1><div class="pp-sub">${t.location_name || ''} — ${t.subject || ''}</div></div>
+      <div class="pp-meta">JBM Auto Limited &middot; TrackIt Vendor Tendering<br>${pageLabel}<br>Printed ${printedAt}</div>
+    </div>`;
+
+  const page1 = `
+    <div class="pp-page">
+      ${header('Page 1 of 2 — Tender & Bidder Details')}
+
+      <div class="pp-section-title">Tender Overview</div>
+      <div class="pp-grid">
+        ${row('Location', t.location_name)}
+        ${row('Bidding Closes', t.target_closure_date ? fmtDate(t.target_closure_date) : '—')}
+        ${row('Subject', t.subject)}
+        ${row('Project', t.project)}
+        ${row('Type', billingTypeLabel(t.billing_type))}
+        ${row('Status', statusInfo.text)}
+        ${rowFull('Bus Requirement', busMixText)}
+        ${rowFull('Scope of Work', t.scope_of_work)}
+        ${rowFull('Terms', t.terms)}
+        ${rowFull('Operator Agreement', t.operator_agreement_url ? 'Provided — ' + t.operator_agreement_url : 'Not provided')}
+      </div>
+
+      <div class="pp-section-title">Bidder / Company Details</div>
+      <div class="pp-grid">
+        ${row('Name of Supplier', q.vendor_name)}
+        ${row('Contact Person', q.contact_person)}
+        ${row('Contact Phone', q.contact_phone)}
+        ${row('Contact Email', q.contact_email)}
+        ${row('GSTN', myProfile && myProfile.gstn)}
+        ${row('PAN Number', myProfile && myProfile.pan_number)}
+        ${row('Existing Business — Region', q.existing_business_region)}
+        ${row('Existing Business — PAN India', q.existing_business_pan_india)}
+        ${row('Existing Business with JBM — Region', q.existing_business_region_with_jbm)}
+        ${row('Existing Business with JBM — PAN India', q.existing_business_pan_india_with_jbm)}
+        ${row('Terms Accepted', q.terms_accepted ? 'Yes' : 'No')}
+      </div>
+    </div>`;
+
+  const page2 = `
+    <div class="pp-page">
+      ${header('Page 2 of 2 — Commercial Quote')}
+
+      <div class="pp-section-title">Manpower Cost Quote (Monthly rates; Manpower Total annualized below)</div>
+      <div class="pp-grid">
+        ${row('Drivers per Bus (proposed)', liveVendor.drivers_per_bus_ratio)}
+        ${row('Uniform Sets / Driver / Year', liveVendor.uniform_sets_per_driver_per_year)}
+      </div>
+      <table>
+        <thead><tr><th>Activity</th><th>Qty</th><th>Rate (Monthly)</th><th>Total (Monthly)</th><th>Per KM</th></tr></thead>
+        <tbody>${lineRows}</tbody>
+      </table>
+      <div class="pp-row"><span class="pp-label">Manpower Total (Yearly, ×12)</span><span class="pp-value">${fmtMoney(fin.manpowerTotal)}</span></div>
+      <div class="pp-row"><span class="pp-label">Manpower GST</span><span class="pp-value">${fin.manpowerGstApplicable ? fmtMoney(fin.manpowerGst)+' ('+fmtNum(fin.manpowerGstRate)+'%)' : 'Not applicable'}</span></div>
+
+      <div class="pp-section-title">Other Costs (Yearly)</div>
+      <table>
+        <thead><tr><th>Field</th><th>Input</th><th>GST %</th><th>GST Amount</th><th>Total</th><th>Per KM (incl. GST)</th></tr></thead>
+        <tbody>${costRows || '<tr><td colspan="6" style="text-align:center; color:#888;">None</td></tr>'}</tbody>
+      </table>
+
+      <div class="pp-decision-box">
+        <div class="pp-decision-row"><span>Sub-Total</span><span>${fmtMoney(fin.subTotal)}</span></div>
+        <div class="pp-decision-row"><span>GST Total</span><span>${fmtMoney(fin.gstTotal)}</span></div>
+        <div class="pp-decision-row pp-grand"><span>Grand Total (Yearly)</span><span>${fmtMoney(fin.grandTotal)}</span></div>
+        <div class="pp-decision-row"><span>Effective Rate / Km</span><span>${fin.effectiveRatePerKm!=null ? fmtNum(fin.effectiveRatePerKm) : '—'}</span></div>
+      </div>
+
+      <div class="pp-section-title">Payment Terms Proposed</div>
+      <div class="pp-row full"><span class="pp-value">${q.payment_terms_proposed || '—'}</span></div>
+
+      <div class="pp-signoff">
+        <div>Reviewed By (Name &amp; Signature)</div>
+        <div>Decision — Approve / Reject / Hold, with remarks</div>
+      </div>
+      <div class="pp-footer">Confidential — for internal evaluation only. Printed from TrackIt Vendor Tendering Portal.</div>
+    </div>`;
+
+  document.getElementById('vpPrintArea').innerHTML = page1 + page2;
+}
+
+function handlePrintVendorQuote(){
+  buildVendorPrintDocument();
+  window.print();
+}
+
+// Company-side management print: a separate popup window with its own
+// self-contained document (same pattern as printTaskList()), rather than
+// a hidden in-page area -- this is what lets it use a LANDSCAPE page
+// independent of the bidder-side print's portrait one, no @page conflict
+// between the two. The comparative table's font size steps down as the
+// number of bidder columns grows, so it stays flexible for however many
+// bidders actually show up rather than being fixed to a page width.
+function buildTenderPrintDocument(){
+  const t = currentTenderData;
+  const lineItems = [...currentTenderLineItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
+  const costItems = [...currentTenderCostItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
+  const companyName = (rawCompanies.find(c=> String(c.id)===String(t.company_id))||{}).name || '—';
+  const approver1 = t.approver_1_id && profileById[t.approver_1_id] ? profileById[t.approver_1_id].display_name : '—';
+  const approver2 = t.approver_2_id && profileById[t.approver_2_id] ? profileById[t.approver_2_id].display_name : '—';
+  const busMixText = (t.bus_mix||[]).length
+    ? t.bus_mix.map(r=> `${r.model||''} — ${r.bus_count||0} buses, ${fmtNum(r.assured_km_per_month)} km/yr`).join('<br>')
+    : '—';
+  const wf = tenderWorkflowStatusLabel(t);
+  const benchmark = currentTenderInternal && currentTenderInternal.benchmark_cost;
+  const printedAt = new Date().toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  const row = (label, value)=> `<div class="pp-row"><span class="pp-label">${label}</span><span class="pp-value">${(value!=null && value!=='') ? value : '—'}</span></div>`;
+  const rowFull = (label, value)=> `<div class="pp-row full"><span class="pp-label">${label}</span><div class="pp-value">${(value!=null && value!=='') ? value : '—'}</div></div>`;
+
+  const header = (pageLabel)=> `
+    <div class="pp-header">
+      <div><h1>Tender Summary — Management Review</h1><div class="pp-sub">${t.location_name || ''} — ${t.subject || ''}</div></div>
+      <div class="pp-meta">JBM Auto Limited &middot; TrackIt Vendor Tendering<br>${pageLabel}<br>Printed ${printedAt}</div>
+    </div>`;
+
+  const page1 = `
+    <div class="pp-page">
+      ${header('Page 1 — Tender Overview')}
+      <div class="pp-section-title">Master Details</div>
+      <div class="pp-grid">
+        ${row('Location', t.location_name)}
+        ${row('Company', companyName)}
+        ${row('Subject', t.subject)}
+        ${row('Project', t.project)}
+        ${row('Type', billingTypeLabel(t.billing_type))}
+        ${row('Availability Factor %', t.availability_factor)}
+        ${row('Target Closure Date', t.target_closure_date ? fmtDate(t.target_closure_date) : '—')}
+        ${row('Status', wf.text)}
+        ${row('Approver 1', approver1)}
+        ${row('Approver 2', approver2)}
+        ${row('Benchmark Cost (internal)', (benchmark!=null && benchmark!=='') ? fmtMoney(benchmark) : '—')}
+        ${row('Awarded To', awardedVendorNameFor(t) || '—')}
+        ${rowFull('Bus Requirement', busMixText)}
+        ${rowFull('Scope of Work', t.scope_of_work)}
+        ${rowFull('Terms', t.terms)}
+        ${rowFull('Operator Agreement', t.operator_agreement_url ? 'Provided — ' + t.operator_agreement_url : 'Not provided')}
+      </div>
+    </div>`;
+
+  // ---- Comparative table: Budget + every bidder whose Grand Total > 0,
+  // same rule renderComparative() already uses on screen so print never
+  // shows an all-zero column either.
+  const results = currentTenderVendors
+    .map(v=> ({ vendor:v, isBudget:false, fin: computeVendorFinancials(t, lineItems, costItems, v) }))
+    .filter(r=> r.fin.grandTotal > 0);
+  const positive = results.filter(r=> r.fin.grandTotal > 0);
+  const bestGrandTotal = positive.length ? Math.min(...positive.map(r=> r.fin.grandTotal)) : null;
+  const budgetFin = computeBudgetFinancials(t, lineItems, costItems, currentTenderInternal);
+  const budgetCol = { isBudget:true, vendor:null, fin: budgetFin };
+  const tableResults = budgetFin.grandTotal > 0 ? [budgetCol, ...results] : results;
+
+  const groupCount = tableResults.length || 1;
+  const fontPt = groupCount > 13 ? 6 : groupCount > 9 ? 6.8 : groupCount > 6 ? 7.6 : 8.4;
+  const cellPad = groupCount > 9 ? '2px 3px' : '3px 5px';
+
+  let page2 = '';
+  if(!tableResults.length){
+    page2 = `<div class="pp-page"><div class="pp-page-landscape">${header('Page 2 — Bid Comparison')}<div class="pp-section-title">Bid Comparison</div><p style="color:#666;">No bids submitted yet.</p></div></div>`;
+  } else {
+    const headRow1 = `<tr><th rowspan="2" style="text-align:left;">Line Item</th>${tableResults.map(r=> `<th colspan="4">${r.isBudget ? 'Budget (internal)' : r.vendor.vendor_name}</th>`).join('')}</tr>`;
+    const headRow2 = `<tr>${tableResults.map(()=> '<th>Qty</th><th>Rate</th><th>Total</th><th>/Km</th>').join('')}</tr>`;
+
+    const lineRows = lineItems.map((li,i)=> `
+      <tr><td style="text-align:left;">${li.activity_name}${isDriverLineItem(li)?' (Drivers)':''}</td>
+      ${tableResults.map(r=>{
+        const lr = r.fin.lineResults[i];
+        const pk = r.fin.perKmMonthly(lr.total);
+        return `<td>${fmtNum(lr.qty)}</td><td>${fmtNum(lr.rate)}</td><td>${fmtMoney(lr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
+      }).join('')}</tr>`).join('');
+
+    const costRows = costItems.map((ci,i)=> `
+      <tr><td style="text-align:left;">${ci.field_name} (${costItemKindLabel(ci.kind)})</td>
+      ${tableResults.map(r=>{
+        const cr = r.fin.costResults[i];
+        const pk = r.fin.perKm(cr.total + cr.gst);
+        return `<td colspan="2">${cr.qty!=null ? fmtNum(cr.qty)+'×'+fmtNum(cr.amount) : fmtNum(cr.amount)}</td><td>${fmtMoney(cr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
+      }).join('')}</tr>`).join('');
+
+    const sumRow = (label, getter, opts)=>{
+      opts = opts || {};
+      return `<tr class="${opts.bold?'pp-bold-row':''}"><td style="text-align:left;">${label}</td>${tableResults.map(r=>{
+        const isBest = !r.isBudget && opts.highlightBest && bestGrandTotal!=null && r.fin.grandTotal===bestGrandTotal;
+        return `<td colspan="4" style="${isBest?'background:#e4f7ee; font-weight:700;':''}">${getter(r.fin)}</td>`;
+      }).join('')}</tr>`;
+    };
+
+    page2 = `
+    <div class="pp-page">
+      <div class="pp-page-landscape">
+        ${header('Page 2 — Bid Comparison')}
+        <div class="pp-section-title">Bid Comparison — Budget vs. ${results.length} Bidder${results.length===1?'':'s'}</div>
+        <table class="pp-cmp" style="font-size:${fontPt}pt;">
+          <thead>${headRow1}${headRow2}</thead>
+          <tbody>
+            ${lineRows}
+            ${sumRow('Manpower Total (Yearly)', f=> fmtMoney(f.manpowerTotal), {bold:true})}
+            ${sumRow('Manpower GST', f=> f.manpowerGstApplicable ? fmtMoney(f.manpowerGst)+' ('+fmtNum(f.manpowerGstRate)+'%)' : 'N/A')}
+            ${costRows}
+            ${sumRow('Sub-Total', f=> fmtMoney(f.subTotal))}
+            ${sumRow('GST Total', f=> fmtMoney(f.gstTotal))}
+            ${sumRow('Grand Total', f=> fmtMoney(f.grandTotal), {bold:true, highlightBest:true})}
+            ${sumRow('Effective Rate/Km', f=> f.effectiveRatePerKm!=null ? fmtNum(f.effectiveRatePerKm) : '—')}
+          </tbody>
+        </table>
+        <div style="margin-top:6px; font-size:8pt; color:#666;">Green highlight = lowest Grand Total among submitted bids. Budget is the internal estimate, not a bid.</div>
+        <div class="pp-signoff">
+          <div>Reviewed By (Name &amp; Signature)</div>
+          <div>Decision — Approve / Reject / Hold, with remarks</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tender Summary — ${t.location_name || ''}</title>
+<style>
+  *{box-sizing:border-box;}
+  body{ font-family:'IBM Plex Sans',Arial,sans-serif; margin:0; color:#111; background:#fff; }
+  h1{ font-family:'IBM Plex Serif',Georgia,serif; font-size:16pt; margin:0 0 2px; color:#0B1220; }
+  .pp-page{ padding:14mm 13mm; font-size:9.6pt; line-height:1.4; page-break-after:always; }
+  .pp-page:last-child{ page-break-after:auto; }
+  .pp-page-landscape{ width:100%; }
+  .pp-sub{ font-size:9.5pt; color:#555; margin-bottom:10px; }
+  .pp-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #0B1220; padding-bottom:8px; margin-bottom:12px; }
+  .pp-header .pp-meta{ text-align:right; font-size:8.5pt; color:#555; }
+  .pp-section-title{ font-family:'IBM Plex Serif',Georgia,serif; font-weight:700; font-size:11pt; color:#0B1220; margin:12px 0 5px; padding-bottom:3px; border-bottom:1px solid #ccc; }
+  .pp-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 18px; margin-bottom:4px; }
+  .pp-row{ display:flex; justify-content:space-between; gap:10px; padding:2.5px 0; border-bottom:1px solid #e2e2e2; }
+  .pp-row.full{ grid-column:1/-1; flex-direction:column; gap:1px; }
+  .pp-label{ color:#666; font-size:8pt; text-transform:uppercase; letter-spacing:0.4px; flex:none; }
+  .pp-value{ color:#111; text-align:right; font-weight:500; }
+  .pp-row.full .pp-value{ text-align:left; white-space:pre-wrap; font-weight:400; }
+  table.pp-cmp{ width:100%; border-collapse:collapse; }
+  table.pp-cmp th, table.pp-cmp td{ border:1px solid #bbb; padding:${cellPad}; text-align:right; }
+  table.pp-cmp thead th{ background:#f0f2f8; font-weight:700; }
+  table.pp-cmp tr{ break-inside:avoid; }
+  .pp-bold-row td{ font-weight:700; background:#f7f8fc; }
+  .pp-signoff{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:22px; }
+  .pp-signoff div{ border-top:1px solid #999; padding-top:4px; font-size:8.5pt; color:#555; }
+  @page{ size:A4 landscape; margin:10mm; }
+</style>
+</head>
+<body>
+  ${page1}
+  ${page2}
+  <script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+}
+
+function handlePrintTender(){
+  if(!currentTenderData){ return; }
+  const html = buildTenderPrintDocument();
+  const w = window.open('', '_blank');
+  if(!w){ alert('Please allow pop-ups for this site to print.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
 function renderVendorPortal(){
   const t = myVendorTender, q = myVendorQuote;
   document.getElementById('vpWhoAmI').textContent = (myProfile && myProfile.display_name) || currentUser.email;
   document.getElementById('vpTenderStatusBadge').innerHTML = `<span class="badge ${t.status}">${tenderStatusLabel(t.status)}</span>`;
-  document.getElementById('vp-location').value = t.location_name || '';
-  document.getElementById('vp-subject').value = t.subject || '';
-  document.getElementById('vp-project').value = t.project || '';
-  document.getElementById('vp-billing-type').textContent = billingTypeLabel(t.billing_type);
-  document.getElementById('vp-background').value = t.background || '';
   document.getElementById('vp-total-buses').value = t.total_buses ?? '';
   document.getElementById('vp-total-km').value = t.total_km_per_month ?? '';
-  document.getElementById('vp-scope').value = t.scope_of_work || '';
-  document.getElementById('vp-terms').value = t.terms || '';
-  document.getElementById('vp-closure-date').textContent = t.target_closure_date ? fmtDate(t.target_closure_date) : 'Not set';
-  document.getElementById('vpOperatorAgreementField').style.display = t.operator_agreement_url ? 'block' : 'none';
-  renderOperatorAgreementLink('vpOperatorAgreementLink', t.operator_agreement_url);
-
-  document.getElementById('vpBusMixTableBody').innerHTML = (t.bus_mix||[]).map(r=>`
-    <tr><td>${r.model||''}</td><td>${r.bus_count||''}</td><td>${r.assured_km_per_month||''}</td></tr>
-  `).join('') || '<tr><td colspan="3" style="color:var(--faint);">Not specified</td></tr>';
+  renderVendorTenderSummary(t);
 
   document.getElementById('vq-vendor-name').value = q.vendor_name || '';
   document.getElementById('vq-contact-person').value = q.contact_person || '';
@@ -6749,16 +7160,16 @@ function renderVendorPortal(){
   document.getElementById('vq-payment-terms').value = q.payment_terms_proposed || '';
   document.getElementById('vq-terms-accepted').checked = !!q.terms_accepted;
 
-  // Submission status summary -- only ever one of In Process / Selected /
-  // Not Selected / Request Bid Review (never internal tender-status or
-  // quote-workflow jargon).
+  // Submission status summary -- only ever one of Draft / In Process /
+  // Selected / Not Selected / Request Bid Review (never internal
+  // tender-status or quote-workflow jargon). Color-coded via the same
+  // semantic classes the badge pills use elsewhere, just without the pill
+  // chrome (see .badge-plain).
   const statusEl = document.getElementById('vp-submission-status');
-  if(q.status === 'draft'){
-    statusEl.textContent = 'Draft — not yet submitted';
-  } else {
-    const s = vendorFacingStatusLabel(q, t);
-    statusEl.textContent = s.text;
-  }
+  const statusInfo = q.status === 'draft' ? { text:'Draft — not yet submitted', cls:'draft' } : vendorFacingStatusLabel(q, t);
+  statusEl.textContent = statusInfo.text;
+  statusEl.className = `badge badge-plain ${statusInfo.cls}`;
+  document.getElementById('vp-closure-date').textContent = t.target_closure_date ? fmtDate(t.target_closure_date) : 'Not set';
   const noteBox = document.getElementById('vpRevisionNoteBox');
   if(q.status === 'revision_requested' && q.revision_note){
     noteBox.textContent = 'The company requested a revision: ' + q.revision_note;
@@ -7042,6 +7453,7 @@ function attachVendorPortalEvents(){
   document.getElementById('vqSubmitBtn').addEventListener('click', handleVendorQuoteSubmitFinal);
   document.getElementById('vpHistoryBtn').addEventListener('click', openMyQuoteHistoryModal);
   document.getElementById('vpBackToListBtn').addEventListener('click', loadMyVendorTenders);
+  document.getElementById('vpPrintBtn').addEventListener('click', handlePrintVendorQuote);
   document.getElementById('vqAddLiFromRoleBtn').addEventListener('click', addVendorLineItemFromRole);
   document.getElementById('vpEditCompanyProfileBtn').addEventListener('click', ()=> openVendorCompanyProfileModal(false));
   document.getElementById('vqEditCompanyProfileBtn').addEventListener('click', ()=> openVendorCompanyProfileModal(false));
@@ -7636,6 +8048,10 @@ function init(){
     const pdd = document.getElementById('printDropdown');
     if(pdd.style.display !== 'none' && !pdd.contains(e.target) && !e.target.closest('#printBtn')){
       pdd.style.display = 'none';
+    }
+    const udd = document.getElementById('userMenuDropdown');
+    if(udd && udd.style.display !== 'none' && !udd.contains(e.target) && !e.target.closest('#userMenuBtn')){
+      udd.style.display = 'none';
     }
     document.querySelectorAll('.multiselect-dropdown').forEach(el=>{
       if(el.style.display !== 'none' && !el.contains(e.target) && e.target.id !== el.id + '-toggle'){
