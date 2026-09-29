@@ -509,6 +509,13 @@
             <tbody id="vqLineItemsTableBody"></tbody>
           </table>
         </div>
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:end;">
+          <div class="field" style="margin:0; flex:1; min-width:200px;">
+            <label>Want to quote an activity not listed above? Pick from master list</label>
+            <select id="vq-li-role"></select>
+          </div>
+          <button type="button" class="btn" id="vqAddLiFromRoleBtn">+ Add activity</button>
+        </div>
         <div class="row2">
           <div class="field">
             <label><input type="checkbox" id="vq-manpower-gst" checked style="width:auto; margin-right:6px;">Manpower Total is GST-applicable</label>
@@ -1789,7 +1796,7 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="tdBudgetSummaryPanel">
         <div class="panel-title">Budget Summary <span style="text-transform:none; letter-spacing:0; font-weight:400;">(internal)</span></div>
         <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">A rollup of the Budget Qty/Rate/Amount figures entered above -- the same breakdown bidders' quotes get compared against once they've submitted. Never shown to bidders.</div>
         <div class="comparative-wrap"><table id="tdBudgetSummaryTable" class="comparative-table"></table></div>
@@ -5651,7 +5658,7 @@ function renderTenderVendorsTable(){
     let awardCell = '—';
     if(isAwarded) awardCell = '<span class="badge submitted">✅ Awarded</span>';
     else if(isNotSelected) awardCell = '<span class="badge closed">Not Selected</span>';
-    else if(canAward) awardCell = `<button class="btn small" data-award-vendor="${v.id}">Award</button>`;
+    else if(canAward && v.status === 'submitted') awardCell = `<button class="btn small" data-award-vendor="${v.id}">Award</button>`;
     return `
     <tr>
       <td data-label="Vendor">${v.vendor_name}</td>
@@ -6351,22 +6358,47 @@ function renderComparative(){
   const vendors = currentTenderVendors;
   const tender = currentTenderData;
 
+  // The standalone Budget Summary panel (above, always built by
+  // renderBudgetSummary()) exists so the creator can see it before
+  // floating -- once real bids are in, the Comparative table below shows
+  // the exact same Budget figures as its own column, so the standalone
+  // one would just be a duplicate. Default to showing it; only the
+  // "real bids below" branch further down turns it off.
+  const budgetSummaryPanel = document.getElementById('tdBudgetSummaryPanel');
+  if(budgetSummaryPanel) budgetSummaryPanel.style.display = 'block';
+
   if(!vendors.length || !tender){
     container.innerHTML = '';
     snapRow.innerHTML = '<div class="footer-note">No vendors invited yet.</div>';
     return;
   }
 
-  const results = vendors.map(v=> ({ vendor: v, isBudget:false, fin: computeVendorFinancials(tender, lineItems, costItems, v) }));
-  const positive = results.filter(r=> r.fin.grandTotal > 0);
-  const bestGrandTotal = positive.length ? Math.min(...positive.map(r=> r.fin.grandTotal)) : null;
+  // A vendor who hasn't actually entered a quote yet (still drafting, or
+  // just claimed the tender) computes to a flat zero Grand Total -- that's
+  // not a bid to compare against, so it's left out of the table entirely
+  // rather than cluttering it with an all-zero column.
+  const results = vendors.map(v=> ({ vendor: v, isBudget:false, fin: computeVendorFinancials(tender, lineItems, costItems, v) }))
+    .filter(r=> r.fin.grandTotal > 0);
+  const bestGrandTotal = results.length ? Math.min(...results.map(r=> r.fin.grandTotal)) : null;
+
+  if(!results.length){
+    container.innerHTML = '';
+    snapRow.innerHTML = '<div class="footer-note">No bids submitted yet.</div>';
+    return;
+  }
+
+  // Real bids exist, so the Comparative table below is about to show the
+  // same Budget rollup as its own column -- hide the standalone one.
+  if(budgetSummaryPanel) budgetSummaryPanel.style.display = 'none';
 
   // The internal Budget is a reference column, not a bid -- it's built
   // alongside the vendor columns in the same table (so line items line up)
   // but excluded from "results"/bestGrandTotal so it never wins the
-  // Lowest-bid highlight or shows up as a snapshot card.
-  const budgetCol = { isBudget:true, fin: computeBudgetFinancials(tender, lineItems, costItems, currentTenderInternal) };
-  const tableResults = [budgetCol, ...results];
+  // Lowest-bid highlight or shows up as a snapshot card. Same zero-total
+  // rule applies to it: no budget figures entered yet means no column.
+  const budgetFin = computeBudgetFinancials(tender, lineItems, costItems, currentTenderInternal);
+  const budgetCol = { isBudget:true, fin: budgetFin };
+  const tableResults = budgetFin.grandTotal > 0 ? [budgetCol, ...results] : results;
 
   const awardedId = tender.awarded_quote_id;
   snapRow.innerHTML = results.map(r=>{
@@ -6425,7 +6457,7 @@ function renderComparative(){
 
   container.innerHTML = `
     <thead>
-      <tr><th rowspan="2">Line Item</th><th colspan="4">Budget <span style="font-weight:400;">(internal)</span></th>${vendors.map(v=>`<th colspan="4">${v.vendor_name}</th>`).join('')}</tr>
+      <tr><th rowspan="2">Line Item</th>${tableResults.map(r=> r.isBudget ? '<th colspan="4">Budget <span style="font-weight:400;">(internal)</span></th>' : `<th colspan="4">${r.vendor.vendor_name}</th>`).join('')}</tr>
       <tr>${tableResults.map(()=> '<th>Qty</th><th>Rate</th><th>Total</th><th>Per KM</th>').join('')}</tr>
     </thead>
     <tbody>
@@ -6769,6 +6801,42 @@ function renderVendorLineItemsTable(){
   tbody.querySelectorAll('.vq-li-qty, .vq-li-rate').forEach(inp=>{
     inp.addEventListener('input', recalcVendorTotals);
   });
+  populateVendorLineItemRoleSelect();
+}
+
+// Only offers roles not already on this tender -- the RPC itself also
+// no-ops on a duplicate, this just keeps the dropdown from listing
+// something there's no point picking.
+function populateVendorLineItemRoleSelect(){
+  const sel = document.getElementById('vq-li-role');
+  if(!sel) return;
+  const usedRoleIds = new Set(myVendorLineItems.map(li=> String(li.role_id)));
+  const available = rawManpowerRoles.filter(r=> !usedRoleIds.has(String(r.id)));
+  sel.innerHTML = '<option value="">Select an activity…</option>' + available.map(r=> `<option value="${r.id}">${r.activity_name}</option>`).join('');
+}
+
+async function addVendorLineItemFromRole(){
+  const sel = document.getElementById('vq-li-role');
+  const roleId = sel.value;
+  if(!roleId || !myVendorTender) return;
+  const btn = document.getElementById('vqAddLiFromRoleBtn');
+  btn.disabled = true;
+  try{
+    const { error } = await db.rpc('add_vendor_tender_line_item', {
+      p_tender_id: myVendorTender.id, p_role_id: Number(roleId)
+    });
+    if(error) throw error;
+    const { data: lineItems, error: liErr } = await db.from('vendor_tender_line_items').select('*').eq('tender_id', myVendorTender.id).order('seq_no');
+    if(liErr) throw liErr;
+    myVendorLineItems = lineItems;
+    renderVendorLineItemsTable();
+    recalcVendorTotals();
+  }catch(err){
+    console.error(err);
+    showBanner('vpBanner', 'Could not add this activity: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+  }
 }
 
 function renderVendorCostItemsTable(){
@@ -6974,6 +7042,7 @@ function attachVendorPortalEvents(){
   document.getElementById('vqSubmitBtn').addEventListener('click', handleVendorQuoteSubmitFinal);
   document.getElementById('vpHistoryBtn').addEventListener('click', openMyQuoteHistoryModal);
   document.getElementById('vpBackToListBtn').addEventListener('click', loadMyVendorTenders);
+  document.getElementById('vqAddLiFromRoleBtn').addEventListener('click', addVendorLineItemFromRole);
   document.getElementById('vpEditCompanyProfileBtn').addEventListener('click', ()=> openVendorCompanyProfileModal(false));
   document.getElementById('vqEditCompanyProfileBtn').addEventListener('click', ()=> openVendorCompanyProfileModal(false));
   document.getElementById('vcpCloseBtn').addEventListener('click', closeVendorCompanyProfileModal);
@@ -7306,6 +7375,7 @@ async function onSignedIn(){
     document.getElementById('appScreen').style.display = 'none';
     document.getElementById('vendorPortalScreen').style.display = 'block';
     document.getElementById('vpWhoAmI').textContent = myProfile.display_name || currentUser.email;
+    await loadManpowerRoles();
     if(!myProfile.company_name){
       openVendorCompanyProfileModal(true);
     } else {
