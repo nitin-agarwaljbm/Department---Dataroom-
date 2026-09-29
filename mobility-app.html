@@ -5478,7 +5478,11 @@ function costItemKindLabel(k){ return { flat:'Flat amount', uniform:'Uniform', w
 
 // Which line item represents drivers is detected by name, not an admin toggle --
 // this way the auto-headcount calc always applies without an extra manual step.
-function isDriverLineItem(li){ return /driver/i.test(li.activity_name || ''); }
+// Matches only a name that LEADS with "Driver" (plain "Driver", "Driver cum
+// Cleaner", "Drivers", ...) -- a supervisory/training role like "Master
+// Driver/Trainer" has "driver" elsewhere in a compound title and is a
+// distinct headcount, entered manually like any other line item.
+function isDriverLineItem(li){ return /^driver/i.test((li.activity_name || '').trim()); }
 
 function renderTenderCostItemsTable(){
   const tbody = document.getElementById('tenderCostItemsTableBody');
