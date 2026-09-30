@@ -57,6 +57,22 @@
   }
   textarea{resize:vertical; min-height:38px;}
   input:focus, select:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  /* Generic, form-wide invalid-field highlight for the bidder's quote form
+     -- relies on the browser's own constraint validation (each field's
+     type/pattern/min IS its "nature": type=number rejects non-numbers,
+     type=email checks email shape, the Existing Business fields'
+     pattern="[0-9]*" requires digits-only, etc.), so it automatically
+     covers every field including the dynamically-rendered Qty/Rate/Amount
+     ones -- nothing to wire up per field. Stays red, focused or not, until
+     the value is corrected; empty is never flagged (constraint validation
+     skips blank values unless a field is also marked required, which none
+     here are). Excludes :disabled so a locked/submitted quote's saved
+     values are never shown as an alarming error -- matches the same
+     "don't challenge what's already submitted" rule the Submit-time and
+     on-open checks already follow.  */
+  #vendorQuoteForm input:invalid:not(:disabled), #vendorQuoteForm select:invalid:not(:disabled){
+    border-color:var(--overdue); background:var(--overdue-bg);
+  }
   input:disabled, select:disabled, textarea:disabled{
     background:none; border:1px solid var(--border); border-radius:0; padding:5px 10px;
     color:var(--text); opacity:1; cursor:default; resize:none;
@@ -222,7 +238,6 @@
 
   .charts-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px;}
   .chart-box{height:220px; position:relative;}
-
   table{width:100%; border-collapse:collapse; font-size:calc(12.5px * var(--fs));}
   thead th{text-align:left; padding:9px 10px; font-size:calc(10.5px * var(--fs)); color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--panel);}
   tbody tr{border-bottom:1px solid var(--border);}
@@ -312,8 +327,78 @@
      the modal box itself stops scrolling and becomes a column, so only
      .modal-body (Line Items onward) scrolls, inside whatever height is left. */
   #tenderDetailOverlay .modal-box{display:flex; flex-direction:column; overflow:hidden;}
-  #tenderDetailOverlay .modal-header, #tenderDetailOverlay > .modal-box > .banner, #tenderDetailOverlay > .modal-box > .panel{flex:none;}
+  #tenderDetailOverlay #tdStickyTop{flex:none;}
   #tenderDetailOverlay .modal-body{overflow-y:auto; flex:1; min-height:0;}
+  /* 3-page tabbed layout: Details / Vendors / Comparative. Only the
+     .active page is a flex column (so its own pinned-top + scrolling-body
+     children lay out correctly); the others are simply display:none. */
+  .td-page-nav{display:flex; justify-content:center; gap:8px; margin-bottom:14px;}
+  .td-page-nav button.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  #tenderDetailOverlay .td-page{display:none; flex-direction:column; flex:1; min-height:0; overflow:hidden;}
+  #tenderDetailOverlay .td-page.active{display:flex;}
+  /* Pages 2 & 3 don't need Master Details pinned, so they drop the inner
+     scrollbar entirely -- the modal box grows to fit its content and the
+     backdrop (.modal-overlay, already overflow-y:auto) scrolls instead,
+     like an ordinary page rather than a boxed-in scroll pane. */
+  #tenderDetailOverlay.td-flat-scroll .modal-box{display:block; overflow:visible; max-height:none;}
+  #tenderDetailOverlay.td-flat-scroll .td-page{display:none;}
+  /* .td-page's base rule sets overflow:hidden (needed for Page 1's pinned
+     Master Details) -- reset back to visible here, otherwise it clips any
+     position:sticky element nested inside it (like #tdComparativeStickyTop
+     below), which silently breaks its stickiness instead of erroring. */
+  #tenderDetailOverlay.td-flat-scroll .td-page.active{display:block; overflow:visible;}
+  #tenderDetailOverlay.td-flat-scroll .td-page.active .modal-body{overflow:visible; flex:none;}
+  /* The title/action bar, locked banner and page tabs (grouped together
+     in #tdStickyTop) stay pinned to the top of the viewport as the page
+     content scrolls past underneath, as one unit -- .modal-overlay
+     (overflow-y:auto) is the scrolling ancestor here since .modal-box no
+     longer scrolls on its own in flat-scroll mode. A sticky element only
+     clamps at its scrolling ancestor's own padding edge -- ordinary
+     scrolled content isn't bound by that clamp and can scroll straight
+     through .modal-overlay's 40px top padding, appearing to float above
+     the sticky bar. So the 40px gap moves from the overlay's padding onto
+     #tdStickyTop's own padding instead -- the sticky box's border-box then
+     starts flush at true y:0, leaving no gap for anything to slip through. */
+  #tenderDetailOverlay.td-flat-scroll{padding-top:0;}
+  #tenderDetailOverlay.td-flat-scroll #tdStickyTop{position:sticky; top:0; z-index:5; background:var(--panel); padding-top:40px; margin-top:-20px;}
+  /* Comparative page only: the panel-title/hint/snapshot-cards stack as a
+     second sticky layer directly beneath #tdStickyTop (top offset = its
+     live height, kept in sync via ResizeObserver so it's still correct
+     whichever banners happen to be showing), leaving only the actual
+     table to scroll. Its own padding-top:16px replaces the parent .panel's
+     (zeroed inline on that panel) for the same reason #tdStickyTop's does. */
+  #tenderDetailOverlay.td-flat-scroll #tdComparativeStickyTop{position:sticky; top:var(--td-sticky1-h, 60px); z-index:4; background:var(--panel); padding-top:16px;}
+  /* #comparativeStickyHeadWrap (below) is a full visual replacement for
+     this table's own thead, not just a sticky-scroll copy of it -- so the
+     real thead is collapsed to zero size here (rather than shown normally
+     whenever unscrolled) to avoid rendering the header twice back to back.
+     font-size/line-height/padding/border all zeroed, rather than
+     display:none, specifically so it keeps contributing its column's
+     width to the table's auto layout -- a getBoundingClientRect() read on
+     any of its <th> cells (used to size the clone's matching cells) still
+     reports that column's real width either way. */
+  #comparativeTable thead{line-height:0;}
+  #comparativeTable thead th{font-size:0; padding:0; border-width:0;}
+  /* No bounded height on .comparative-wrap -- it's overflow-x:auto only
+     (for wide bidder counts), never overflow-y, so it never gets an inner
+     vertical scrollbar; the table is exactly as tall as its rows and the
+     outer page (.modal-overlay) scrolls past it like everything else.
+     Per CSS spec, overflow-x:auto still forces this box's own computed
+     overflow-y to auto regardless, which would make IT (not .modal-overlay)
+     the sticky reference for anything pinned inside it and silently break
+     that stickiness -- since there's no way to opt out of that promotion,
+     the real thead's position:sticky (from the shared .comparative-table
+     rule) is a harmless no-op here, and #comparativeStickyHeadWrap below
+     (a sibling, outside .comparative-wrap, so unaffected by its promotion)
+     is what actually stays pinned -- a live-cloned copy of the header,
+     column widths matched and horizontal scroll mirrored via JS. */
+  #tenderDetailOverlay.td-flat-scroll #comparativeStickyHeadWrap{
+    position:sticky; top:calc(var(--td-sticky1-h, 60px) + var(--td-sticky2-h, 0px));
+    z-index:4; overflow:hidden; border:1px solid var(--border); border-bottom:none;
+    border-top-left-radius:10px; border-top-right-radius:10px; background:var(--panel-2);
+  }
+  #tenderDetailOverlay.td-flat-scroll #comparativeStickyHeadWrap table{margin:0; border-top:none; border-left:none; border-right:none;}
+  #tenderDetailOverlay.td-flat-scroll #comparativeStickyHeadWrap table th:first-child{position:static;}
   #newLetterOverlay, #letterDetailOverlay{padding:20px 16px;}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
   .row4{display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px;}
@@ -548,20 +633,20 @@
           <div class="field"><label>PAN Number</label><input type="text" id="vq-pan" disabled></div>
         </div>
         <div class="row2">
-          <div class="field"><label>Existing Business — Region</label><input type="text" id="vq-eb-region"></div>
-          <div class="field"><label>Existing Business — PAN India</label><input type="text" id="vq-eb-pan"></div>
+          <div class="field"><label>Existing Business — Region <span style="text-transform:none; letter-spacing:0;">(number of buses)</span></label><input type="text" inputmode="numeric" pattern="[0-9]*" id="vq-eb-region"></div>
+          <div class="field"><label>Existing Business — PAN India <span style="text-transform:none; letter-spacing:0;">(number of buses)</span></label><input type="text" inputmode="numeric" pattern="[0-9]*" id="vq-eb-pan"></div>
         </div>
         <div class="row2">
-          <div class="field"><label>Existing Business with JBM — Region</label><input type="text" id="vq-eb-region-jbm"></div>
-          <div class="field"><label>Existing Business with JBM — PAN India</label><input type="text" id="vq-eb-pan-jbm"></div>
+          <div class="field"><label>Existing Business with JBM — Region <span style="text-transform:none; letter-spacing:0;">(number of buses)</span></label><input type="text" inputmode="numeric" pattern="[0-9]*" id="vq-eb-region-jbm"></div>
+          <div class="field"><label>Existing Business with JBM — PAN India <span style="text-transform:none; letter-spacing:0;">(number of buses)</span></label><input type="text" inputmode="numeric" pattern="[0-9]*" id="vq-eb-pan-jbm"></div>
         </div>
       </div>
 
       <div class="panel">
         <div class="panel-title">Manpower Cost Quote</div>
         <div class="row2">
-          <div class="field"><label>Drivers per Bus <span style="text-transform:none; letter-spacing:0;">(your proposal — e.g. 2.3)</span></label><input type="number" step="0.01" id="vq-drivers-per-bus" value="0"></div>
-          <div class="field"><label>Uniform Sets / Driver / Year</label><input type="number" step="0.01" id="vq-uniform-sets" value="0"></div>
+          <div class="field"><label>Drivers per Bus <span style="text-transform:none; letter-spacing:0;">(your proposal — e.g. 2.3)</span></label><input type="number" step="0.01" min="0" id="vq-drivers-per-bus" value="0"></div>
+          <div class="field"><label>Uniform Sets / Driver / Year</label><input type="number" step="0.01" min="0" id="vq-uniform-sets" value="0"></div>
         </div>
         <div class="table-wrap">
           <table id="vqLineItemsTable">
@@ -580,7 +665,7 @@
           <div class="field">
             <label><input type="checkbox" id="vq-manpower-gst" checked style="width:auto; margin-right:6px;">Manpower Total is GST-applicable</label>
           </div>
-          <div class="field"><label>Manpower GST %</label><input type="number" step="0.01" id="vq-manpower-gst-rate" value="18"></div>
+          <div class="field"><label>Manpower GST %</label><input type="number" step="0.01" min="0" id="vq-manpower-gst-rate" value="18"></div>
         </div>
         <div class="footer-note" id="vqManpowerTotalLine"></div>
       </div>
@@ -1729,182 +1814,209 @@
 <!-- ---------- TENDER DETAIL MODAL ---------- -->
 <div id="tenderDetailOverlay" class="modal-overlay" style="display:none;">
   <div class="modal-box modal-box-wide">
-    <div class="modal-header">
-      <div class="panel-title" style="border:none; margin:0; padding:0;" id="tenderDetailTitle">Tender</div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button class="btn small" id="tenderDeleteBtn" title="Delete this tender">🗑 Delete Tender</button>
-        <button class="btn small" id="tenderPrintBtn" title="Print a management summary comparing all bidders">🖨 Print</button>
-        <button class="btn small" id="tenderDetailCloseBtn">✕ Close</button>
+    <div id="tdStickyTop">
+      <div class="modal-header">
+        <div class="panel-title" style="border:none; margin:0; padding:0;" id="tenderDetailTitle">Tender</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn small" id="tenderDeleteBtn" title="Delete this tender">🗑 Delete Tender</button>
+          <button class="btn small" id="tenderPrintBtn" title="Print a management summary comparing all bidders">🖨 Print</button>
+          <button class="btn small" id="tenderDetailCloseBtn">✕ Close</button>
+        </div>
+      </div>
+      <div id="tenderDetailBanner" class="banner"></div>
+      <div class="td-page-nav">
+        <button type="button" class="btn small td-page-tab active" data-td-page="1">1. Details</button>
+        <button type="button" class="btn small td-page-tab" data-td-page="2">2. Vendors</button>
+        <button type="button" class="btn small td-page-tab" data-td-page="3">3. Comparative</button>
       </div>
     </div>
-    <div id="tenderDetailBanner" class="banner"></div>
-    <div class="panel" style="flex:none;">
-        <div class="panel-title">Master Details</div>
-        <div id="tdMasterFrozenViewTop" class="master-frozen-grid" style="display:none;"></div>
-        <div id="tdMasterEditViewTop">
-          <div class="row2">
-            <div class="field"><label>Location</label><input type="text" id="td-t-location"></div>
-            <div class="field"><label>Target Closure Date <span style="text-transform:none; letter-spacing:0;">(required to float)</span></label><input type="date" id="td-t-closure-date"></div>
-          </div>
-          <div class="row2">
-            <div class="field"><label>Subject</label><input type="text" id="td-t-subject"></div>
-            <div class="field"><label>Project</label><input type="text" id="td-t-project"></div>
-          </div>
-          <div class="field">
-            <label>Type</label>
-            <select id="td-t-billing-type">
-              <option value="">—</option>
-              <option value="per_km">Per KM Basis</option>
-              <option value="management">Management Basis</option>
-            </select>
-            <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Per KM Basis: operator bills actual KM run each month. Management Basis: a per-KM management fee, plus actual manpower cost. Pricing fields below work the same either way.</div>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label>Bus Requirement <span style="text-transform:none; letter-spacing:0;">(add one row per model, e.g. 09M / 12M)</span></label>
-              <div id="td-bus-mix-rows"></div>
-              <button type="button" class="btn small" id="td-bus-mix-add">+ Add model row</button>
+
+    <div id="tdPage1" class="td-page active">
+      <div class="panel" style="flex:none;">
+          <div class="panel-title">Master Details</div>
+          <div id="tdMasterFrozenViewTop" class="master-frozen-grid" style="display:none;"></div>
+          <div id="tdMasterEditViewTop">
+            <div class="row2">
+              <div class="field"><label>Location</label><input type="text" id="td-t-location"></div>
+              <div class="field"><label>Target Closure Date <span style="text-transform:none; letter-spacing:0;">(required to float)</span></label><input type="date" id="td-t-closure-date"></div>
             </div>
-            <div class="field"><label>Availability Factor %</label><input type="number" step="0.01" id="td-t-availability"></div>
-          </div>
-          <input type="hidden" id="td-t-total-buses"><input type="hidden" id="td-t-total-km">
-          <div class="row2">
+            <div class="row2">
+              <div class="field"><label>Subject</label><input type="text" id="td-t-subject"></div>
+              <div class="field"><label>Project</label><input type="text" id="td-t-project"></div>
+            </div>
             <div class="field">
-              <label>Operator Agreement</label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input type="url" id="td-t-operator-agreement" placeholder="Paste the OneDrive share link" style="flex:1;">
-                <a href="#" id="tdOperatorAgreementLink" target="_blank" rel="noopener" class="btn small" style="display:none; white-space:nowrap;">📄 Open</a>
+              <label>Type</label>
+              <select id="td-t-billing-type">
+                <option value="">—</option>
+                <option value="per_km">Per KM Basis</option>
+                <option value="management">Management Basis</option>
+              </select>
+              <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Per KM Basis: operator bills actual KM run each month. Management Basis: a per-KM management fee, plus actual manpower cost. Pricing fields below work the same either way.</div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Bus Requirement <span style="text-transform:none; letter-spacing:0;">(add one row per model, e.g. 09M / 12M)</span></label>
+                <div id="td-bus-mix-rows"></div>
+                <button type="button" class="btn small" id="td-bus-mix-add">+ Add model row</button>
               </div>
-              <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Shown to every bidder as "Download Draft Operator Agreement having Scope and Terms in detail."</div>
+              <div class="field"><label>Availability Factor %</label><input type="number" step="0.01" id="td-t-availability"></div>
             </div>
-            <div class="field"><label>Status</label><div class="readonly-value" id="td-t-status-display">—</div></div>
+            <input type="hidden" id="td-t-total-buses"><input type="hidden" id="td-t-total-km">
+            <div class="row2">
+              <div class="field">
+                <label>Operator Agreement</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input type="url" id="td-t-operator-agreement" placeholder="Paste the OneDrive share link" style="flex:1;">
+                  <a href="#" id="tdOperatorAgreementLink" target="_blank" rel="noopener" class="btn small" style="display:none; white-space:nowrap;">📄 Open</a>
+                </div>
+                <div class="hint" style="font-size:11px; color:var(--faint); margin-top:5px;">Shown to every bidder as "Download Draft Operator Agreement having Scope and Terms in detail."</div>
+              </div>
+              <div class="field"><label>Status</label><div class="readonly-value" id="td-t-status-display">—</div></div>
+            </div>
           </div>
-        </div>
-    </div>
-
-    <div class="modal-body">
-      <div class="panel">
-        <div id="tdMasterFrozenViewBottom" class="master-frozen-grid" style="display:none;"></div>
-        <div id="tdMasterEditViewBottom">
-          <div class="field"><label>Background &amp; Justification</label><textarea id="td-t-background"></textarea></div>
-          <div class="field"><label>Scope of Work</label><textarea id="td-t-scope"></textarea></div>
-          <div class="field"><label>Terms</label><textarea id="td-t-terms"></textarea></div>
-          <div class="field"><label>Benchmark Cost <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label><input type="number" step="0.01" id="td-t-benchmark"></div>
-          <div class="row2">
-            <div class="field"><label>Approver 1</label><select id="td-t-approver1"></select></div>
-            <div class="field"><label>Approver 2</label><select id="td-t-approver2"></select></div>
-          </div>
-          <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:10px;">Both approvers must sign off before any bidder can be awarded.</div>
-          <button type="button" class="btn primary" id="tenderDetailSaveBtn">Save Master Details</button>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Line Items</div>
-        <div class="table-wrap">
-          <table id="tenderLineItemsTable">
-            <thead><tr><th>#</th><th>Activity</th><th>Source</th><th>Budget Qty <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th>Budget Rate <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th></th></tr></thead>
-            <tbody id="tenderLineItemsTableBody"></tbody>
-          </table>
-        </div>
-        <div class="row2" style="margin-top:10px; align-items:end;">
-          <div class="field" style="margin:0;">
-            <label>Budget Manpower GST <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label>
-            <label style="text-transform:none; letter-spacing:0; display:flex; align-items:center; gap:6px; font-size:calc(13.5px * var(--fs)); color:var(--text); margin-bottom:0;">
-              <input type="checkbox" id="td-t-budget-manpower-gst" style="width:auto;" checked> Applicable
-            </label>
-          </div>
-          <div class="field" style="margin:0;">
-            <label>Budget Manpower GST % <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label>
-            <input type="number" step="0.01" id="td-t-budget-manpower-gst-rate" value="18">
-          </div>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:end;">
-          <div class="field" style="margin:0; flex:1; min-width:200px;">
-            <label>Pick from master list</label>
-            <select id="td-li-role"></select>
-          </div>
-          <button type="button" class="btn" id="tenderAddLiFromRoleBtn">+ Add from master</button>
-          <button type="button" class="btn small" id="tenderAddNewRoleBtn">+ New master role</button>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:end;">
-          <div class="field" style="margin:0; flex:1; min-width:200px;">
-            <label>Or add a one-off line <span style="text-transform:none; letter-spacing:0;">(this tender only)</span></label>
-            <input type="text" id="td-li-custom-name" placeholder="e.g. Site-specific supervisor">
-          </div>
-          <button type="button" class="btn" id="tenderAddLiCustomBtn">+ Add one-off</button>
-        </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-title">Other Cost Fields</div>
-        <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">GST applicability and rate for each field are set by each vendor on their own quote. The Budget Amount/GST columns below are your own internal estimate, never shown to bidders, used only to compare bids against at award stage.</div>
-        <div class="table-wrap">
-          <table id="tenderCostItemsTable">
-            <thead><tr><th>#</th><th>Field Name</th><th>Kind</th><th>Source</th><th>Budget Amount <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th>Budget GST % <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th></th></tr></thead>
-            <tbody id="tenderCostItemsTableBody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:end;">
-          <div class="field" style="margin:0; flex:1; min-width:200px;">
-            <label>Pick from master list</label>
-            <select id="td-ci-role"></select>
-          </div>
-          <button type="button" class="btn" id="tenderAddCostItemFromRoleBtn">+ Add from master</button>
-          <button type="button" class="btn small" id="tenderAddNewCostRoleBtn">+ New master field</button>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:end;">
-          <div class="field" style="margin:0; flex:1; min-width:160px;">
-            <label>Or add a one-off field <span style="text-transform:none; letter-spacing:0;">(this tender only)</span></label>
-            <input type="text" id="td-ci-name" placeholder="e.g. Site-specific levy">
-          </div>
-          <div class="field" style="margin:0; min-width:150px;">
-            <label>Kind</label>
-            <select id="td-ci-kind">
-              <option value="flat">Flat amount</option>
-              <option value="uniform">Uniform (auto qty × rate)</option>
-              <option value="working_capital">Working Capital (rate % of total)</option>
-            <option value="per_km">Rate / KM (rate × yearly KM)</option>
-            </select>
-          </div>
-          <button type="button" class="btn" id="tenderAddCostItemBtn">+ Add one-off</button>
-        </div>
-      </div>
-
-      <div class="panel" id="tdBudgetSummaryPanel">
-        <div class="panel-title">Budget Summary <span style="text-transform:none; letter-spacing:0; font-weight:400;">(internal)</span></div>
-        <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">A rollup of the Budget Qty/Rate/Amount figures entered above -- the same breakdown bidders' quotes get compared against once they've submitted. Never shown to bidders.</div>
-        <div class="comparative-wrap"><table id="tdBudgetSummaryTable" class="comparative-table"></table></div>
-      </div>
-
-      <div id="tdVendorSection" style="display:none;">
+      <div class="modal-body">
         <div class="panel">
-          <div class="panel-title">Vendors</div>
-          <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">Vendors sign themselves up and appear here once they start a quote on this tender -- no invite needed.</div>
+          <div id="tdMasterFrozenViewBottom" class="master-frozen-grid" style="display:none;"></div>
+          <div id="tdMasterEditViewBottom">
+            <div class="field"><label>Background &amp; Justification</label><textarea id="td-t-background"></textarea></div>
+            <div class="field"><label>Scope of Work</label><textarea id="td-t-scope"></textarea></div>
+            <div class="field"><label>Terms</label><textarea id="td-t-terms"></textarea></div>
+            <div class="field"><label>Benchmark Cost <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label><input type="number" step="0.01" id="td-t-benchmark"></div>
+            <div class="row2">
+              <div class="field"><label>Approver 1</label><select id="td-t-approver1"></select></div>
+              <div class="field"><label>Approver 2</label><select id="td-t-approver2"></select></div>
+            </div>
+            <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:10px;">Both approvers must sign off before any bidder can be awarded.</div>
+            <button type="button" class="btn primary" id="tenderDetailSaveBtn">Save Master Details</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Line Items</div>
           <div class="table-wrap">
-            <table id="tenderVendorsTable">
-              <thead><tr><th>Vendor</th><th>Contact</th><th>Status</th><th>Terms</th><th>Award</th><th>Actions</th></tr></thead>
-              <tbody id="tenderVendorsTableBody"></tbody>
+            <table id="tenderLineItemsTable">
+              <thead><tr><th>#</th><th>Activity</th><th>Source</th><th>Budget Qty <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th>Budget Rate <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th></th></tr></thead>
+              <tbody id="tenderLineItemsTableBody"></tbody>
             </table>
           </div>
+          <button type="button" class="btn small" id="tdLiShowBlankToggle" style="display:none; margin-top:8px;"></button>
+          <div class="row2" style="margin-top:10px; align-items:end;">
+            <div class="field" style="margin:0;">
+              <label>Budget Manpower GST <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label>
+              <label style="text-transform:none; letter-spacing:0; display:flex; align-items:center; gap:6px; font-size:calc(13.5px * var(--fs)); color:var(--text); margin-bottom:0;">
+                <input type="checkbox" id="td-t-budget-manpower-gst" style="width:auto;" checked> Applicable
+              </label>
+            </div>
+            <div class="field" style="margin:0;">
+              <label>Budget Manpower GST % <span style="text-transform:none; letter-spacing:0;">(internal only)</span></label>
+              <input type="number" step="0.01" id="td-t-budget-manpower-gst-rate" value="18">
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:end;">
+            <div class="field" style="margin:0; flex:1; min-width:200px;">
+              <label>Pick from master list</label>
+              <select id="td-li-role"></select>
+            </div>
+            <button type="button" class="btn" id="tenderAddLiFromRoleBtn">+ Add from master</button>
+            <button type="button" class="btn small" id="tenderAddNewRoleBtn">+ New master role</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:end;">
+            <div class="field" style="margin:0; flex:1; min-width:200px;">
+              <label>Or add a one-off line <span style="text-transform:none; letter-spacing:0;">(this tender only)</span></label>
+              <input type="text" id="td-li-custom-name" placeholder="e.g. Site-specific supervisor">
+            </div>
+            <button type="button" class="btn" id="tenderAddLiCustomBtn">+ Add one-off</button>
+          </div>
         </div>
-
-        <div id="tdAwardApprovalBox"></div>
 
         <div class="panel">
-          <div class="panel-title">Comparative</div>
-          <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">Manpower rows (Qty/Rate/Total/Per KM) are Monthly figures; Manpower Total is annualized (×12) before combining with the Yearly cost fields below it.</div>
-          <div class="vendor-snap-row" id="tenderSnapshotRow"></div>
-          <div class="comparative-wrap"><table id="comparativeTable" class="comparative-table"></table></div>
+          <div class="panel-title">Other Cost Fields</div>
+          <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">GST applicability and rate for each field are set by each vendor on their own quote. The Budget Amount/GST columns below are your own internal estimate, never shown to bidders, used only to compare bids against at award stage.</div>
+          <div class="table-wrap">
+            <table id="tenderCostItemsTable">
+              <thead><tr><th>#</th><th>Field Name</th><th>Kind</th><th>Source</th><th>Budget Amount <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th>Budget GST % <span style="text-transform:none; letter-spacing:0;">(internal)</span></th><th></th></tr></thead>
+              <tbody id="tenderCostItemsTableBody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:end;">
+            <div class="field" style="margin:0; flex:1; min-width:200px;">
+              <label>Pick from master list</label>
+              <select id="td-ci-role"></select>
+            </div>
+            <button type="button" class="btn" id="tenderAddCostItemFromRoleBtn">+ Add from master</button>
+            <button type="button" class="btn small" id="tenderAddNewCostRoleBtn">+ New master field</button>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:end;">
+            <div class="field" style="margin:0; flex:1; min-width:160px;">
+              <label>Or add a one-off field <span style="text-transform:none; letter-spacing:0;">(this tender only)</span></label>
+              <input type="text" id="td-ci-name" placeholder="e.g. Site-specific levy">
+            </div>
+            <div class="field" style="margin:0; min-width:150px;">
+              <label>Kind</label>
+              <select id="td-ci-kind">
+                <option value="flat">Flat amount</option>
+                <option value="uniform">Uniform (auto qty × rate)</option>
+                <option value="working_capital">Working Capital (rate % of total)</option>
+              <option value="per_km">Rate / KM (rate × yearly KM)</option>
+              </select>
+            </div>
+            <button type="button" class="btn" id="tenderAddCostItemBtn">+ Add one-off</button>
+          </div>
+        </div>
+
+        <div class="panel" id="tdBudgetSummaryPanel">
+          <div class="panel-title">Budget Summary <span style="text-transform:none; letter-spacing:0; font-weight:400;">(internal)</span></div>
+          <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">A rollup of the Budget Qty/Rate/Amount figures entered above -- the same breakdown bidders' quotes get compared against once they've submitted. Never shown to bidders.</div>
+          <div class="comparative-wrap"><table id="tdBudgetSummaryTable" class="comparative-table"></table></div>
         </div>
       </div>
+    </div>
 
-      <div id="tdDraftHint" class="footer-note" style="display:none; text-align:center; padding:20px;">Float this tender to open it for bidding -- the Vendors and Comparative panels will appear here once it has.</div>
+    <div id="tdPage2" class="td-page">
+      <div class="modal-body">
+        <div id="tdVendorSectionWrap" style="display:none;">
+          <div class="panel">
+            <div class="panel-title">Vendors</div>
+            <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">Vendors sign themselves up and appear here once they start a quote on this tender -- no invite needed.</div>
+            <div class="table-wrap">
+              <table id="tenderVendorsTable">
+                <thead><tr><th>Vendor</th><th>Contact</th><th>Status</th><th>Terms</th><th>Per KM</th><th>Award</th><th>Actions</th></tr></thead>
+                <tbody id="tenderVendorsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div id="tdDraftHintPage2" class="footer-note" style="display:none; text-align:center; padding:20px;">Float this tender to open it for bidding -- the Vendors panel will appear here once it has.</div>
+      </div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-title">Tender Actions</div>
-        <div id="tdSubmitForFloatBox" style="margin-bottom:10px;"></div>
-        <div id="tdFloatBox" style="margin-bottom:10px;"></div>
-        <div id="tdExtendClosureBox"></div>
+    <div id="tdPage3" class="td-page">
+      <div class="modal-body">
+        <div id="tdComparativeSectionWrap" style="display:none;">
+          <div id="tdAwardApprovalBox"></div>
+
+          <div class="panel" style="padding-top:0;">
+            <div id="tdComparativeStickyTop">
+              <div class="panel-title">Comparative</div>
+              <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">Manpower rows (Qty/Rate/Total/Per KM) are Monthly figures; Manpower Total is annualized (×12) before combining with the Yearly cost fields below it.</div>
+              <div class="vendor-snap-row" id="tenderSnapshotRow"></div>
+            </div>
+            <div id="comparativeStickyHeadWrap" style="display:none;">
+              <table class="comparative-table"><thead id="comparativeStickyHeadInner"></thead></table>
+            </div>
+            <div class="comparative-wrap"><table id="comparativeTable" class="comparative-table"></table></div>
+          </div>
+        </div>
+
+        <div id="tdDraftHint" class="footer-note" style="display:none; text-align:center; padding:20px;">Float this tender to open it for bidding -- the Comparative panel will appear here once it has.</div>
+
+        <div class="panel">
+          <div class="panel-title">Tender Actions</div>
+          <div id="tdSubmitForFloatBox" style="margin-bottom:10px;"></div>
+          <div id="tdFloatBox" style="margin-bottom:10px;"></div>
+          <div id="tdExtendClosureBox"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -5204,15 +5316,21 @@ async function openTenderDetail(id){
 
     populateManpowerRoleSelect();
     populateCostFieldRoleSelect();
+    tdLineItemsShowBlank = false;
     renderTenderLineItemsTable();
     renderTenderCostItemsTable();
     renderTenderVendorsTable();
     await loadLatestTenderAwardEvent(id);
     renderAwardApprovalBox();
-    renderComparative();
 
+    switchTenderDetailPage(1);
     document.getElementById('tenderDetailOverlay').style.display = 'flex';
     applyTenderEditLock(tender); // after the overlay is visible, so textarea auto-sizing measures real layout
+    // renderComparative() also needs to run after the overlay is visible --
+    // it measures the comparative table's own header-row height (to stack
+    // its 2nd thead row's sticky offset under the 1st), which reads back
+    // as 0 while display:none still hides everything from layout.
+    renderComparative();
   }catch(err){
     console.error(err);
     showBanner('globalBanner', 'Could not open tender: ' + err.message, 'error');
@@ -5319,9 +5437,47 @@ async function saveTenderBudgetsOnly(){
 
 function applyVendorSectionVisibility(tender){
   const isDraft = !tender || tender.status === 'draft';
-  document.getElementById('tdVendorSection').style.display = isDraft ? 'none' : 'block';
+  document.getElementById('tdVendorSectionWrap').style.display = isDraft ? 'none' : 'block';
+  document.getElementById('tdDraftHintPage2').style.display = isDraft ? 'block' : 'none';
+  document.getElementById('tdComparativeSectionWrap').style.display = isDraft ? 'none' : 'block';
   document.getElementById('tdDraftHint').style.display = isDraft ? 'block' : 'none';
 }
+
+// Tender Detail is split into 3 tabbed pages (Details / Vendors /
+// Comparative) rather than one long scroll -- switches which .td-page is
+// the flex column (so its own pinned-top/scrolling-body children still
+// lay out right) and which nav button is highlighted.
+function switchTenderDetailPage(n){
+  document.querySelectorAll('#tenderDetailOverlay .td-page').forEach(el=> el.classList.toggle('active', el.id === 'tdPage'+n));
+  document.querySelectorAll('#tenderDetailOverlay .td-page-tab').forEach(btn=> btn.classList.toggle('active', Number(btn.dataset.tdPage) === n));
+  document.getElementById('tenderDetailOverlay').classList.toggle('td-flat-scroll', n !== 1);
+  // renderComparative() (called from openTenderDetail() before this, while
+  // Page 1 is still the active page) can only measure the real header
+  // cells' widths as 0 -- the table is display:none at that point -- which
+  // collapses the cloned sticky header to nothing. Re-syncing here, once
+  // Page 3 actually becomes visible and has real layout, is what fixes it.
+  if(n === 3 && typeof syncComparativeStickyHead === 'function') syncComparativeStickyHead();
+}
+
+// Keeps --td-sticky1-h/--td-sticky2-h (the Comparative page's 2nd and 3rd
+// sticky layers' top offsets) in sync with #tdStickyTop's and
+// #tdComparativeStickyTop's actual rendered heights -- these shift
+// whenever the locked-tender banner shows/hides or the vendor count
+// changes the snapshot-card row's wrap, so a fixed CSS value would leave
+// either a gap or an overlap depending on state.
+(function(){
+  const stickyTop = document.getElementById('tdStickyTop');
+  const stickyTop2 = document.getElementById('tdComparativeStickyTop');
+  const overlay = document.getElementById('tenderDetailOverlay');
+  if(!stickyTop || !overlay || typeof ResizeObserver === 'undefined') return;
+  const sync = ()=>{
+    overlay.style.setProperty('--td-sticky1-h', stickyTop.offsetHeight + 'px');
+    if(stickyTop2) overlay.style.setProperty('--td-sticky2-h', stickyTop2.offsetHeight + 'px');
+  };
+  const ro = new ResizeObserver(sync);
+  ro.observe(stickyTop);
+  if(stickyTop2) ro.observe(stickyTop2);
+})();
 
 function renderSubmitForFloatBox(tender){
   const box = document.getElementById('tdSubmitForFloatBox');
@@ -5482,11 +5638,24 @@ async function deleteTenderDetail(){
   }
 }
 
+// Whether blank-budget line items (neither Qty nor Rate entered) are
+// currently expanded into view -- persists across re-renders of this
+// table (add/remove a line item, etc.) within the same open tender, reset
+// to collapsed whenever the tender is (re)opened.
+let tdLineItemsShowBlank = false;
+
 function renderTenderLineItemsTable(){
   const tbody = document.getElementById('tenderLineItemsTableBody');
   const sorted = [...currentTenderLineItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
   const budgets = (currentTenderInternal && currentTenderInternal.line_item_budgets) || {};
-  tbody.innerHTML = sorted.map((li,i)=>{
+  // A line item with neither a Budget Qty nor a Budget Rate entered is
+  // hidden by default -- most master roles end up added to a tender without
+  // ever applying to it, and showing all of them just clutters this list.
+  // Nothing is deleted; the toggle below re-expands them.
+  const hasBudget = (li)=>{ const b = budgets[li.id] || {}; return b.qty != null || b.rate != null; };
+  const blanks = sorted.filter(li=> !hasBudget(li));
+  const visible = tdLineItemsShowBlank ? sorted : sorted.filter(hasBudget);
+  tbody.innerHTML = visible.map((li,i)=>{
     const b = budgets[li.id] || {};
     return `
     <tr data-li-id="${li.id}">
@@ -5504,6 +5673,18 @@ function renderTenderLineItemsTable(){
   tbody.querySelectorAll('.td-li-budget-qty, .td-li-budget-rate').forEach(inp=>{
     inp.addEventListener('change', saveTenderBudgetsOnly);
   });
+
+  const toggleBtn = document.getElementById('tdLiShowBlankToggle');
+  if(toggleBtn){
+    if(!blanks.length){
+      toggleBtn.style.display = 'none';
+    } else {
+      toggleBtn.style.display = 'inline-flex';
+      toggleBtn.textContent = tdLineItemsShowBlank
+        ? `Hide ${blanks.length} role${blanks.length===1?'':'s'} with no budget set`
+        : `Show ${blanks.length} more role${blanks.length===1?'':'s'} with no budget set`;
+    }
+  }
 }
 
 async function addTenderLineItemFromRole(){
@@ -5580,11 +5761,16 @@ function costItemKindLabel(k){ return { flat:'Flat amount', uniform:'Uniform', w
 
 // Which line item represents drivers is detected by name, not an admin toggle --
 // this way the auto-headcount calc always applies without an extra manual step.
-// Matches only a name that LEADS with "Driver" (plain "Driver", "Driver cum
-// Cleaner", "Drivers", ...) -- a supervisory/training role like "Master
-// Driver/Trainer" has "driver" elsewhere in a compound title and is a
-// distinct headcount, entered manually like any other line item.
-function isDriverLineItem(li){ return /^driver/i.test((li.activity_name || '').trim()); }
+// Matches only the exact role name "Driver"/"Drivers" -- any compound
+// title that merely contains or starts with "Driver" (e.g. "Master
+// Driver/Trainer", "Driver Recruitment Manager/Supervisor") is a
+// distinct role with its own flat headcount, entered manually like any
+// other line item (Washing Staff, Duty Officers, ...), not auto-derived
+// from the Drivers-per-Bus ratio.
+function isDriverLineItem(li){
+  const name = (li.activity_name || '').trim().toLowerCase();
+  return name === 'driver' || name === 'drivers';
+}
 
 function renderTenderCostItemsTable(){
   const tbody = document.getElementById('tenderCostItemsTableBody');
@@ -5743,6 +5929,8 @@ function isMyAwardTurn(tender, internal){
 function renderTenderVendorsTable(){
   const tbody = document.getElementById('tenderVendorsTableBody');
   const tender = currentTenderData;
+  const lineItems = [...currentTenderLineItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
+  const costItems = [...currentTenderCostItems].sort((a,b)=> (a.seq_no||0)-(b.seq_no||0));
   const awardedId = tender ? tender.awarded_quote_id : null;
   const canAward = !awardedId && isTenderApprover(tender) && isMyAwardTurn(tender, currentTenderInternal);
   const canRequestRevision = !awardedId && isTenderApprover(tender);
@@ -5754,12 +5942,19 @@ function renderTenderVendorsTable(){
     if(isAwarded) awardCell = '<span class="badge submitted">✅ Awarded</span>';
     else if(isNotSelected) awardCell = '<span class="badge closed">Not Selected</span>';
     else if(canAward && v.status === 'submitted') awardCell = `<button class="btn small" data-award-vendor="${v.id}">Award</button>`;
+    // Effective Per KM (Grand Total / yearly KM) -- same figure shown on the
+    // Comparative page's snapshot cards, surfaced here too so an approver
+    // can compare bidders without switching pages. Blank until there's an
+    // actual bid to compute it from (grandTotal > 0), same rule renderComparative() uses.
+    const fin = computeVendorFinancials(tender, lineItems, costItems, v);
+    const perKmCell = fin.grandTotal > 0 && fin.effectiveRatePerKm != null ? fmtNum(fin.effectiveRatePerKm) : '—';
     return `
     <tr>
       <td data-label="Vendor">${v.vendor_name}</td>
       <td data-label="Contact">${v.contact_person || ''}${v.contact_phone ? ' · ' + v.contact_phone : ''}${v.contact_email ? '<br><span class="footer-note">' + v.contact_email + '</span>' : ''}</td>
       <td data-label="Status">${quoteStatusBadge(v)}</td>
       <td data-label="Terms">${v.terms_accepted ? '<span class="badge submitted">Accepted</span>' : '<span class="badge invited">Pending</span>'}</td>
+      <td data-label="Per KM">${perKmCell}</td>
       <td data-label="Award">${awardCell}</td>
       <td data-label="Actions" style="display:flex; gap:6px; flex-wrap:wrap;">
         ${v.status === 'submitted' && canRequestRevision ? `<button class="btn small" data-request-revision="${v.id}">Request Revision</button>` : ''}
@@ -5920,6 +6115,7 @@ function renderQuoteHistoryVersions(versions, tender){
         </thead>
         <tbody>
           ${lineNames.map(name=> lineItemRowFor(name)).join('')}
+          <tr class="total-row"><td>Total Qty (Manpower)</td>${results.map(r=> `<td>${fmtNum(r.fin.lineQtyTotal)}</td><td colspan="3"></td>`).join('')}</tr>
           ${computedRow('Manpower Total (Yearly, Rate × Qty × 12)', f=> fmtMoney(f.manpowerTotal), f=> f.manpowerTotal, {totalRow:true})}
           ${computedRow('Manpower GST', f=> f.manpowerGstApplicable ? fmtMoney(f.manpowerGst)+' ('+fmtNum(f.manpowerGstRate)+'%)' : 'Not applicable', f=> f.manpowerGstApplicable ? f.manpowerGst : null)}
           ${costNames.map(name=> costItemRowFor(name)).join('')}
@@ -6195,6 +6391,7 @@ function computeVendorFinancials(tender, lineItems, costItems, v){
     const rate = Number(q.rate)||0;
     return { lineItem: li, qty, rate, total: qty * rate };
   });
+  const lineQtyTotal = lineResults.reduce((s,r)=> s + (r.qty||0), 0);
   const manpowerTotalMonthly = lineResults.reduce((s,r)=> s + r.total, 0);
   const manpowerTotal = manpowerTotalMonthly * 12;
   // GST is each bidder's own choice, not the tender master's -- read from the vendor row.
@@ -6250,7 +6447,7 @@ function computeVendorFinancials(tender, lineItems, costItems, v){
   const perKmMonthly = (amt)=> monthlyKm > 0 ? amt / monthlyKm : null;
 
   return {
-    driverHeadcount, uniformQty, lineResults, manpowerTotalMonthly, manpowerTotal, manpowerGstApplicable, manpowerGstRate, manpowerGst,
+    driverHeadcount, uniformQty, lineResults, lineQtyTotal, manpowerTotalMonthly, manpowerTotal, manpowerGstApplicable, manpowerGstRate, manpowerGst,
     costResults, costItemsTotal, costItemsGst, subTotal, gstTotal, grandTotal,
     yearlyKm, perKm, monthlyKm, perKmMonthly, effectiveRatePerKm: perKm(grandTotal)
   };
@@ -6275,6 +6472,7 @@ function computeBudgetFinancials(tender, lineItems, costItems, internal){
     const rate = Number(b.rate) || 0;
     return { lineItem: li, qty, rate, total: qty * rate };
   });
+  const lineQtyTotal = lineResults.reduce((s,r)=> s + (r.qty||0), 0);
   const manpowerTotalMonthly = lineResults.reduce((s,r)=> s + r.total, 0);
   const manpowerTotal = manpowerTotalMonthly * 12;
   const manpowerGstApplicable = internal.budget_manpower_gst_applicable !== false;
@@ -6323,7 +6521,7 @@ function computeBudgetFinancials(tender, lineItems, costItems, internal){
   const perKmMonthly = (amt)=> monthlyKm > 0 ? amt / monthlyKm : null;
 
   return {
-    lineResults, manpowerTotalMonthly, manpowerTotal, manpowerGstApplicable, manpowerGstRate, manpowerGst,
+    lineResults, lineQtyTotal, manpowerTotalMonthly, manpowerTotal, manpowerGstApplicable, manpowerGstRate, manpowerGst,
     costResults, costItemsTotal, costItemsGst, subTotal, gstTotal, grandTotal,
     yearlyKm, perKm, monthlyKm, perKmMonthly, effectiveRatePerKm: perKm(grandTotal)
   };
@@ -6353,6 +6551,7 @@ function computeVendorFinancialsFromSnapshot(tender, snapshot){
     const rate = Number(li.rate) || 0;
     return { activityName: li.activity_name, isDriver: isDriverLineItem({activity_name: li.activity_name}), qty, rate, total: qty * rate };
   });
+  const lineQtyTotal = lineResults.reduce((s,r)=> s + (r.qty||0), 0);
   const manpowerTotalMonthly = lineResults.reduce((s,r)=> s + r.total, 0);
   const manpowerTotal = manpowerTotalMonthly * 12;
   const manpowerGstApplicable = snapshot.manpower_gst_applicable !== false;
@@ -6394,7 +6593,7 @@ function computeVendorFinancialsFromSnapshot(tender, snapshot){
   const perKmMonthly = (amt)=> monthlyKm > 0 ? amt / monthlyKm : null;
 
   return {
-    driverHeadcount, uniformQty, lineResults, manpowerTotalMonthly, manpowerTotal, manpowerGstApplicable, manpowerGstRate, manpowerGst,
+    driverHeadcount, uniformQty, lineResults, lineQtyTotal, manpowerTotalMonthly, manpowerTotal, manpowerGstApplicable, manpowerGstRate, manpowerGst,
     costResults, costItemsTotal, costItemsGst, subTotal, gstTotal, grandTotal,
     yearlyKm, perKm, monthlyKm, perKmMonthly, effectiveRatePerKm: perKm(grandTotal)
   };
@@ -6435,6 +6634,7 @@ function renderBudgetSummary(){
     <thead><tr><th>Line Item</th><th>Qty</th><th>Rate</th><th>Total</th><th>Per KM</th></tr></thead>
     <tbody>
       ${lineItems.map((li,i)=> lineItemRowFor(li,i)).join('')}
+      <tr class="total-row"><td>Total Qty (Manpower)</td><td>${fmtNum(fin.lineQtyTotal)}</td><td colspan="3"></td></tr>
       ${computedRow('Manpower Total (Yearly, Rate × Qty × 12)', f=> fmtMoney(f.manpowerTotal), f=> f.manpowerTotal, {totalRow:true})}
       ${computedRow('Manpower GST', f=> f.manpowerGstApplicable ? fmtMoney(f.manpowerGst)+' ('+fmtNum(f.manpowerGstRate)+'%)' : 'Not applicable', f=> f.manpowerGstApplicable ? f.manpowerGst : null)}
       ${costItems.map((ci,i)=> costItemRowFor(ci,i)).join('')}
@@ -6465,6 +6665,7 @@ function renderComparative(){
   if(!vendors.length || !tender){
     container.innerHTML = '';
     snapRow.innerHTML = '<div class="footer-note">No vendors invited yet.</div>';
+    document.getElementById('comparativeStickyHeadWrap').style.display = 'none';
     return;
   }
 
@@ -6479,6 +6680,7 @@ function renderComparative(){
   if(!results.length){
     container.innerHTML = '';
     snapRow.innerHTML = '<div class="footer-note">No bids submitted yet.</div>';
+    document.getElementById('comparativeStickyHeadWrap').style.display = 'none';
     return;
   }
 
@@ -6505,29 +6707,50 @@ function renderComparative(){
       <div class="vendor-snap-metric"><span>Grand Total</span><span>${fmtMoney(r.fin.grandTotal)}</span></div>
       <div class="vendor-snap-metric"><span>Effective Rate/Km</span><span>${r.fin.effectiveRatePerKm!=null ? fmtNum(r.fin.effectiveRatePerKm) : '—'}</span></div>
       <div class="vendor-snap-metric"><span>Status</span><span>${quoteStatusBadge(r.vendor)}</span></div>
+      <div class="vendor-snap-metric"><span>Pan India Buses</span><span>${r.vendor.existing_business_pan_india || '—'}</span></div>
+      <div class="vendor-snap-metric"><span>Buses in Region</span><span>${r.vendor.existing_business_region || '—'}</span></div>
+      <div class="vendor-snap-metric"><span>Pan India JBM Buses</span><span>${r.vendor.existing_business_pan_india_with_jbm || '—'}</span></div>
+      <div class="vendor-snap-metric"><span>JBM Buses in Region</span><span>${r.vendor.existing_business_region_with_jbm || '—'}</span></div>
     </div>`;
   }).join('');
 
-  const lineItemRowFor = (li, i)=> `
+  // A line/cost item whose Per KM comes out at exactly 0 for EVERY column
+  // -- Budget included -- contributes nothing to the comparison, so the
+  // row is skipped entirely rather than padding the table with an
+  // all-zero line. Guarded by hasMonthlyKm/hasYearlyKm: if the tender has
+  // no KM basis set up yet, Per KM is null (not computable) for every
+  // row regardless of its actual Total, which would otherwise hide every
+  // line item -- in that case skip the per-km check and show all rows.
+  const hasMonthlyKm = tableResults.some(r=> r.fin.monthlyKm > 0);
+  const hasYearlyKm = tableResults.some(r=> r.fin.yearlyKm > 0);
+  const lineItemRowFor = (li, i)=>{
+    const cells = tableResults.map(r=>{
+      const lr = r.fin.lineResults[i];
+      return { lr, pk: r.fin.perKmMonthly(lr.total) };
+    });
+    if(hasMonthlyKm && !cells.some(c=> c.pk)) return '';
+    return `
     <tr>
       <td>${li.activity_name}${isDriverLineItem(li) ? ' <span class="who-chip">Drivers</span>' : ''}</td>
-      ${tableResults.map(r=>{
-        const lr = r.fin.lineResults[i];
-        const pk = r.fin.perKmMonthly(lr.total);
-        return `<td>${fmtNum(lr.qty)}</td><td>${fmtNum(lr.rate)}</td><td>${fmtMoney(lr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
-      }).join('')}
+      ${cells.map(c=> `<td>${fmtNum(c.lr.qty)}</td><td>${fmtNum(c.lr.rate)}</td><td>${fmtMoney(c.lr.total)}</td><td>${c.pk!=null?fmtNum(c.pk):'—'}</td>`).join('')}
     </tr>`;
+  };
 
-  const costItemRowFor = (ci, i)=> `
+  const costItemRowFor = (ci, i)=>{
+    const cells = tableResults.map(r=>{
+      const cr = r.fin.costResults[i];
+      return { cr, pk: r.fin.perKm(cr.total + cr.gst) };
+    });
+    if(hasYearlyKm && !cells.some(c=> c.pk)) return '';
+    return `
     <tr>
       <td>${ci.field_name} <span class="who-chip">${costItemKindLabel(ci.kind)}</span></td>
-      ${tableResults.map(r=>{
-        const cr = r.fin.costResults[i];
-        const pk = r.fin.perKm(cr.total + cr.gst);
-        const gstNote = cr.gstApplicable ? ` + ${fmtMoney(cr.gst)} GST (${fmtNum(cr.gstRate)}%)` : ' (no GST)';
-        return `<td colspan="2">${cr.qty!=null ? fmtNum(cr.qty)+' × '+fmtNum(cr.amount) : fmtNum(cr.amount)}</td><td>${fmtMoney(cr.total)}${gstNote}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
+      ${cells.map(c=>{
+        const gstNote = c.cr.gstApplicable ? ` + ${fmtMoney(c.cr.gst)} GST (${fmtNum(c.cr.gstRate)}%)` : ' (no GST)';
+        return `<td colspan="2">${c.cr.qty!=null ? fmtNum(c.cr.qty)+' × '+fmtNum(c.cr.amount) : fmtNum(c.cr.amount)}</td><td>${fmtMoney(c.cr.total)}${gstNote}</td><td>${c.pk!=null?fmtNum(c.pk):'—'}</td>`;
       }).join('')}
     </tr>`;
+  };
 
   const textRow = (label, field)=> `
     <tr><td>${label}</td>${tableResults.map(r=> `<td colspan="4">${r.isBudget ? '—' : (r.vendor[field] || '—')}</td>`).join('')}</tr>`;
@@ -6557,6 +6780,7 @@ function renderComparative(){
     </thead>
     <tbody>
       ${lineItems.map((li,i)=> lineItemRowFor(li,i)).join('')}
+      <tr class="total-row"><td>Total Qty (Manpower)</td>${tableResults.map(r=> `<td>${fmtNum(r.fin.lineQtyTotal)}</td><td colspan="3"></td>`).join('')}</tr>
       ${computedRow('Manpower Total (Yearly, Rate × Qty × 12)', f=> fmtMoney(f.manpowerTotal), f=> f.manpowerTotal, {totalRow:true})}
       ${computedRow('Manpower GST', f=> f.manpowerGstApplicable ? fmtMoney(f.manpowerGst)+' ('+fmtNum(f.manpowerGstRate)+'%)' : 'Not applicable', f=> f.manpowerGstApplicable ? f.manpowerGst : null)}
       ${costItems.map((ci,i)=> costItemRowFor(ci,i)).join('')}
@@ -6567,6 +6791,38 @@ function renderComparative(){
       ${textRow('Uniform Sets/Driver/Year (proposed)', 'uniform_sets_per_driver_per_year')}
       ${textRow('Payment Terms Proposed', 'payment_terms_proposed')}
     </tbody>`;
+
+  syncComparativeStickyHead();
+}
+
+// The real thead's own position:sticky can't work here (.comparative-wrap
+// needs overflow-x:auto for wide bidder counts, which forces its own
+// overflow-y to auto too, making it -- not .modal-overlay -- the sticky
+// reference, and it never actually scrolls) -- so a cloned header, living
+// outside .comparative-wrap in its own sticky bar, stands in for it. Column
+// widths are copied from the real header cells (two separate <table>s
+// would otherwise size columns independently) and kept in sync on every
+// call since they can change with content/font-scale; horizontal scroll is
+// mirrored via a transform, wired once in attachTenderEvents().
+function syncComparativeStickyHead(){
+  const headWrap = document.getElementById('comparativeStickyHeadWrap');
+  const headInner = document.getElementById('comparativeStickyHeadInner');
+  const realTable = document.getElementById('comparativeTable');
+  const realThead = realTable.querySelector('thead');
+  if(!headWrap || !headInner || !realThead) return;
+  headInner.innerHTML = realThead.innerHTML;
+  const headTable = headInner.closest('table');
+  headTable.style.tableLayout = 'fixed';
+  headTable.style.width = realTable.getBoundingClientRect().width + 'px';
+  const realCells = realThead.querySelectorAll('th');
+  const cloneCells = headInner.querySelectorAll('th');
+  realCells.forEach((th,i)=>{
+    const w = th.getBoundingClientRect().width;
+    if(cloneCells[i]) cloneCells[i].style.cssText += `width:${w}px; min-width:${w}px; max-width:${w}px;`;
+  });
+  const wrap = document.querySelector('#tdComparativeSectionWrap .comparative-wrap');
+  headTable.style.transform = `translateX(${-(wrap ? wrap.scrollLeft : 0)}px)`;
+  headWrap.style.display = 'block';
 }
 
 function attachTenderEvents(){
@@ -6597,6 +6853,21 @@ function attachTenderEvents(){
 
   document.getElementById('tenderDetailCloseBtn').addEventListener('click', closeTenderDetail);
   document.getElementById('tenderDetailOverlay').addEventListener('click', (e)=>{ if(e.target.id==='tenderDetailOverlay') closeTenderDetail(); });
+  document.querySelectorAll('#tenderDetailOverlay .td-page-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchTenderDetailPage(Number(btn.dataset.tdPage)));
+  });
+  document.getElementById('tdLiShowBlankToggle').addEventListener('click', ()=>{
+    tdLineItemsShowBlank = !tdLineItemsShowBlank;
+    renderTenderLineItemsTable();
+  });
+  // Mirrors the comparative table's own horizontal scroll onto the cloned
+  // sticky header bar via transform -- the wrap div itself never gets
+  // recreated, so this is wired once regardless of how many times
+  // renderComparative() rebuilds the table/clone inside it.
+  document.querySelector('#tdComparativeSectionWrap .comparative-wrap').addEventListener('scroll', (e)=>{
+    const headTable = document.querySelector('#comparativeStickyHeadInner')?.closest('table');
+    if(headTable) headTable.style.transform = `translateX(${-e.target.scrollLeft}px)`;
+  });
   document.getElementById('tenderDetailSaveBtn').addEventListener('click', saveTenderDetail);
   document.getElementById('tenderDeleteBtn').addEventListener('click', deleteTenderDetail);
   document.getElementById('tenderPrintBtn').addEventListener('click', handlePrintTender);
@@ -6922,7 +7193,7 @@ function buildVendorPrintDocument(){
       </div>
       <table>
         <thead><tr><th>Activity</th><th>Qty</th><th>Rate (Monthly)</th><th>Total (Monthly)</th><th>Per KM</th></tr></thead>
-        <tbody>${lineRows}</tbody>
+        <tbody>${lineRows}<tr style="font-weight:700;"><td>Total Qty</td><td>${fmtNum(fin.lineQtyTotal)}</td><td colspan="3"></td></tr></tbody>
       </table>
       <div class="pp-row"><span class="pp-label">Manpower Total (Yearly, ×12)</span><span class="pp-value">${fmtMoney(fin.manpowerTotal)}</span></div>
       <div class="pp-row"><span class="pp-label">Manpower GST</span><span class="pp-value">${fin.manpowerGstApplicable ? fmtMoney(fin.manpowerGst)+' ('+fmtNum(fin.manpowerGstRate)+'%)' : 'Not applicable'}</span></div>
@@ -7035,21 +7306,34 @@ function buildTenderPrintDocument(){
     const headRow1 = `<tr><th rowspan="2" style="text-align:left;">Line Item</th>${tableResults.map(r=> `<th colspan="4">${r.isBudget ? 'Budget (internal)' : r.vendor.vendor_name}</th>`).join('')}</tr>`;
     const headRow2 = `<tr>${tableResults.map(()=> '<th>Qty</th><th>Rate</th><th>Total</th><th>/Km</th>').join('')}</tr>`;
 
-    const lineRows = lineItems.map((li,i)=> `
-      <tr><td style="text-align:left;">${li.activity_name}${isDriverLineItem(li)?' (Drivers)':''}</td>
-      ${tableResults.map(r=>{
+    // Same rule as the on-screen Comparative table: a line/cost item whose
+    // Per KM is 0 for every column (Budget included) is skipped entirely
+    // -- unless the tender has no KM basis set up at all, in which case
+    // Per KM is null (not computable) for every row regardless of Total,
+    // and hiding on that basis would wipe out the whole table.
+    const hasMonthlyKm = tableResults.some(r=> r.fin.monthlyKm > 0);
+    const hasYearlyKm = tableResults.some(r=> r.fin.yearlyKm > 0);
+    const lineRows = lineItems.map((li,i)=>{
+      const cells = tableResults.map(r=>{
         const lr = r.fin.lineResults[i];
-        const pk = r.fin.perKmMonthly(lr.total);
-        return `<td>${fmtNum(lr.qty)}</td><td>${fmtNum(lr.rate)}</td><td>${fmtMoney(lr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
-      }).join('')}</tr>`).join('');
+        return { lr, pk: r.fin.perKmMonthly(lr.total) };
+      });
+      if(hasMonthlyKm && !cells.some(c=> c.pk)) return '';
+      return `
+      <tr><td style="text-align:left;">${li.activity_name}${isDriverLineItem(li)?' (Drivers)':''}</td>
+      ${cells.map(c=> `<td>${fmtNum(c.lr.qty)}</td><td>${fmtNum(c.lr.rate)}</td><td>${fmtMoney(c.lr.total)}</td><td>${c.pk!=null?fmtNum(c.pk):'—'}</td>`).join('')}</tr>`;
+    }).join('');
 
-    const costRows = costItems.map((ci,i)=> `
-      <tr><td style="text-align:left;">${ci.field_name} (${costItemKindLabel(ci.kind)})</td>
-      ${tableResults.map(r=>{
+    const costRows = costItems.map((ci,i)=>{
+      const cells = tableResults.map(r=>{
         const cr = r.fin.costResults[i];
-        const pk = r.fin.perKm(cr.total + cr.gst);
-        return `<td colspan="2">${cr.qty!=null ? fmtNum(cr.qty)+'×'+fmtNum(cr.amount) : fmtNum(cr.amount)}</td><td>${fmtMoney(cr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
-      }).join('')}</tr>`).join('');
+        return { cr, pk: r.fin.perKm(cr.total + cr.gst) };
+      });
+      if(hasYearlyKm && !cells.some(c=> c.pk)) return '';
+      return `
+      <tr><td style="text-align:left;">${ci.field_name} (${costItemKindLabel(ci.kind)})</td>
+      ${cells.map(c=> `<td colspan="2">${c.cr.qty!=null ? fmtNum(c.cr.qty)+'×'+fmtNum(c.cr.amount) : fmtNum(c.cr.amount)}</td><td>${fmtMoney(c.cr.total)}</td><td>${c.pk!=null?fmtNum(c.pk):'—'}</td>`).join('')}</tr>`;
+    }).join('');
 
     const sumRow = (label, getter, opts)=>{
       opts = opts || {};
@@ -7068,6 +7352,7 @@ function buildTenderPrintDocument(){
           <thead>${headRow1}${headRow2}</thead>
           <tbody>
             ${lineRows}
+            ${sumRow('Total Qty (Manpower)', f=> fmtNum(f.lineQtyTotal), {bold:true})}
             ${sumRow('Manpower Total (Yearly)', f=> fmtMoney(f.manpowerTotal), {bold:true})}
             ${sumRow('Manpower GST', f=> f.manpowerGstApplicable ? fmtMoney(f.manpowerGst)+' ('+fmtNum(f.manpowerGstRate)+'%)' : 'N/A')}
             ${costRows}
@@ -7191,6 +7476,17 @@ function renderVendorPortal(){
   document.getElementById('vqSubmitBtn').style.display = locked ? 'none' : 'block';
   if(tenderClosed) showBanner('vpBanner', 'This tender is closed — your quote can no longer be edited.', 'info');
   else if(quoteSubmitted) showBanner('vpBanner', 'Your quote has been submitted and is locked. Ask the company if you need to make a change.', 'info');
+  else {
+    // Still-editable draft (or a revision request) opened with a
+    // non-numeric value saved in one of the Existing Business fields --
+    // flag it now so the bidder notices before they get to Submit, where
+    // it would otherwise block them with no warning beforehand. Never
+    // shown once locked/submitted, matching the Submit-time check itself.
+    const invalidFields = getInvalidExistingBusinessFieldLabels();
+    if(invalidFields.length){
+      showBanner('vpBanner', `These fields must be numbers (number of buses) -- please correct before submitting: ${invalidFields.join(', ')}.`, 'error');
+    }
+  }
 }
 
 function renderVendorLineItemsTable(){
@@ -7199,12 +7495,12 @@ function renderVendorLineItemsTable(){
     const ql = myVendorQuoteLineItems.find(x=> x.tender_line_item_id === li.id) || {id:null, qty:0, rate:0};
     const qtyCell = isDriverLineItem(li)
       ? `<span class="vq-li-qty-readonly">${fmtNum(ql.qty)}</span> <span class="who-chip">Auto</span>`
-      : `<input type="number" step="0.01" class="vq-li-qty" value="${ql.qty||0}">`;
+      : `<input type="number" step="0.01" min="0" class="vq-li-qty" value="${ql.qty||0}">`;
     return `
     <tr data-qli-tender-item="${li.id}" data-qli-id="${ql.id||''}">
       <td data-label="Activity">${li.activity_name}</td>
       <td data-label="Qty">${qtyCell}</td>
-      <td data-label="Rate"><input type="number" step="0.01" class="vq-li-rate" value="${ql.rate||0}"></td>
+      <td data-label="Rate"><input type="number" step="0.01" min="0" class="vq-li-rate" value="${ql.rate||0}"></td>
       <td data-label="Total" class="vq-li-total">—</td>
       <td data-label="Per KM" class="vq-li-perkm">—</td>
     </tr>`;
@@ -7256,13 +7552,13 @@ function renderVendorCostItemsTable(){
     const ca = myVendorCostAmounts.find(x=> x.tender_cost_item_id === ci.id) || { id:null, amount:0 };
     let inputCell;
     if(ci.kind === 'uniform'){
-      inputCell = `<span class="vq-ci-qty-readonly">—</span> sets × <input type="number" step="0.01" class="vq-ci-amount" value="${ca.amount||0}" placeholder="Cost per uniform">`;
+      inputCell = `<span class="vq-ci-qty-readonly">—</span> sets × <input type="number" step="0.01" min="0" class="vq-ci-amount" value="${ca.amount||0}" placeholder="Cost per uniform">`;
     } else if(ci.kind === 'working_capital'){
-      inputCell = `<input type="number" step="0.01" class="vq-ci-amount" value="${ca.amount||0}" placeholder="Rate %"> %`;
+      inputCell = `<input type="number" step="0.01" min="0" class="vq-ci-amount" value="${ca.amount||0}" placeholder="Rate %"> %`;
     } else if(ci.kind === 'per_km'){
-      inputCell = `<input type="number" step="0.01" class="vq-ci-amount" value="${ca.amount||0}" placeholder="Rate per KM"> per KM`;
+      inputCell = `<input type="number" step="0.01" min="0" class="vq-ci-amount" value="${ca.amount||0}" placeholder="Rate per KM"> per KM`;
     } else {
-      inputCell = `<input type="number" step="0.01" class="vq-ci-amount" value="${ca.amount||0}">`;
+      inputCell = `<input type="number" step="0.01" min="0" class="vq-ci-amount" value="${ca.amount||0}">`;
     }
     const gstApplicable = ca.gst_applicable !== false;
     const gstRate = ca.gst_rate ?? 18;
@@ -7270,7 +7566,7 @@ function renderVendorCostItemsTable(){
     <tr data-ci-id="${ci.id}" data-ca-id="${ca.id||''}" data-ci-kind="${ci.kind}">
       <td data-label="Field">${ci.field_name} <span class="who-chip">${costItemKindLabel(ci.kind)}</span></td>
       <td data-label="Input">${inputCell}</td>
-      <td data-label="GST %"><input type="checkbox" class="vq-ci-gst" ${gstApplicable?'checked':''} style="width:auto; margin-right:4px;"><input type="number" step="0.01" class="vq-ci-gst-rate" value="${gstRate}" style="width:60px; display:inline-block;">%</td>
+      <td data-label="GST %"><input type="checkbox" class="vq-ci-gst" ${gstApplicable?'checked':''} style="width:auto; margin-right:4px;"><input type="number" step="0.01" min="0" class="vq-ci-gst-rate" value="${gstRate}" style="width:60px; display:inline-block;">%</td>
       <td data-label="GST Amount" class="vq-ci-gst-amount">—</td>
       <td data-label="Total" class="vq-ci-total">—</td>
       <td data-label="Per KM" class="vq-ci-perkm">—</td>
@@ -7329,7 +7625,7 @@ function recalcVendorTotals(){
   });
 
   document.getElementById('vqManpowerTotalLine').textContent =
-    `Manpower Total (Monthly): ${fmtMoney(fin.manpowerTotalMonthly)}   |   Manpower Total (Yearly × 12): ${fmtMoney(fin.manpowerTotal)}   |   Manpower GST: ${fin.manpowerGstApplicable ? fmtMoney(fin.manpowerGst)+' ('+fmtNum(fin.manpowerGstRate)+'%)' : 'Not applicable'}`;
+    `Total Qty (Manpower): ${fmtNum(fin.lineQtyTotal)}   |   Manpower Total (Monthly): ${fmtMoney(fin.manpowerTotalMonthly)}   |   Manpower Total (Yearly × 12): ${fmtMoney(fin.manpowerTotal)}   |   Manpower GST: ${fin.manpowerGstApplicable ? fmtMoney(fin.manpowerGst)+' ('+fmtNum(fin.manpowerGstRate)+'%)' : 'Not applicable'}`;
   document.getElementById('vqGrandTotalLine').textContent =
     `Sub-Total: ${fmtMoney(fin.subTotal)}   |   GST: ${fmtMoney(fin.gstTotal)}   |   Grand Total: ${fmtMoney(fin.grandTotal)}   |   Effective Rate/Km: ${fin.effectiveRatePerKm!=null ? fmtNum(fin.effectiveRatePerKm) : '—'}`;
 }
@@ -7393,6 +7689,50 @@ function requireTermsAccepted(){
   return true;
 }
 
+const EXISTING_BUSINESS_NUMERIC_FIELDS = [
+  { id:'vq-eb-region', label:'Existing Business — Region' },
+  { id:'vq-eb-pan', label:'Existing Business — PAN India' },
+  { id:'vq-eb-region-jbm', label:'Existing Business with JBM — Region' },
+  { id:'vq-eb-pan-jbm', label:'Existing Business with JBM — PAN India' }
+];
+
+// Blank is fine (nothing entered isn't an error); anything entered must be
+// a plain non-negative whole number (bus counts) -- kept in sync with each
+// field's own pattern="[0-9]*" in the HTML, which is what actually drives
+// the red-field highlight via the generic #vendorQuoteForm :invalid CSS
+// rule above (this regex is only for the named-field Submit/on-open
+// banner text, not the styling itself).
+function isExistingBusinessFieldValueValid(val){
+  val = (val || '').trim();
+  return val === '' || /^\d+$/.test(val);
+}
+
+// Shared by the non-blocking on-open check (renderVendorPortal) and the
+// blocking Submit check below.
+function getInvalidExistingBusinessFieldLabels(){
+  return EXISTING_BUSINESS_NUMERIC_FIELDS
+    .filter(f=> !isExistingBusinessFieldValueValid(document.getElementById(f.id).value))
+    .map(f=> f.label);
+}
+
+// Only blocking at Submit, never at Save Draft -- a bidder can save these
+// with whatever they've got so far, but can't submit until each one that's
+// filled in is a plain non-negative number. Existing submitted quotes are
+// never re-checked since this only runs from the Submit click, and Submit
+// is hidden once already submitted.
+function requireNumericExistingBusinessFields(){
+  const invalid = getInvalidExistingBusinessFieldLabels();
+  if(invalid.length){
+    const first = EXISTING_BUSINESS_NUMERIC_FIELDS.find(f=> f.label === invalid[0]);
+    showBanner('vpBanner', `"${invalid[0]}" must be a number (number of buses) -- please correct it before submitting.`, 'error');
+    const input = document.getElementById(first.id);
+    input.scrollIntoView({ behavior:'smooth', block:'center' });
+    input.focus();
+    return false;
+  }
+  return true;
+}
+
 async function handleVendorQuoteSubmit(e){
   e.preventDefault();
   if(!requireTermsAccepted()) return;
@@ -7412,6 +7752,7 @@ async function handleVendorQuoteSubmit(e){
 
 async function handleVendorQuoteSubmitFinal(){
   if(!requireTermsAccepted()) return;
+  if(!requireNumericExistingBusinessFields()) return;
   if(!confirm('Submit this quote? Once submitted, you cannot make further changes unless the company requests a revision.')) return;
   const btn = document.getElementById('vqSubmitBtn');
   btn.disabled = true;
