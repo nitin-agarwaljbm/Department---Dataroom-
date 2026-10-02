@@ -57,6 +57,19 @@
   }
   textarea{resize:vertical; min-height:38px;}
   input:focus, select:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  /* Typed date entry (see initDateTextEntry()): every <input type="date">
+     gets a text box showing dd-mm-yyyy that can be typed or pasted into, a
+     calendar button, and keeps the native input -- the real source of the
+     yyyy-mm-dd value -- stacked invisibly on top so its picker still opens
+     right under the field. */
+  .date-field{position:relative; display:block; width:100%; min-width:0;}
+  .date-field .date-text{padding-right:34px;}
+  .date-field .date-native{position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; pointer-events:none; border:0; padding:0; margin:0; min-width:0;}
+  .date-pick-btn{position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:0; padding:4px; cursor:pointer; color:var(--muted); display:inline-flex; line-height:0;}
+  .date-pick-btn:hover{color:var(--accent);}
+  .date-field.is-disabled .date-pick-btn{display:none;}
+  .date-field.is-disabled .date-text{padding-right:10px;}
+  input.date-text.is-invalid, input.date-text.is-invalid:focus{border-color:var(--overdue); background:var(--overdue-bg);}
   /* Generic, form-wide invalid-field highlight for the bidder's quote form
      -- relies on the browser's own constraint validation (each field's
      type/pattern/min IS its "nature": type=number rejects non-numbers,
@@ -399,6 +412,14 @@
   }
   #tenderDetailOverlay.td-flat-scroll #comparativeStickyHeadWrap table{margin:0; border-top:none; border-left:none; border-right:none;}
   #tenderDetailOverlay.td-flat-scroll #comparativeStickyHeadWrap table th:first-child{position:static;}
+  /* The whole cloned header slides left/right via a transform to mirror the
+     table's horizontal scroll; the "Line Item" corner cell is counter-
+     translated by the same distance (--sl, set from JS) so it nets out to
+     staying pinned at the left edge, like the frozen first column of data
+     rows beneath it. */
+  #tenderDetailOverlay.td-flat-scroll #comparativeStickyHeadWrap thead tr:first-child th:first-child{
+    position:relative; z-index:6; transform:translateX(var(--sl, 0px));
+  }
   #newLetterOverlay, #letterDetailOverlay{padding:20px 16px;}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
   .row4{display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px;}
@@ -2408,6 +2429,7 @@ function renderCharts(filtered){
 }
 
 function fmtDate(s){ if(!s) return '—'; const d = new Date(s); if(isNaN(d)) return s; return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtDateTime(s){ if(!s) return '—'; const d = new Date(s); if(isNaN(d)) return s; return fmtDate(s) + ', ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}); }
 
 function actionCellFor(t){
   if(!myProfile) return '<span style="color:var(--faint); font-size:11.5px;">—</span>';
@@ -4887,7 +4909,7 @@ function renderTenderEventHistory(events, vendorNameById){
     const actor = e.actor_id ? profileById[e.actor_id] : null;
     const vendorName = e.quote_id ? (vendorNameById[e.quote_id] || ('Quote #' + e.quote_id)) : '';
     return `<tr>
-      <td data-label="When">${fmtDate(e.created_at)}</td>
+      <td data-label="When">${fmtDateTime(e.created_at)}</td>
       <td data-label="Event"><span class="badge ${TENDER_EVENT_BADGE_CLASS[e.event_type]||''}">${TENDER_EVENT_LABELS[e.event_type]||e.event_type}</span></td>
       <td data-label="By">${actor ? actor.display_name : '—'}</td>
       <td data-label="Vendor">${vendorName || '—'}</td>
@@ -6064,7 +6086,12 @@ function renderQuoteHistoryVersions(versions, tender){
       }).join('')}
     </tr>`;
 
-  const costItemRowFor = (name)=> `
+  // Each cost item is its own total row plus a separate "<name> GST" row
+  // (same split as the Comparative table), not "+ ₹X GST" crammed into the
+  // Total cell. The GST row only appears if some version has GST on it.
+  const costItemRowFor = (name)=>{
+    const pkCell = (fin, amt)=>{ const pk = fin.perKm(amt); return `<td>${pk!=null?fmtNum(pk):'—'}</td>`; };
+    const main = `
     <tr>
       <td>${name} <span class="who-chip">${costItemKindLabel(costKindByName[name])}</span></td>
       ${results.map((r,i)=>{
@@ -6072,13 +6099,29 @@ function renderQuoteHistoryVersions(versions, tender){
         if(!cr) return `<td colspan="4" style="color:var(--faint);">—</td>`;
         const prevR = results[i+1];
         const prev = prevR ? prevR.fin.costResults.find(x=> x.fieldName===name) : null;
-        const amountOrGstChanged = !!prevR && (!prev || prev.amount !== cr.amount || prev.gstApplicable !== cr.gstApplicable || prev.gstRate !== cr.gstRate);
-        const pk = r.fin.perKm(cr.total + cr.gst);
-        const gstNote = cr.gstApplicable ? ` + ${fmtMoney(cr.gst)} GST (${fmtNum(cr.gstRate)}%)` : ' (no GST)';
+        const amountChanged = !!prevR && (!prev || prev.amount !== cr.amount);
         const amountHtml = cr.qty!=null ? fmtNum(cr.qty)+' × '+fmtNum(cr.amount) : fmtNum(cr.amount);
-        return `<td colspan="2">${mark(amountOrGstChanged, amountHtml)}</td><td>${fmtMoney(cr.total)}${gstNote}</td><td>${pk!=null?fmtNum(pk):'—'}</td>`;
+        return `<td colspan="2">${mark(amountChanged, amountHtml)}</td><td>${fmtMoney(cr.total)}</td>${pkCell(r.fin, cr.total)}`;
       }).join('')}
     </tr>`;
+    const anyGst = results.some(r=>{ const cr = r.fin.costResults.find(x=> x.fieldName===name); return cr && cr.gstApplicable && cr.gst > 0; });
+    if(!anyGst) return main;
+    const gstRow = `
+    <tr>
+      <td>${name} GST</td>
+      ${results.map((r,i)=>{
+        const cr = r.fin.costResults.find(x=> x.fieldName===name);
+        if(!cr) return `<td colspan="4" style="color:var(--faint);">—</td>`;
+        const prevR = results[i+1];
+        const prev = prevR ? prevR.fin.costResults.find(x=> x.fieldName===name) : null;
+        const gstChanged = !!prevR && (!prev || prev.gstApplicable !== cr.gstApplicable || prev.gstRate !== cr.gstRate);
+        return cr.gstApplicable
+          ? `<td colspan="3">${mark(gstChanged, fmtMoney(cr.gst)+' ('+fmtNum(cr.gstRate)+'%)')}</td>${pkCell(r.fin, cr.gst)}`
+          : `<td colspan="3">${mark(gstChanged, 'Not applicable')}</td><td>—</td>`;
+      }).join('')}
+    </tr>`;
+    return main + gstRow;
+  };
 
   const textRow = (label, field)=> `
     <tr><td>${label}</td>${results.map((r,i)=>{
@@ -6110,7 +6153,7 @@ function renderQuoteHistoryVersions(versions, tender){
     <div class="comparative-wrap">
       <table class="comparative-table">
         <thead>
-          <tr><th rowspan="2">Line Item</th>${results.map(r=> `<th colspan="4">Version ${r.ver.version_no} <span style="font-weight:400;">(${fmtDate(r.ver.submitted_at)})</span></th>`).join('')}</tr>
+          <tr><th rowspan="2">Line Item</th>${results.map(r=> `<th colspan="4">Version ${r.ver.version_no} <span style="font-weight:400;">(${fmtDateTime(r.ver.submitted_at)})</span></th>`).join('')}</tr>
           <tr>${results.map(()=> '<th>Qty</th><th>Rate</th><th>Total</th><th>Per KM</th>').join('')}</tr>
         </thead>
         <tbody>
@@ -6599,6 +6642,31 @@ function computeVendorFinancialsFromSnapshot(tender, snapshot){
   };
 }
 
+// A cost item renders as its own total row followed by a separate GST row
+// -- same as Manpower Total / Manpower GST -- rather than packing "+ ₹X GST
+// (n%)" onto the Total cell, which forced that whole column much wider.
+// `columns` is one { cr, fin } per Budget/bidder column; when
+// hideWhenNoKm is set, a row whose Per KM is 0 for every column is
+// skipped (the Comparative table's existing rule for padding-only rows).
+function costItemRowsHtml(ci, columns, hideWhenNoKm){
+  if(hideWhenNoKm && !columns.some(c=> c.fin.perKm(c.cr.total + c.cr.gst))) return '';
+  const pkCell = (fin, amt)=>{ const pk = fin.perKm(amt); return `<td>${pk!=null ? fmtNum(pk) : '—'}</td>`; };
+  const main = `
+    <tr>
+      <td>${ci.field_name} <span class="who-chip">${costItemKindLabel(ci.kind)}</span></td>
+      ${columns.map(c=> `<td colspan="2">${c.cr.qty!=null ? fmtNum(c.cr.qty)+' × '+fmtNum(c.cr.amount) : fmtNum(c.cr.amount)}</td><td>${fmtMoney(c.cr.total)}</td>${pkCell(c.fin, c.cr.total)}`).join('')}
+    </tr>`;
+  if(!columns.some(c=> c.cr.gstApplicable && c.cr.gst > 0)) return main;
+  const gstRow = `
+    <tr>
+      <td>${ci.field_name} GST</td>
+      ${columns.map(c=> c.cr.gstApplicable
+        ? `<td colspan="3">${fmtMoney(c.cr.gst)} (${fmtNum(c.cr.gstRate)}%)</td>${pkCell(c.fin, c.cr.gst)}`
+        : `<td colspan="3">Not applicable</td><td>—</td>`).join('')}
+    </tr>`;
+  return main + gstRow;
+}
+
 // Same "Budget" breakdown as the Budget column inside renderComparative()
 // below, but standalone and always visible (even in Draft, before any
 // bidder exists) -- renderComparative() itself only renders once there's
@@ -6617,12 +6685,7 @@ function renderBudgetSummary(){
     const pk = fin.perKmMonthly(lr.total);
     return `<tr><td>${li.activity_name}${isDriverLineItem(li) ? ' <span class="who-chip">Drivers</span>' : ''}</td><td>${fmtNum(lr.qty)}</td><td>${fmtNum(lr.rate)}</td><td>${fmtMoney(lr.total)}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
   };
-  const costItemRowFor = (ci, i)=>{
-    const cr = fin.costResults[i];
-    const pk = fin.perKm(cr.total + cr.gst);
-    const gstNote = cr.gstApplicable ? ` + ${fmtMoney(cr.gst)} GST (${fmtNum(cr.gstRate)}%)` : ' (no GST)';
-    return `<tr><td>${ci.field_name} <span class="who-chip">${costItemKindLabel(ci.kind)}</span></td><td colspan="2">${cr.qty!=null ? fmtNum(cr.qty)+' × '+fmtNum(cr.amount) : fmtNum(cr.amount)}</td><td>${fmtMoney(cr.total)}${gstNote}</td><td>${pk!=null?fmtNum(pk):'—'}</td></tr>`;
-  };
+  const costItemRowFor = (ci, i)=> costItemRowsHtml(ci, [{ cr: fin.costResults[i], fin }], false);
   const computedRow = (label, getter, amountGetter, opts)=>{
     opts = opts || {};
     const amt = amountGetter ? amountGetter(fin) : null;
@@ -6736,21 +6799,8 @@ function renderComparative(){
     </tr>`;
   };
 
-  const costItemRowFor = (ci, i)=>{
-    const cells = tableResults.map(r=>{
-      const cr = r.fin.costResults[i];
-      return { cr, pk: r.fin.perKm(cr.total + cr.gst) };
-    });
-    if(hasYearlyKm && !cells.some(c=> c.pk)) return '';
-    return `
-    <tr>
-      <td>${ci.field_name} <span class="who-chip">${costItemKindLabel(ci.kind)}</span></td>
-      ${cells.map(c=>{
-        const gstNote = c.cr.gstApplicable ? ` + ${fmtMoney(c.cr.gst)} GST (${fmtNum(c.cr.gstRate)}%)` : ' (no GST)';
-        return `<td colspan="2">${c.cr.qty!=null ? fmtNum(c.cr.qty)+' × '+fmtNum(c.cr.amount) : fmtNum(c.cr.amount)}</td><td>${fmtMoney(c.cr.total)}${gstNote}</td><td>${c.pk!=null?fmtNum(c.pk):'—'}</td>`;
-      }).join('')}
-    </tr>`;
-  };
+  const costItemRowFor = (ci, i)=>
+    costItemRowsHtml(ci, tableResults.map(r=> ({ cr: r.fin.costResults[i], fin: r.fin })), hasYearlyKm);
 
   const textRow = (label, field)=> `
     <tr><td>${label}</td>${tableResults.map(r=> `<td colspan="4">${r.isBudget ? '—' : (r.vendor[field] || '—')}</td>`).join('')}</tr>`;
@@ -6799,11 +6849,14 @@ function renderComparative(){
 // needs overflow-x:auto for wide bidder counts, which forces its own
 // overflow-y to auto too, making it -- not .modal-overlay -- the sticky
 // reference, and it never actually scrolls) -- so a cloned header, living
-// outside .comparative-wrap in its own sticky bar, stands in for it. Column
-// widths are copied from the real header cells (two separate <table>s
-// would otherwise size columns independently) and kept in sync on every
-// call since they can change with content/font-scale; horizontal scroll is
-// mirrored via a transform, wired once in attachTenderEvents().
+// outside .comparative-wrap in its own sticky bar, stands in for it. Kept
+// in sync on every call since widths can change with content; horizontal
+// scroll is mirrored via a transform, wired once in attachTenderEvents().
+function applyComparativeHeadScroll(headTable, scrollLeft){
+  headTable.style.transform = `translateX(${-scrollLeft}px)`;
+  headTable.style.setProperty('--sl', scrollLeft + 'px');
+}
+
 function syncComparativeStickyHead(){
   const headWrap = document.getElementById('comparativeStickyHeadWrap');
   const headInner = document.getElementById('comparativeStickyHeadInner');
@@ -6813,15 +6866,26 @@ function syncComparativeStickyHead(){
   headInner.innerHTML = realThead.innerHTML;
   const headTable = headInner.closest('table');
   headTable.style.tableLayout = 'fixed';
+
+  // Column widths have to come from a <colgroup>, not from setting width
+  // on each header cell -- table-layout:fixed sizes columns from <col>
+  // elements or the FIRST row's cells only, and row 1 here is colspan="4"
+  // group headers (Budget/vendor names), not one cell per column; without
+  // a colgroup the browser just splits each colspan cell's width evenly
+  // across its 4 sub-columns, which doesn't match row 2's actual
+  // Qty/Rate/Total/Per KM proportions (Total is naturally much wider than
+  // Qty) -- hence the columns sliding out of alignment with the data below.
+  const row1 = realThead.querySelector('tr:first-child');
+  const row2 = realThead.querySelector('tr:nth-child(2)');
+  const colWidths = [row1.querySelector('th:first-child').getBoundingClientRect().width];
+  row2.querySelectorAll('th').forEach(th=> colWidths.push(th.getBoundingClientRect().width));
+  let colgroup = headTable.querySelector('colgroup');
+  if(!colgroup){ colgroup = document.createElement('colgroup'); headTable.insertBefore(colgroup, headTable.firstChild); }
+  colgroup.innerHTML = colWidths.map(w=> `<col style="width:${w}px;">`).join('');
   headTable.style.width = realTable.getBoundingClientRect().width + 'px';
-  const realCells = realThead.querySelectorAll('th');
-  const cloneCells = headInner.querySelectorAll('th');
-  realCells.forEach((th,i)=>{
-    const w = th.getBoundingClientRect().width;
-    if(cloneCells[i]) cloneCells[i].style.cssText += `width:${w}px; min-width:${w}px; max-width:${w}px;`;
-  });
+
   const wrap = document.querySelector('#tdComparativeSectionWrap .comparative-wrap');
-  headTable.style.transform = `translateX(${-(wrap ? wrap.scrollLeft : 0)}px)`;
+  applyComparativeHeadScroll(headTable, wrap ? wrap.scrollLeft : 0);
   headWrap.style.display = 'block';
 }
 
@@ -6866,7 +6930,7 @@ function attachTenderEvents(){
   // renderComparative() rebuilds the table/clone inside it.
   document.querySelector('#tdComparativeSectionWrap .comparative-wrap').addEventListener('scroll', (e)=>{
     const headTable = document.querySelector('#comparativeStickyHeadInner')?.closest('table');
-    if(headTable) headTable.style.transform = `translateX(${-e.target.scrollLeft}px)`;
+    if(headTable) applyComparativeHeadScroll(headTable, e.target.scrollLeft);
   });
   document.getElementById('tenderDetailSaveBtn').addEventListener('click', saveTenderDetail);
   document.getElementById('tenderDeleteBtn').addEventListener('click', deleteTenderDetail);
@@ -8322,7 +8386,153 @@ function initThemeToggle(){
   });
 }
 
+// ---------------- Typed date entry ----------------
+// Native <input type="date"> is awkward to type into (segment by segment,
+// and not at all in some embedded browsers), so each one is paired with a
+// plain text box that takes dd-mm-yyyy typed or pasted directly, plus a
+// calendar button for the native picker. The native input stays the
+// source of truth -- it still holds the yyyy-mm-dd value every existing
+// read/write of `.value` expects -- and the text box is just a view of it.
+const NATIVE_INPUT_VALUE = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+const CALENDAR_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+
+function isoToDisplayDate(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+
+function displayToIsoDate(txt){
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(txt);
+  if(!m) return null;
+  const d = +m[1], mo = +m[2], y = +m[3];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if(dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function formatDateDigits(digits){
+  let out = digits.slice(0, 2);
+  if(digits.length > 2) out += '-' + digits.slice(2, 4);
+  if(digits.length > 4) out += '-' + digits.slice(4, 8);
+  return out;
+}
+
+function enhanceDateInput(native){
+  if(native.dataset.dateEnhanced) return;
+  native.dataset.dateEnhanced = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'date-field';
+  if(native.style.flex) wrap.style.flex = native.style.flex;
+  native.parentNode.insertBefore(wrap, native);
+
+  const text = document.createElement('input');
+  text.type = 'text';
+  text.className = (native.className + ' date-text').trim();
+  text.placeholder = 'dd-mm-yyyy';
+  text.maxLength = 10;
+  text.inputMode = 'numeric';
+  text.autocomplete = 'off';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'date-pick-btn';
+  btn.tabIndex = -1;
+  btn.title = 'Pick from calendar';
+  btn.innerHTML = CALENDAR_ICON_SVG;
+
+  wrap.append(text, btn, native);
+  native.classList.add('date-native');
+  native.tabIndex = -1;
+  native.setAttribute('aria-hidden', 'true');
+
+  let committing = false;
+  const syncText = ()=>{
+    text.value = isoToDisplayDate(NATIVE_INPUT_VALUE.get.call(native));
+    text.classList.remove('is-invalid');
+    native.setCustomValidity('');
+  };
+  const syncDisabled = ()=>{
+    text.disabled = native.disabled;
+    wrap.classList.toggle('is-disabled', native.disabled);
+  };
+
+  // Existing code sets `.value = 'yyyy-mm-dd'` directly (defaults, edit
+  // forms, filter resets) -- no event fires for that, so mirror it here.
+  Object.defineProperty(native, 'value', {
+    configurable: true,
+    get(){ return NATIVE_INPUT_VALUE.get.call(native); },
+    set(v){ NATIVE_INPUT_VALUE.set.call(native, v); syncText(); }
+  });
+  new MutationObserver(syncDisabled).observe(native, { attributes:true, attributeFilter:['disabled'] });
+  if(native.form) native.form.addEventListener('reset', ()=> setTimeout(syncText, 0));
+
+  const commit = (complete)=>{
+    const val = text.value;
+    const iso = val.length === 10 ? displayToIsoDate(val) : null;
+    const bad = val.length > 0 && !iso && (complete || val.length === 10);
+    text.classList.toggle('is-invalid', bad);
+    native.setCustomValidity(val.length > 0 && !iso ? 'Enter a valid date as dd-mm-yyyy' : '');
+    const next = iso || '';
+    if(NATIVE_INPUT_VALUE.get.call(native) !== next){
+      NATIVE_INPUT_VALUE.set.call(native, next);
+      committing = true;
+      native.dispatchEvent(new Event('input', { bubbles:true }));
+      native.dispatchEvent(new Event('change', { bubbles:true }));
+      committing = false;
+    }
+  };
+
+  text.addEventListener('input', ()=>{
+    const raw = text.value;
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim());
+    const digits = iso ? iso[3] + iso[2] + iso[1] : raw.replace(/\D/g, '').slice(0, 8);
+    const caretDigits = raw.slice(0, text.selectionStart == null ? raw.length : text.selectionStart).replace(/\D/g, '').length;
+    const formatted = formatDateDigits(digits);
+    if(formatted !== raw){
+      text.value = formatted;
+      let pos = 0, seen = 0;
+      while(pos < formatted.length && seen < Math.min(caretDigits, digits.length)){
+        if(/\d/.test(formatted[pos])) seen++;
+        pos++;
+      }
+      text.setSelectionRange(pos, pos);
+    }
+    commit(false);
+  });
+  text.addEventListener('blur', ()=> commit(true));
+
+  // Picking from the calendar updates the native value -- reflect it back.
+  const onNativeChange = ()=>{ if(!committing) syncText(); };
+  native.addEventListener('input', onNativeChange);
+  native.addEventListener('change', onNativeChange);
+
+  btn.addEventListener('click', ()=>{
+    if(native.disabled) return;
+    try{ native.showPicker(); }catch(e){ native.focus(); native.click(); }
+  });
+
+  syncText();
+  syncDisabled();
+}
+
+function initDateTextEntry(){
+  document.querySelectorAll('input[type="date"]').forEach(enhanceDateInput);
+  // Some date inputs are rendered later (e.g. Tender Detail's Extend
+  // Closure Date box is built by innerHTML) -- enhance those as they appear.
+  new MutationObserver(muts=>{
+    for(const m of muts){
+      for(const n of m.addedNodes){
+        if(n.nodeType !== 1) continue;
+        if(n.matches('input[type="date"]')) enhanceDateInput(n);
+        n.querySelectorAll('input[type="date"]').forEach(enhanceDateInput);
+      }
+    }
+  }).observe(document.body, { childList:true, subtree:true });
+}
+
 function init(){
+  initDateTextEntry();
   document.getElementById('authSealImg').src = LOGO_DATA_URI;
   document.getElementById('navSealImg').src = LOGO_DATA_URI;
   document.getElementById('vpNavSealImg').src = LOGO_DATA_URI;
