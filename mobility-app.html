@@ -6,6 +6,7 @@
 <title>TrackIt</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -226,6 +227,40 @@
   }
   .reviewer-toggle-bar input:checked + .switch{background:var(--accent-tint); border-color:var(--accent);}
   .reviewer-toggle-bar input:checked + .switch::before{transform:translateX(16px); background:var(--accent);}
+
+  /* home dashboard */
+  .hm-head{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;}
+  .hm-hello{font-family:'IBM Plex Serif', serif; font-size:calc(22px * var(--fs)); font-weight:600;}
+  .hm-sub{color:var(--muted); font-size:calc(12.5px * var(--fs)); margin-top:2px;}
+  .hm-cards{display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:14px; margin-bottom:16px;}
+  .hm-card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px; position:relative; overflow:hidden; cursor:pointer;}
+  .hm-card:hover{border-color:var(--accent);}
+  .hm-card::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c, var(--accent));}
+  .hm-card-label{font-size:calc(11px * var(--fs)); color:var(--muted); text-transform:uppercase; letter-spacing:0.7px; font-weight:600; display:flex; justify-content:space-between;}
+  .hm-big{font-family:'IBM Plex Mono', monospace; font-size:calc(30px * var(--fs)); font-weight:600; line-height:1.1; margin-top:6px;}
+  .hm-big small{font-size:calc(12px * var(--fs)); color:var(--muted); font-weight:400; margin-left:6px; font-family:'IBM Plex Sans', sans-serif;}
+  .hm-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; min-height:22px;}
+  .hm-stack{display:flex; height:8px; border-radius:99px; overflow:hidden; background:var(--panel-2); margin-top:10px;}
+  .hm-stack i{display:block; height:100%;}
+  .hm-grid{display:grid; grid-template-columns:minmax(0, 1.5fr) minmax(0, 1fr); gap:14px; margin-bottom:16px;}
+  .hm-grid3{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; margin-bottom:16px;}
+  .hm-act{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .hm-act:last-child{border-bottom:none;}
+  .hm-mod{flex:none; width:62px; text-align:center; font-size:calc(10px * var(--fs)); letter-spacing:0.6px; text-transform:uppercase; border-radius:6px; padding:4px 0; font-weight:700; color:#fff; background:var(--c, var(--accent));}
+  .hm-main{flex:1; min-width:0; cursor:pointer;}
+  .hm-title{font-weight:600; font-size:calc(13px * var(--fs)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hm-meta{font-size:calc(11.5px * var(--fs)); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hm-due{flex:none; text-align:right; min-width:84px;}
+  .hm-acts{flex:none; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:300px;}
+  .hm-proj{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px;}
+  .hm-pcard{border:1px solid var(--border); border-radius:10px; padding:12px 14px; cursor:pointer; background:var(--panel-2);}
+  .hm-pcard:hover{border-color:var(--accent);}
+  .hm-pcard .hm-meta{white-space:normal;}
+  .pm-seg [data-home-mod].active{border-color:var(--c, var(--accent));}
+  .hm-bar{height:7px; border-radius:99px; background:var(--panel); overflow:hidden; margin:8px 0 6px;}
+  .hm-bar i{display:block; height:100%; background:var(--ontrack);}
+  .hm-empty{color:var(--faint); font-size:calc(12.5px * var(--fs)); padding:14px 0; text-align:center;}
+  @media (max-width:1100px){ .hm-grid, .hm-grid3{grid-template-columns:1fr;} .hm-acts{max-width:none;} .hm-act{flex-wrap:wrap;} }
 
   .layout{display:grid; grid-template-columns:280px 1fr; gap:18px;}
   .panel-title{font-family:'IBM Plex Serif', serif; font-size:calc(14.5px * var(--fs)); font-weight:600; margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;}
@@ -488,6 +523,7 @@
   }
   .print-menu-item{padding:9px 12px; border-radius:8px; cursor:pointer; font-size:12.5px; color:var(--text); line-height:1.5;}
   .print-menu-item:hover{background:var(--panel-2);}
+  .print-menu-item.active{background:var(--accent-tint); font-weight:600;}
   .print-menu-sub{font-size:10.5px; color:var(--faint); font-weight:400;}
   .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 
@@ -547,6 +583,27 @@
   .kpi.pm-kpi-click{cursor:pointer; transition:transform .1s;}
   .kpi.pm-kpi-click:hover{transform:translateY(-1px);}
   .kpi.pm-kpi-on{outline:2px solid var(--accent); outline-offset:-1px;}
+  .pm-delay{margin-top:18px; border:1px solid var(--border); border-radius:12px; background:var(--panel);}
+  .pm-delay-head{display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; user-select:none;}
+  .pm-delay-head b{font-size:calc(14px * var(--fs));}
+  .pm-delay-body{padding:4px 16px 18px; border-top:1px solid var(--border);}
+  .pm-dl-hero{display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin:14px 0 6px;}
+  .pm-dl-big{font-family:'IBM Plex Mono',monospace; font-size:calc(34px * var(--fs)); font-weight:700; line-height:1;}
+  .pm-dl-sub{color:var(--muted); font-size:calc(12.5px * var(--fs));}
+  .pm-dl-stack{display:flex; height:34px; border-radius:8px; overflow:hidden; background:var(--panel-2); border:1px solid var(--border); margin:12px 0 8px;}
+  .pm-dl-seg{display:flex; align-items:center; justify-content:center; color:#fff; font-size:calc(11.5px * var(--fs)); font-weight:600; overflow:hidden; white-space:nowrap; border-right:2px solid var(--panel);}
+  .pm-dl-legend{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:calc(12px * var(--fs)); color:var(--muted); margin-bottom:6px;}
+  .pm-dl-legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle;}
+  .pm-dl-title{font-size:calc(11px * var(--fs)); text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); margin:18px 0 8px;}
+  .pm-dl-cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:18px;}
+  .pm-dl-row{display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .pm-dl-row:last-child{border-bottom:none;}
+  .pm-dl-days{flex:none; min-width:64px; text-align:center; font-family:'IBM Plex Mono',monospace; font-weight:700; border-radius:8px; padding:6px 8px; color:#fff;}
+  .pm-dl-what{flex:1; min-width:0;}
+  .pm-dl-what .t{font-size:calc(13px * var(--fs)); font-weight:600;}
+  .pm-dl-what .m{font-size:calc(11.5px * var(--fs)); color:var(--muted); margin-top:2px;}
+  .pm-dl-bar{height:12px; border-radius:6px; background:var(--panel-2); overflow:hidden; flex:1;}
+  .pm-dl-bar > div{height:100%; border-radius:6px;}
   .pm-sum-click{cursor:pointer; transition:border-color .12s, background .12s;}
   .pm-sum-click:hover{border-color:var(--accent);}
   .pm-sum-on{border-color:var(--accent); background:var(--panel-2);}
@@ -849,9 +906,14 @@
     <div class="topnav-left">
       <div class="brand"><img class="seal" id="navSealImg" alt="JBM"><div class="brand-title">TrackIt</div></div>
       <div class="nav-links">
-        <div class="nav-link active" data-view="dashboardView">Dashboard</div>
-        <div class="nav-link" data-view="timeAnalysisView">Time Analysis</div>
-        <div class="nav-link" data-view="newTaskView">New Task</div>
+        <div class="nav-link active" data-view="homeView">Dashboard</div>
+        <div style="position:relative;" id="taskMenuWrap">
+          <div class="nav-link" data-view="dashboardView" id="navTaskMgmt">Task Management <span style="font-size:10px;">▾</span></div>
+          <div class="print-dropdown" id="taskMenuDropdown" style="display:none; right:auto; left:0; width:190px;">
+            <div class="print-menu-item" data-task-sub="dashboardView">Task</div>
+            <div class="print-menu-item" data-task-sub="timeAnalysisView">Time Analysis</div>
+          </div>
+        </div>
         <div class="nav-link" data-view="lettersView">Letters</div>
         <div class="nav-link" data-view="tendersView">Vendor Tenders</div>
         <div class="nav-link" data-view="projectsView">Projects<span class="nav-badge" id="pmNavBadge" style="display:none;"></span></div>
@@ -903,7 +965,9 @@
     <div id="globalBanner" class="banner"></div>
 
     <!-- ---------- DASHBOARD VIEW ---------- -->
-    <div id="dashboardView" class="view active">
+    <div id="homeView" class="view active"></div>
+
+    <div id="dashboardView" class="view">
       <div class="kpi-row" id="kpiRow"></div>
       <div class="layout">
         <div>
@@ -971,6 +1035,7 @@
             <div class="filter-group"><label>Open From</label><input type="date" class="filter-input" id="f-open-from"></div>
             <div class="filter-group"><label>Open To</label><input type="date" class="filter-input" id="f-open-to"></div>
             <div class="filter-group grow"><label>Search activity / project</label><input type="text" class="filter-input" id="searchBox" placeholder="Type to filter…"></div>
+            <button class="btn primary" id="newTaskBtn" style="align-self:flex-end;">+ New Task</button>
           </div>
 
           <div class="charts-row">
@@ -1030,78 +1095,6 @@
         <div class="empty-state" id="timeEmptyState" style="display:none;">No tasks with logged time match the current filters.</div>
       </div>
       <div class="footer-note" id="timeCountLine">—</div>
-    </div>
-
-    <!-- ---------- NEW TASK VIEW ---------- -->
-    <div id="newTaskView" class="view">
-      <div class="panel form-card">
-        <div class="panel-title">Create a New Task</div>
-        <form id="newTaskForm">
-          <div class="field">
-            <label>Project</label>
-            <input type="text" id="nt-project" list="projectList" required>
-            <datalist id="projectList"></datalist>
-          </div>
-          <div class="field">
-            <label>Activity</label>
-            <textarea id="nt-activity" required></textarea>
-          </div>
-          <div class="row2" style="grid-template-columns:1fr 1fr 0.6fr;">
-            <div class="field">
-              <label>Customer</label>
-              <input type="text" id="nt-customer" list="customerList">
-              <datalist id="customerList"></datalist>
-            </div>
-            <div class="field">
-              <label>Category</label>
-              <input type="text" id="nt-category" list="categoryList">
-              <datalist id="categoryList"></datalist>
-            </div>
-            <div class="field">
-              <label>Priority</label>
-              <select id="nt-priority">
-                <option value="">—</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-              </select>
-            </div>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label>Open Date</label>
-              <input type="date" id="nt-open">
-            </div>
-            <div class="field">
-              <label>Target Date</label>
-              <input type="date" id="nt-target" required>
-            </div>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label>Who (owner)</label>
-              <select id="nt-who" required></select>
-            </div>
-            <div class="field">
-              <label>Reviewer</label>
-              <select id="nt-reviewer" required></select>
-            </div>
-          </div>
-          <div class="field">
-            <label>Contributors <span style="text-transform:none; letter-spacing:0;">(optional — can be @-mentioned in status updates)</span></label>
-            <div class="multiselect">
-              <button type="button" class="multiselect-toggle" id="nt-contributors-toggle">Select contributors…</button>
-              <div class="checkbox-list multiselect-dropdown" id="nt-contributors" style="display:none;"></div>
-            </div>
-          </div>
-          <div class="field">
-            <label>Tags <span style="text-transform:none; letter-spacing:0;">(optional — comma-separated words, used for the Tag filter)</span></label>
-            <input type="text" id="nt-tags" list="tagList" placeholder="e.g. urgent, rework, escalation">
-            <datalist id="tagList"></datalist>
-          </div>
-          <button type="submit" class="btn primary" id="ntSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Create task</button>
-        </form>
-      </div>
     </div>
 
     <!-- ---------- LETTERS VIEW ---------- -->
@@ -1214,7 +1207,7 @@
           </div>
           <div class="pm-toolbar-right pm-admin-only" style="display:none;">
             <button class="btn small" id="pmTeamsBtn">👥 Team Roster</button>
-            <button class="btn small" id="pmTemplateBtn">📐 Master Template</button>
+            <button class="btn small" id="pmTemplateBtn">📐 Templates</button>
             <button class="btn primary" id="pmNewProjectBtn">+ New Project</button>
           </div>
         </div>
@@ -1229,6 +1222,7 @@
             </label>
           </div>
           <div class="pm-grid" id="pmProjectsGrid"></div>
+          <div id="pmHomeDelay"></div>
         </div>
 
         <div id="pmMyWorkPane" style="display:none;">
@@ -1267,6 +1261,7 @@
           <div class="pm-tab" data-pm-tab="log">Activity Log</div>
         </div>
         <div id="pmTabBody"></div>
+        <div id="pmDelayPanel"></div>
       </div>
     </div>
 
@@ -1378,6 +1373,17 @@
         <label>Tags <span style="text-transform:none; letter-spacing:0; color:var(--accent);">(editable — comma-separated words)</span></label>
         <input type="text" id="td-tags" list="tagList" placeholder="e.g. urgent, rework, escalation">
       </div>
+      <div class="field">
+        <label>Repeat <span style="text-transform:none; letter-spacing:0; color:var(--accent);">(editable)</span></label>
+        <select id="td-repeat">
+          <option value="once">Once</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+        </select>
+        <div class="hint" id="td-repeat-hint" style="font-size:11px; color:var(--faint); margin-top:5px;"></div>
+      </div>
       <button class="btn primary" id="taskDetailSaveBtn" style="width:100%; justify-content:center; padding:11px; margin-bottom:20px;">Save Changes</button>
 
       <div class="panel-title" style="font-size:13px;">Status Updates</div>
@@ -1389,6 +1395,93 @@
       </div>
       <button class="btn primary" id="postStatusBtn" style="width:100%; justify-content:center; padding:11px;">Post Update</button>
     </div>
+  </div>
+</div>
+
+<!-- ---------- NEW TASK MODAL ---------- -->
+<div id="newTaskOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Create a New Task</div>
+      <button class="btn small" id="newTaskCloseBtn">✕ Close</button>
+    </div>
+    <div id="newTaskBanner" class="banner"></div>
+    <form id="newTaskForm">
+          <div class="field">
+            <label>Project</label>
+            <input type="text" id="nt-project" list="projectList" required>
+            <datalist id="projectList"></datalist>
+          </div>
+          <div class="field">
+            <label>Activity</label>
+            <textarea id="nt-activity" required></textarea>
+          </div>
+          <div class="row2" style="grid-template-columns:1fr 1fr 0.6fr;">
+            <div class="field">
+              <label>Customer</label>
+              <input type="text" id="nt-customer" list="customerList">
+              <datalist id="customerList"></datalist>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <input type="text" id="nt-category" list="categoryList">
+              <datalist id="categoryList"></datalist>
+            </div>
+            <div class="field">
+              <label>Priority</label>
+              <select id="nt-priority">
+                <option value="">—</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Open Date</label>
+              <input type="date" id="nt-open">
+            </div>
+            <div class="field">
+              <label>Target Date</label>
+              <input type="date" id="nt-target" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Repeat <span style="text-transform:none; letter-spacing:0;">(Weekly / Monthly / Quarterly / Yearly tasks are added again automatically ahead of the next due date)</span></label>
+            <select id="nt-repeat">
+              <option value="once">Once</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <div class="hint" id="nt-repeat-hint" style="font-size:11px; color:var(--faint); margin-top:5px;"></div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Who (owner)</label>
+              <select id="nt-who" required></select>
+            </div>
+            <div class="field">
+              <label>Reviewer</label>
+              <select id="nt-reviewer" required></select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Contributors <span style="text-transform:none; letter-spacing:0;">(optional — can be @-mentioned in status updates)</span></label>
+            <div class="multiselect">
+              <button type="button" class="multiselect-toggle" id="nt-contributors-toggle">Select contributors…</button>
+              <div class="checkbox-list multiselect-dropdown" id="nt-contributors" style="display:none;"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Tags <span style="text-transform:none; letter-spacing:0;">(optional — comma-separated words, used for the Tag filter)</span></label>
+            <input type="text" id="nt-tags" list="tagList" placeholder="e.g. urgent, rework, escalation">
+            <datalist id="tagList"></datalist>
+          </div>
+          <button type="submit" class="btn primary" id="ntSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Create task</button>
+        </form>
   </div>
 </div>
 
@@ -2289,6 +2382,31 @@
 </div>
 
 <!-- ---------- PROJECTS: NEW / EDIT PROJECT (admin) ---------- -->
+<div id="pmTemplatesOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:860px;">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Project Templates</div>
+      <button class="btn small" id="pmTemplatesCloseBtn">✕ Close</button>
+    </div>
+    <div class="hint" style="font-size:11.5px; color:var(--muted); margin-bottom:10px;">A template is a charter of KPIs and activities. Each new project follows one template, and its <b>T0 date</b> drives every date in the charter. Create a template from an Excel sheet in the charter format.</div>
+    <div id="pmTemplatesBanner" class="banner"></div>
+    <div class="table-wrap" style="max-height:34vh;">
+      <table>
+        <thead><tr><th>Template</th><th>KPIs</th><th>Activities</th><th></th></tr></thead>
+        <tbody id="pmTemplatesBody"></tbody>
+      </table>
+    </div>
+    <div class="pm-section-title" style="margin-top:16px;">Create a template from Excel</div>
+    <div class="hint" style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">Columns (first row): <b>Sl, Type, Event, Title, Teams, Owner, Reviewer, Contributors, Formula</b>. Type is KPI or Activity (activities sit under the KPI above them). Owner, Reviewer and Contributors are team names. Formula is the event it follows plus days, e.g. <b>A8 + 9d</b>, <b>T0 + 30d</b>, <b>T7 - 60d</b>; the first KPI (T0) uses <b>T0 date</b>. Other columns are ignored. <a href="#" id="pmtSampleLink" style="color:var(--accent);">Download a sample sheet</a></div>
+    <div class="row2">
+      <div class="field"><label>Template name</label><input type="text" id="pmtName" placeholder="e.g. Pre-Operation – Electric Buses"></div>
+      <div class="field"><label>Excel or CSV file</label><input type="file" id="pmtFile" accept=".xlsx,.xls,.csv"></div>
+    </div>
+    <div id="pmtPreview"></div>
+    <button class="btn primary" id="pmtCreateBtn" style="width:100%; justify-content:center; padding:11px; margin-top:10px;" disabled>Create template</button>
+  </div>
+</div>
+
 <div id="pmProjectOverlay" class="modal-overlay" style="display:none;">
   <div class="modal-box">
     <div class="modal-header">
@@ -2296,6 +2414,7 @@
       <button class="btn small" id="pmProjectCloseBtn">✕ Close</button>
     </div>
     <div id="pmProjectBanner" class="banner"></div>
+    <div class="field" id="pmp-template-field"><label>Template to follow</label><select id="pmp-template"></select></div>
     <div class="field"><label>Project name</label><input type="text" id="pmp-name" placeholder="e.g. Kalyan Dombivali 75 buses"></div>
     <div class="row2">
       <div class="field"><label>Location / Depot</label><input type="text" id="pmp-location"></div>
@@ -2303,14 +2422,15 @@
     </div>
     <div class="row2">
       <div class="field"><label>No. of buses</label><input type="number" min="0" step="1" id="pmp-buses"></div>
-      <div class="field"><label>LoA date (T0)</label><input type="date" id="pmp-loa"></div>
+      <div class="field"><label>T0 date <span style="text-transform:none; letter-spacing:0;">(project start)</span></label><input type="date" id="pmp-loa"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Project manager <span style="text-transform:none; letter-spacing:0;">(default reviewer / KPI sign-off)</span></label><select id="pmp-manager"></select></div>
+      <div class="field"><label>Project manager <span style="text-transform:none; letter-spacing:0;">(sees the project; not an automatic owner / reviewer)</span></label><select id="pmp-manager"></select></div>
       <div class="field" id="pmp-status-field"><label>Status</label>
         <select id="pmp-status"><option value="active">Active</option><option value="on_hold">On hold</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
       </div>
     </div>
+    <div class="field" id="pmp-access-field"><label>Who can see the full project <span style="text-transform:none; letter-spacing:0;">(admins and the project manager always can; anyone else involved sees only their own activities)</span></label><div class="pm-checks" id="pmp-full"></div></div>
     <div class="field"><label>Description / remarks</label><textarea id="pmp-desc"></textarea></div>
     <div class="hint" id="pmp-hint" style="font-size:11px; color:var(--faint); margin-bottom:10px;"></div>
     <div style="display:flex; gap:10px;">
@@ -2327,7 +2447,7 @@
       <div class="panel-title" style="border:none; margin:0; padding:0;">Team Roster</div>
       <button class="btn small" id="pmTeamsCloseBtn">✕ Close</button>
     </div>
-    <div class="hint" style="font-size:11.5px; color:var(--muted); margin-bottom:10px;">Each functional team's default owner and reviewer. A new project's activities are assigned from this list (an activity's first team decides its owner; other teams' owners become contributors). Existing projects are only changed when you use "Fill blank owners" / "Reset all owners" on that project.</div>
+    <div class="hint" style="font-size:11.5px; color:var(--muted); margin-bottom:10px;">The person for each team. When a project is created, every activity's Owner, Reviewer and Contributor team (from its template) is replaced by that team's person here; a team with nobody set shows "-" on the project. Existing projects change only when you use "Fill blank owners" (fills the blanks only) or "Reset all owners" (re-applies this list to every activity) on that project. The project manager is never used as an automatic owner or reviewer.</div>
     <div id="pmTeamsBanner" class="banner"></div>
     <div class="table-wrap" style="max-height:50vh;">
       <table>
@@ -2372,9 +2492,9 @@ const CONFIG = {
 // itself aren't in this list -- Dashboard+Change Password are always on,
 // and User Management is admin-only, not governable.
 const GOVERNABLE_TABS = [
-  { key:'dashboardView', label:'Dashboard' },
-  { key:'timeAnalysisView', label:'Time Analysis' },
-  { key:'newTaskView', label:'New Task' },
+  { key:'dashboardView', label:'Task Management' },
+  { key:'timeAnalysisView', label:'Time Analysis (in Task Management)' },
+  { key:'newTaskView', label:'+ New Task button' },
   { key:'lettersView', label:'Letters' },
   { key:'tendersView', label:'Vendor Tenders' },
   { key:'projectsView', label:'Projects' }
@@ -2833,6 +2953,7 @@ function renderAll(){
   renderPersonList();
   renderCharts(filtered);
   renderTable(filtered);
+  homeRefresh();
 }
 
 function promptHours(label){
@@ -2894,6 +3015,331 @@ function populateDetailWhoReviewerSelects(){
   document.getElementById('td-reviewer').innerHTML = opts;
 }
 
+// ==================== DASHBOARD (everything on one page) ====================
+// One cross-module page: what needs the signed-in user's action (tasks, letters, tenders, project
+// activities), a few charts, and a strip of project health. Every action row reuses the existing
+// buttons / windows, so things are updated right here.
+// "As owner / As reviewer" narrows the whole page to one of the user's two roles.
+let homeCharts = {};
+let homeShowAll = false;
+let homeRole = 'all';    // 'all' | 'owner' | 'reviewer'
+let homeMod = 'all';     // module filter on the action list: 'all' | 'task' | 'letter' | 'tender' | 'project'
+const HM_COLOR = { task:'#5B8DEF', letter:'#9E7BE0', tender:'#E0A458', project:'#4FA97F' };
+const HM_LABEL = { task:'Task', letter:'Letter', tender:'Tender', project:'Project' };
+const HM_MODS = ['task', 'letter', 'tender', 'project'];
+function homeActive(){ const v = document.getElementById('homeView'); return !!(v && v.classList.contains('active')); }
+function homeRefresh(){ if(homeActive() && myProfile) renderHome(); }
+function homeCan(key){ return !!myProfile && userCanSeeTab(myProfile, key); }
+function homeTaskDays(t){
+  const tg = parseDate(t.target_date); if(!tg) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return daysBetween(today, tg);
+}
+function homeDueChip(days){
+  if(days == null) return '';
+  if(days < 0) return pmChip('bad', (-days) + 'd overdue');
+  if(days === 0) return pmChip('warn', 'Due today');
+  if(days <= 7) return pmChip('warn', 'in ' + days + 'd');
+  return pmChip('neutral', 'in ' + days + 'd');
+}
+
+function homeCollect(){
+  const me = myProfile.id, role = homeRole, act = [], card = {};
+  const asOwner = role !== 'reviewer', asRev = role !== 'owner';
+  // ---- tasks ----
+  if(homeCan('dashboardView')){
+    const scope = rawTasks.filter(t=> role === 'owner' ? t.who === me : role === 'reviewer' ? t.reviewer === me : true);
+    const open = rawTasks.filter(t=> t.who === me && t.workflow_status === 'open');
+    const review = rawTasks.filter(t=> t.reviewer === me && t.workflow_status === 'pending_review');
+    card.tasks = { scope, open:open.length, overdue:open.filter(t=> t.status === 'overdue').length, soon:open.filter(t=> t.status === 'duesoon').length, review:review.length };
+    if(asOwner) open.forEach(t=>{
+      const d = homeTaskDays(t);
+      if(d == null || d > 7) return;
+      act.push({ mod:'task', title:t.activity, sub:[t.project, t.customer].filter(Boolean).join(' · '), days:d, score:(d < 0 ? 1000 - d : 600 - d), open:'task:' + t.id, actions:actionCellFor(t) });
+    });
+    if(asRev) review.forEach(t=> act.push({ mod:'task', title:t.activity, sub:'To review · ' + (t.whoName || '') + (t.project ? ' · ' + t.project : ''), days:homeTaskDays(t), score:400, open:'task:' + t.id, actions:actionCellFor(t) }));
+  }
+  // ---- letters ----
+  if(homeCan('lettersView')){
+    const isOwnerL = l=> l.preparer === me;
+    const isRevL = l=> l.modifier === me || l.approver === me || l.pending_with === me;
+    const scope = rawLetters.filter(l=> role === 'owner' ? isOwnerL(l) : role === 'reviewer' ? isRevL(l) : true);
+    const ownerMove = l=> l.workflow_status === 'draft' && l.preparer === me;
+    const revMove = l=> (l.workflow_status === 'pending_modification' && l.modifier === me) || (l.workflow_status === 'pending_approval' && l.approver === me) || (l.workflow_status === 'pending_feedback' && l.pending_with === me);
+    const mine = rawLetters.filter(l=> (asOwner && ownerMove(l)) || (asRev && revMove(l)));
+    const by = {};
+    scope.forEach(l=> { if(l.workflow_status !== 'approved') by[l.workflow_status] = (by[l.workflow_status] || 0) + 1; });
+    card.letters = { mine:mine.length, pipeline:Object.keys(by).reduce((n, k)=> n + by[k], 0), by };
+    mine.forEach(l=> act.push({ mod:'letter', title:l.subject || l.reference_number, sub:[l.reference_number, l.company_name, letterStatusLabel(l.workflow_status)].filter(Boolean).join(' · '), days:null, score:350, open:'letter:' + l.id, actions:letterActionCellFor(l) }));
+  }
+  // ---- tenders ----
+  if(homeCan('tendersView') && rawTenders.length){
+    const canFloat = !!(myProfile.is_admin || myProfile.can_float_tenders);
+    const isOwnerT = t=> t.created_by === me;
+    const isRevT = t=> t.approver_1_id === me || t.approver_2_id === me;
+    const scope = rawTenders.filter(t=> role === 'owner' ? isOwnerT(t) : role === 'reviewer' ? (isRevT(t) || canFloat) : true);
+    const wfs = rawTenders.map(t=> ({ t, wf:tenderWorkflowStatusLabel(t) }));
+    const revMoves = wfs.filter(x=> x.wf.text === 'Float Requested' || x.wf.text === 'Pending' || x.wf.text === 'Pending for Review');
+    const ownMoves = wfs.filter(x=> x.t.status === 'draft' && !x.t.submitted_for_float_at && isOwnerT(x.t));
+    // a tender still marked Open whose bidding closing date has passed counts as closed -- same test the rest of the app uses
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const lapsed = t=> t.status === 'open' && !!t.target_closure_date && t.target_closure_date < todayIso;
+    const openT = scope.filter(t=> t.status === 'open' && !lapsed(t));
+    let bids = 0, bidders = 0;
+    openT.forEach(t=> { const b = tenderBidders(t); bidders += b.length; bids += b.filter(v=> v.submitted_at).length; });
+    // bidding is over and nobody has proposed an award yet -- either approver may start it
+    const awardMoves = wfs.filter(x=> (x.t.status === 'closed' || lapsed(x.t)) && x.t.awarded_quote_id == null && isRevT(x.t)
+      && !(x.t.vendor_tender_internal && x.t.vendor_tender_internal.proposed_award_quote_id)
+      && tenderBidders(x.t).some(v=> v.submitted_at));
+    const mine = (asRev ? revMoves.concat(awardMoves) : []).concat(asOwner ? ownMoves : []);
+    card.tenders = { scope, open:openT.length, mine:mine.length, bids, bidders,
+      deciding:scope.filter(t=> t.vendor_tender_internal && t.vendor_tender_internal.proposed_award_quote_id && t.vendor_tender_internal.pending_approver != null).length };
+    mine.forEach(x=>{
+      const co = (rawCompanies.find(c=> String(c.id) === String(x.t.company_id)) || {}).name;
+      const toPropose = awardMoves.indexOf(x) >= 0;
+      const label = x.wf.text === 'Float Requested' ? 'Review &amp; float' : (x.t.status === 'draft' ? 'Open draft' : (toPropose ? 'Propose award' : 'Review award'));
+      const nBids = tenderBidders(x.t).filter(v=> v.submitted_at).length;
+      act.push({ mod:'tender', title:x.t.location_name, sub:(toPropose ? (lapsed(x.t) ? 'Closing date passed (' + fmtDate(x.t.target_closure_date) + ')' : 'Bidding closed') + ' · ' + nBids + ' bid' + (nBids === 1 ? '' : 's') + ' in · award pending' : x.wf.text) + (co ? ' · ' + co : ''), days:null, score:(toPropose ? 470 : 450), open:'tender:' + x.t.id,
+        actions:'<button class="btn small primary" data-home-open="tender:' + x.t.id + '">' + label + '</button>' });
+    });
+  }
+  // ---- project activities ----
+  if(homeCan('projectsView') && pmAvailable){
+    const my = pmMyEntries();
+    let mineOpen = 0, mineOver = 0, awaiting = 0;
+    my.forEach(e=>{
+      const st = pmState(e.it, e.s);
+      const owner = e.roles.indexOf('owner') >= 0 || e.roles.indexOf('contributor') >= 0;
+      const dd = e.s && e.s.due ? pmDiff(e.s.due, pmToday()) : null;
+      const nm = (e.it.event_code ? e.it.event_code + ' · ' : '') + e.it.title;
+      if(e.it.status === 'open' && owner){
+        mineOpen++; if(st.key === 'overdue') mineOver++;
+        if(asOwner && (st.key === 'overdue' || st.key === 'soon' || e.it.is_blocked)) act.push({ mod:'project', title:nm, sub:e.proj.name + (e.it.is_blocked ? ' · blocked' : ''), days:dd, score:(dd != null && dd < 0 ? 1000 - dd : 600 - (dd || 0)), open:'pmitem:' + e.it.id,
+          actions:'<button class="btn small primary" data-home-open="pmitem:' + e.it.id + '">Update</button>' });
+      }
+      if(e.it.status === 'pending_review' && e.roles.indexOf('reviewer') >= 0){
+        awaiting++;
+        if(asRev) act.push({ mod:'project', title:nm, sub:e.proj.name + ' · to review', days:dd, score:400, open:'pmitem:' + e.it.id, actions:'<button class="btn small primary" data-home-open="pmitem:' + e.it.id + '">Review</button>' });
+      }
+    });
+    const live = pmProjects.filter(p=> !p.is_template && p.status === 'active');
+    let delayed = 0;
+    live.forEach(p=> { if(!pmLimited(p)){ const h = pmProjectStats(p.id).health.cls; if(h === 'bad' || h === 'warn') delayed++; } });
+    card.projects = { active:live.length, mineOpen, mineOver, awaiting, delayed };
+  }
+  act.sort((a, b)=> b.score - a.score);
+  return { act, card };
+}
+
+function homeChartsDestroy(){ Object.keys(homeCharts).forEach(k=> { try{ homeCharts[k].destroy(); }catch(e){} }); homeCharts = {}; }
+
+function renderHome(){
+  const box = document.getElementById('homeView');
+  if(!box || !myProfile) return;
+  homeChartsDestroy();
+  const { act, card } = homeCollect();
+  const role = homeRole, tc = themeColors();
+  const hr = new Date().getHours();
+  const hello = (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + ', ' + ((myProfile.display_name || '').split(' ')[0] || '');
+  const today = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  const stack = (parts)=> { const tot = parts.reduce((n, p)=> n + p[0], 0) || 1; return '<div class="hm-stack">' + parts.filter(p=> p[0] > 0).map(p=> '<i style="width:' + (p[0] / tot * 100) + '%; background:' + p[1] + ';" title="' + p[2] + ': ' + p[0] + '"></i>').join('') + '</div>'; };
+
+  // ---- cards ----
+  const cards = [];
+  if(card.tasks){
+    const c = card.tasks, all = {}; c.scope.forEach(t=> { all[t.status] = (all[t.status] || 0) + 1; });
+    const big = role === 'reviewer' ? c.review : c.open, bigLabel = role === 'reviewer' ? 'to review' : 'open with me';
+    cards.push(`<div class="hm-card" style="--c:${HM_COLOR.task};" data-home-go="dashboardView"><div class="hm-card-label"><span>Tasks</span><span>›</span></div>
+      <div class="hm-big">${big}<small>${bigLabel}</small></div>
+      <div class="hm-chips">${role !== 'reviewer' && c.overdue ? pmChip('bad', c.overdue + ' overdue') : ''}${role !== 'reviewer' && c.soon ? pmChip('warn', c.soon + ' due ≤3d') : ''}${role !== 'owner' && c.review && role !== 'reviewer' ? pmChip('pend', c.review + ' to review') : ''}${role === 'reviewer' ? pmChip('neutral', c.scope.length + ' tasks I review') : ''}${!((role !== 'reviewer' && (c.overdue || c.soon || (role === 'all' && c.review))) || role === 'reviewer') ? pmChip('ok', 'Nothing urgent') : ''}</div>
+      ${stack([[all.overdue || 0, COLORS.overdue, 'Overdue'], [all.duesoon || 0, COLORS.duesoon, 'Due soon'], [all.ontrack || 0, COLORS.ontrack, 'On track'], [all.pending_review || 0, COLORS.pending_review, 'Pending review']])}</div>`);
+  }
+  if(card.letters){
+    const c = card.letters, col = { draft:'#6E7A90', pending_modification:'#E0A458', pending_approval:'#9E7BE0', pending_feedback:'#E2574C' };
+    cards.push(`<div class="hm-card" style="--c:${HM_COLOR.letter};" data-home-go="lettersView"><div class="hm-card-label"><span>Letters</span><span>›</span></div>
+      <div class="hm-big">${c.mine}<small>waiting on me</small></div>
+      <div class="hm-chips">${pmChip('neutral', c.pipeline + ' in the pipeline')}${c.mine ? pmChip('warn', 'your move') : pmChip('ok', 'Nothing urgent')}</div>
+      ${stack(Object.keys(col).map(k=> [c.by[k] || 0, col[k], letterStatusLabel(k)]))}</div>`);
+  }
+  if(card.tenders){
+    const c = card.tenders;
+    cards.push(`<div class="hm-card" style="--c:${HM_COLOR.tender};" data-home-go="tendersView"><div class="hm-card-label"><span>Vendor tenders</span><span>›</span></div>
+      <div class="hm-big">${c.open}<small>open for bidding</small></div>
+      <div class="hm-chips">${c.mine ? pmChip('warn', c.mine + ' need your decision') : ''}${c.deciding ? pmChip('pend', c.deciding + ' awaiting award') : ''}${!(c.mine || c.deciding) ? pmChip('ok', 'Nothing urgent') : ''}</div>
+      ${stack([[c.bids, COLORS.ontrack, 'Bids submitted'], [Math.max(c.bidders - c.bids, 0), '#6E7A90', 'Yet to bid']])}<div class="hm-meta" style="margin-top:4px;">${c.bids}/${c.bidders} bids submitted</div></div>`);
+  }
+  if(card.projects){
+    const c = card.projects;
+    const big = role === 'reviewer' ? c.awaiting : c.mineOpen, bigLabel = role === 'reviewer' ? 'activities to review' : 'my open activities';
+    cards.push(`<div class="hm-card" style="--c:${HM_COLOR.project};" data-home-go="projectsView"><div class="hm-card-label"><span>Projects</span><span>›</span></div>
+      <div class="hm-big">${big}<small>${bigLabel}</small></div>
+      <div class="hm-chips">${role !== 'reviewer' && c.mineOver ? pmChip('bad', c.mineOver + ' overdue') : ''}${role !== 'owner' && c.awaiting && role !== 'reviewer' ? pmChip('pend', c.awaiting + ' to review') : ''}${c.delayed ? pmChip('warn', c.delayed + ' of ' + c.active + ' projects slipping') : ''}${!((role !== 'reviewer' && c.mineOver) || (role === 'all' && c.awaiting) || c.delayed) ? pmChip('ok', 'All on plan') : ''}</div>
+      ${stack([[c.mineOpen - c.mineOver, COLORS.ontrack, 'On track'], [c.mineOver, COLORS.overdue, 'Overdue']])}</div>`);
+  }
+
+  // ---- action list: module chips, and a mix of modules when "All" is picked ----
+  const counts = {}; HM_MODS.forEach(m=> { counts[m] = act.filter(a=> a.mod === m).length; });
+  if(homeMod !== 'all' && !counts[homeMod]) homeMod = 'all';
+  const list = homeMod === 'all' ? act : act.filter(a=> a.mod === homeMod);
+  let shown = list;
+  if(!homeShowAll && list.length > 10){
+    const take = new Set();
+    HM_MODS.forEach(m=> list.filter(a=> a.mod === m).slice(0, 3).forEach(a=> take.add(a)));   // every module gets a look-in
+    list.forEach(a=> { if(take.size < 10) take.add(a); });
+    shown = list.filter(a=> take.has(a));
+  }
+  const actHtml = shown.length ? shown.map(a=> `<div class="hm-act" style="--c:${HM_COLOR[a.mod]};">
+      <div class="hm-mod">${HM_LABEL[a.mod]}</div>
+      <div class="hm-main" data-home-open="${a.open}" title="Open details"><div class="hm-title">${pmEsc(a.title || '—')}</div><div class="hm-meta">${pmEsc(a.sub || '')}</div></div>
+      <div class="hm-due">${homeDueChip(a.days)}</div>
+      <div class="hm-acts">${a.actions || ''}</div></div>`).join('')
+    : '<div class="hm-empty">🎉 Nothing needs your action' + (role === 'all' ? '' : ' as ' + role) + ' right now.</div>';
+  const more = list.length > shown.length || (homeShowAll && list.length > 10) ? `<div style="text-align:center; padding-top:8px;"><button class="btn small" id="homeMoreBtn">${homeShowAll ? 'Show fewer' : 'Show all ' + list.length}</button></div>` : '';
+  const modChips = '<div class="pm-seg" style="margin-bottom:10px;"><button class="btn small' + (homeMod === 'all' ? ' active' : '') + '" data-home-mod="all">All ' + act.length + '</button>'
+    + HM_MODS.filter(m=> card[m === 'task' ? 'tasks' : m === 'letter' ? 'letters' : m === 'tender' ? 'tenders' : 'projects']).map(m=> '<button class="btn small' + (homeMod === m ? ' active' : '') + '" data-home-mod="' + m + '" style="--c:' + HM_COLOR[m] + ';">' + HM_LABEL[m] + 's ' + counts[m] + '</button>').join('') + '</div>';
+
+  // ---- project strip ----
+  let projHtml = '';
+  if(card.projects){
+    const live = pmProjects.filter(p=> !p.is_template && p.status === 'active');
+    projHtml = live.length ? '<div class="hm-proj">' + live.map(p=>{
+      if(pmLimited(p)){
+        const mine = pmMyEntries().filter(e=> e.proj.id === p.id && e.it.status === 'open').length;
+        return `<div class="hm-pcard" data-home-open="project:${p.id}"><div style="display:flex; justify-content:space-between; gap:8px;"><b>${pmEsc(p.name)}</b>${pmChip('neutral', 'Your activities only')}</div>
+          <div class="hm-meta" style="margin-top:6px;">${mine} open activit${mine === 1 ? 'y' : 'ies'} involve you</div></div>`;
+      }
+      const st = pmProjectStats(p.id);
+      return `<div class="hm-pcard" data-home-open="project:${p.id}"><div style="display:flex; justify-content:space-between; gap:8px;"><b>${pmEsc(p.name)}</b>${pmChip(st.health.cls, st.health.label)}</div>
+        <div class="hm-bar"><i style="width:${st.pct}%;"></i></div>
+        <div class="hm-meta">${st.pct}% · ${st.actDone}/${st.actTotal} activities${st.endFcst ? ' · go-live ' + pmFmtShort(st.endFcst) : ''}${st.slip ? ' <b class="' + (st.slip > 0 ? 'pm-late' : 'pm-early') + '">(' + (st.slip > 0 ? '+' : '') + st.slip + 'd)</b>' : ''}</div>
+        <div class="hm-chips" style="margin-top:6px;">${st.overdue ? pmChip('bad', st.overdue + ' overdue') : ''}${st.blocked ? pmChip('bad', st.blocked + ' blocked') : ''}${st.pending ? pmChip('pend', st.pending + ' in review') : ''}${!(st.overdue || st.blocked || st.pending) ? pmChip('ok', 'No alerts') : ''}</div></div>`;
+    }).join('') + '</div>' : '<div class="hm-empty">No active projects.</div>';
+  }
+
+  const canNew = homeCan('newTaskView');
+  const roleSeg = '<div class="pm-seg">' + [['all', 'All'], ['owner', 'As owner'], ['reviewer', 'As reviewer']].map(r=> '<button class="btn small' + (role === r[0] ? ' active' : '') + '" data-home-role="' + r[0] + '" title="' + (r[0] === 'owner' ? 'Things you have to do' : r[0] === 'reviewer' ? 'Things you have to review / approve' : 'Both') + '">' + r[1] + '</button>').join('') + '</div>';
+  box.innerHTML = `
+    <div class="hm-head">
+      <div><div class="hm-hello">${pmEsc(hello)}</div><div class="hm-sub">${today} · ${act.length ? '<b style="color:var(--text);">' + act.length + '</b> item' + (act.length === 1 ? '' : 's') + ' need your action' : 'you are all caught up'}</div></div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">${roleSeg}${canNew ? '<button class="btn primary" id="homeNewTask">+ New Task</button>' : ''}${homeCan('lettersView') ? '<button class="btn" id="homeNewLetter">+ New Letter</button>' : ''}</div>
+    </div>
+    ${cards.length ? '<div class="hm-cards">' + cards.join('') + '</div>' : ''}
+    <div class="hm-grid">
+      <div class="panel"><div class="panel-title">Needs your action <span class="count">${act.length}</span></div>${modChips}${actHtml}${more}</div>
+      <div class="panel"><div class="panel-title">Workload — what falls due</div><div class="chart-box" style="height:300px;"><canvas id="homeWorkChart"></canvas></div></div>
+    </div>
+    <div class="hm-grid3">
+      ${card.tasks ? '<div class="panel"><div class="panel-title">Tasks by status</div><div class="chart-box"><canvas id="homeTaskChart"></canvas></div></div>' : ''}
+      ${card.letters ? '<div class="panel"><div class="panel-title">Letters in the pipeline</div><div class="chart-box"><canvas id="homeLetterChart"></canvas></div></div>' : ''}
+      ${card.tenders ? '<div class="panel"><div class="panel-title">Tender bids (open tenders)</div><div class="chart-box"><canvas id="homeTenderChart"></canvas></div></div>' : ''}
+    </div>
+    ${card.projects ? '<div class="panel"><div class="panel-title">Projects <span class="count">' + card.projects.active + ' active</span></div>' + projHtml + '</div>' : ''}`;
+
+  // ---- charts ----
+  const axis = { grid:{ color:tc.grid }, ticks:{ color:tc.muted, font:{ family:'IBM Plex Mono', size:10 }, precision:0 } };
+  const yaxis = { grid:{ display:false }, ticks:{ color:tc.text, font:{ family:'IBM Plex Sans', size:11 } } };
+  // workload: what falls due by week for the chosen role (overdue first)
+  const wk = { task:new Array(10).fill(0), project:new Array(10).fill(0) };
+  const slot = d=> d < 0 ? 0 : Math.min(Math.floor(d / 7) + 1, 9);
+  if(card.tasks){
+    rawTasks.filter(t=> role === 'reviewer' ? (t.reviewer === myProfile.id && t.workflow_status !== 'closed') : (t.who === myProfile.id && t.workflow_status === 'open'))
+      .forEach(t=> { const d = homeTaskDays(t); if(d != null) wk.task[slot(d)]++; });
+  }
+  if(card.projects){
+    pmMyEntries().filter(e=> e.s && e.s.due && (role === 'reviewer'
+        ? (e.roles.indexOf('reviewer') >= 0 && e.it.status !== 'closed' && e.it.status !== 'waived')
+        : (e.it.status === 'open' && (e.roles.indexOf('owner') >= 0 || e.roles.indexOf('contributor') >= 0))))
+      .forEach(e=> wk.project[slot(pmDiff(e.s.due, pmToday()))]++);
+  }
+  const wl = ['Overdue', 'This week', 'Next week', 'Wk +2', 'Wk +3', 'Wk +4', 'Wk +5', 'Wk +6', 'Wk +7', 'Later'];
+  const ds = [];
+  if(card.tasks) ds.push({ label:'Tasks', data:wk.task, backgroundColor:HM_COLOR.task, borderRadius:4 });
+  if(card.projects) ds.push({ label:'Project activities', data:wk.project, backgroundColor:HM_COLOR.project, borderRadius:4 });
+  const wc = document.getElementById('homeWorkChart');
+  if(wc && ds.length){
+    homeCharts.work = new Chart(wc, { type:'bar', data:{ labels:wl, datasets:ds },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:tc.text, boxWidth:10, font:{ size:11 } } } },
+        scales:{ x:{ stacked:true, grid:{ display:false }, ticks:{ color:tc.muted, font:{ size:10 }, maxRotation:0, autoSkip:false } }, y:Object.assign({ stacked:true }, axis) } } });
+  } else if(wc){ wc.parentNode.innerHTML = '<div class="hm-empty">No due dates to chart.</div>'; }
+
+  const tcv = document.getElementById('homeTaskChart');
+  if(tcv){
+    const cnt = STATUS_ORDER.map(k=> card.tasks.scope.filter(t=> t.status === k).length);
+    homeCharts.task = new Chart(tcv, { type:'doughnut', data:{ labels:STATUS_LABELS, datasets:[{ data:cnt, backgroundColor:STATUS_ORDER.map(k=> COLORS[k]), borderColor:tc.panelBg, borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'right', labels:{ color:tc.text, boxWidth:10, font:{ size:11 } } } } } });
+  }
+  const lcv = document.getElementById('homeLetterChart');
+  if(lcv){
+    const keys = ['draft', 'pending_modification', 'pending_approval', 'pending_feedback'], col = ['#6E7A90', '#E0A458', '#9E7BE0', '#E2574C'];
+    homeCharts.letter = new Chart(lcv, { type:'bar', data:{ labels:keys.map(letterStatusLabel), datasets:[{ data:keys.map(k=> card.letters.by[k] || 0), backgroundColor:col, borderRadius:5, maxBarThickness:24 }] },
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:axis, y:yaxis } } });
+  }
+  const tdv = document.getElementById('homeTenderChart');
+  if(tdv){
+    const rows = card.tenders.scope.filter(t=> t.status === 'open').slice(0, 8);
+    homeCharts.tender = new Chart(tdv, { type:'bar', data:{ labels:rows.map(t=> t.location_name), datasets:[
+        { label:'Submitted', data:rows.map(t=> tenderBidders(t).filter(v=> v.submitted_at).length), backgroundColor:COLORS.ontrack, borderRadius:4 },
+        { label:'Yet to bid', data:rows.map(t=> tenderBidders(t).filter(v=> !v.submitted_at).length), backgroundColor:'#6E7A90', borderRadius:4 }] },
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ labels:{ color:tc.text, boxWidth:10, font:{ size:11 } } } }, scales:{ x:Object.assign({ stacked:true }, axis), y:Object.assign({ stacked:true }, yaxis) } } });
+  }
+}
+
+async function homeOpen(spec){
+  const i = spec.indexOf(':'), kind = spec.slice(0, i), id = Number(spec.slice(i + 1));
+  if(kind === 'task') openTaskDetail(id);
+  else if(kind === 'letter') openLetterDetail(id);
+  else if(kind === 'tender') openTenderDetail(id);
+  else if(kind === 'pmitem') pmOpenItem(id);
+  else if(kind === 'project'){ switchView('projectsView'); pmOpenProject(id); }
+}
+
+function attachHomeEvents(){
+  const view = document.getElementById('homeView');
+  view.addEventListener('click', async (e)=>{
+    const tb = e.target.closest('button[data-action]');
+    if(tb){ e.stopPropagation(); await handleWorkflowAction(tb.dataset.action, Number(tb.dataset.id)); return; }
+    const lb = e.target.closest('button[data-letter-action]');
+    if(lb){ e.stopPropagation(); await handleLetterWorkflowAction(lb.dataset.letterAction, Number(lb.dataset.id)); return; }
+    const rb = e.target.closest('[data-home-role]');
+    if(rb){ homeRole = rb.dataset.homeRole; homeShowAll = false; renderHome(); return; }
+    const mb = e.target.closest('[data-home-mod]');
+    if(mb){ homeMod = mb.dataset.homeMod; homeShowAll = false; renderHome(); return; }
+    if(e.target.closest('#homeMoreBtn')){ homeShowAll = !homeShowAll; renderHome(); return; }
+    if(e.target.closest('#homeNewTask')){ openNewTaskModal(); return; }
+    if(e.target.closest('#homeNewLetter')){ openNewLetterModal(); return; }
+    const op = e.target.closest('[data-home-open]');
+    if(op){ homeOpen(op.dataset.homeOpen); return; }
+    const go = e.target.closest('[data-home-go]');
+    if(go){ switchView(go.dataset.homeGo); return; }
+  });
+}
+
+// ---- repeating tasks: Weekly / Monthly / Quarterly / Yearly are added again ahead of the next due date ----
+const REPEAT = {
+  weekly:    { label:'Weekly',    lead:3,  add:(d, n)=> { d.setUTCDate(d.getUTCDate() + 7 * n); } },
+  monthly:   { label:'Monthly',   lead:7,  months:1 },
+  quarterly: { label:'Quarterly', lead:30, months:3 },
+  yearly:    { label:'Yearly',    lead:60, months:12 }
+};
+function repeatNextDue(anchorIso, freq, n){
+  const r = REPEAT[freq];
+  const p = anchorIso.split('-').map(Number);
+  if(!r.months){ const d = new Date(Date.UTC(p[0], p[1] - 1, p[2])); r.add(d, n); return d.toISOString().slice(0, 10); }
+  const total = p[1] - 1 + r.months * n;
+  const y = p[0] + Math.floor(total / 12), m = ((total % 12) + 12) % 12;
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();   // same day, or the month's last day (31 Jan + 1 month = 28 Feb)
+  return new Date(Date.UTC(y, m, Math.min(p[2], last))).toISOString().slice(0, 10);
+}
+function repeatHintText(freq, targetIso){
+  if(!freq || freq === 'once') return '';
+  if(!targetIso) return 'Set a target date: the next copy is counted from it.';
+  const next = repeatNextDue(targetIso, freq, 1);
+  const lead = REPEAT[freq].lead;
+  const d = new Date(next + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - lead);
+  const f = iso=> new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+  return REPEAT[freq].label + ': the next task, due ' + f(next) + ', is added on ' + f(d.toISOString().slice(0, 10)) + ' (' + lead + ' days before).';
+}
+
 async function openTaskDetail(taskId){
   const t = rawTasks.find(x=>x.id === taskId);
   if(!t) return;
@@ -2922,6 +3368,12 @@ async function openTaskDetail(taskId){
   document.getElementById('taskDetailDeleteBtn').style.display = isAdmin ? 'inline-flex' : 'none';
   renderCheckboxList('td-contributors', t.contributors || []);
   document.getElementById('td-tags').value = (t.tags || []).join(', ');
+  const rf = t.repeat_freq || 'once';
+  document.getElementById('td-repeat').value = rf;
+  document.getElementById('td-repeat').disabled = !!t.recur_spawned;
+  document.getElementById('td-repeat-hint').textContent = t.recur_spawned
+    ? 'The next task in this series has already been created -- change or stop the repeat on that one.'
+    : (rf === 'once' ? '' : repeatHintText(rf, t.recur_anchor ? repeatNextDue(t.recur_anchor, rf, t.recur_seq || 0) : t.target_date)) + (rf !== 'once' && t.recur_seq ? ' (occurrence ' + (t.recur_seq + 1) + ')' : '');
   document.getElementById('td-newStatus').value = '';
   document.getElementById('taskDetailBanner').style.display = 'none';
   document.getElementById('statusThread').innerHTML = '<div class="status-empty">Loading…</div>';
@@ -3000,6 +3452,12 @@ async function saveTaskDetail(){
       row.reviewer = document.getElementById('td-reviewer').value;
       row.customer = document.getElementById('td-customer').value.trim();
       row.project = document.getElementById('td-project').value.trim();
+    }
+    const cur = rawTasks.find(x=> x.id === currentDetailTaskId);
+    const newRepeat = document.getElementById('td-repeat').value;
+    if(cur && !cur.recur_spawned && newRepeat !== (cur.repeat_freq || 'once')){
+      if(newRepeat !== 'once' && !cur.target_date) throw new Error('A repeating task needs a target date');
+      row.repeat_freq = newRepeat;
     }
     const { error } = await db.from('tasks').update(row).eq('id', currentDetailTaskId);
     if(error) throw error;
@@ -4123,6 +4581,7 @@ function renderLetters(){
   renderLetterAuthorityList();
   renderLetterCharts(filtered);
   renderLettersTable(filtered);
+  homeRefresh();
 }
 
 function renderLetterAuthorityList(){
@@ -5238,6 +5697,7 @@ function renderTenders(){
   renderTenderKPIs();
   renderTendersTable(getFilteredTenders());
   renderTenderCharts();
+  homeRefresh();
 }
 
 // ---------------- Tender event history (bids, revisions, award decisions) ----------------
@@ -8328,6 +8788,19 @@ function populateWhoReviewerSelects(){
   populateDatalist('tagList', uniqueTags(rawTasks));
 }
 
+function openNewTaskModal(){
+  document.getElementById('newTaskForm').reset();
+  document.getElementById('nt-repeat-hint').textContent = '';
+  document.getElementById('newTaskBanner').style.display = 'none';
+  populateWhoReviewerSelects();
+  if(myProfile) document.getElementById('nt-who').value = myProfile.id;
+  document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
+  document.getElementById('newTaskOverlay').style.display = 'flex';
+}
+function closeNewTaskModal(){
+  document.getElementById('newTaskOverlay').style.display = 'none';
+}
+
 async function handleNewTaskSubmit(e){
   e.preventDefault();
   const btn = document.getElementById('ntSubmitBtn');
@@ -8346,19 +8819,25 @@ async function handleNewTaskSubmit(e){
       contributors: getCheckedIds('nt-contributors'),
       tags: parseTags(document.getElementById('nt-tags').value)
     };
+    const repeat = document.getElementById('nt-repeat').value;
+    if(repeat !== 'once'){
+      if(!row.target_date) throw new Error('A repeating task needs a target date');
+      row.repeat_freq = repeat;
+    }
     const { error } = await db.from('tasks').insert(row);
     if(error) throw error;
-    showBanner('globalBanner', 'Task created.', 'success');
+    showBanner('globalBanner', repeat !== 'once' ? 'Task created -- it will repeat ' + REPEAT[repeat].label.toLowerCase() + '.' : 'Task created.', 'success');
     document.getElementById('newTaskForm').reset();
+    document.getElementById('nt-repeat-hint').textContent = '';
     if(myProfile) document.getElementById('nt-who').value = myProfile.id;
     document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
     await loadTasks();
     populateWhoReviewerSelects();
     initTimeFilters();
-    switchView('dashboardView');
+    closeNewTaskModal();
   }catch(err){
     console.error(err);
-    showBanner('globalBanner', 'Could not create task: ' + err.message, 'error');
+    showBanner('newTaskBanner', 'Could not create task: ' + err.message, 'error');
   }finally{
     btn.disabled = false; btn.textContent = 'Create task';
   }
@@ -8572,12 +9051,24 @@ function switchView(viewId){
     showBanner('globalBanner', 'Your password was reset to a default one. Set a new password now to continue.', 'error');
   }
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('active', v.id===viewId));
-  document.querySelectorAll('.nav-link').forEach(n=> n.classList.toggle('active', n.dataset.view===viewId));
+  document.querySelectorAll('.nav-link').forEach(n=> n.classList.toggle('active', n.dataset.view===viewId || (viewId === 'timeAnalysisView' && n.dataset.view === 'dashboardView')));
+  document.querySelectorAll('[data-task-sub]').forEach(b=> b.classList.toggle('active', b.dataset.taskSub === viewId));
+  if(viewId === 'homeView') renderHome();
   if(viewId === 'timeAnalysisView') renderTimeAnalysis();
   if(viewId === 'lettersView') renderLetters();
   if(viewId === 'tendersView') renderTenders();
   if(viewId === 'projectsView') renderProjects();
   if(viewId === 'userManagementView') renderUserManagementTable();
+}
+
+// Task Management has two pages (Task / Time Analysis) and a "+ New Task" button; an admin can still
+// grant or withdraw each of them per user (User Management).
+function taApplySubnav(){
+  const canDash = userCanSeeTab(myProfile, 'dashboardView'), canTime = userCanSeeTab(myProfile, 'timeAnalysisView'), canNew = userCanSeeTab(myProfile, 'newTaskView');
+  document.querySelectorAll('[data-task-sub="dashboardView"]').forEach(b=> { b.style.display = canDash ? '' : 'none'; });
+  document.querySelectorAll('[data-task-sub="timeAnalysisView"]').forEach(b=> { b.style.display = canTime ? '' : 'none'; });
+  const nb = document.getElementById('newTaskBtn'); if(nb) nb.style.display = canNew ? '' : 'none';
+  const nav = document.getElementById('taskMenuWrap'); if(nav) nav.style.display = (canDash || canTime) ? '' : 'none';
 }
 
 async function onSignedIn(){
@@ -8619,15 +9110,15 @@ async function onSignedIn(){
     const link = document.querySelector(`.nav-link[data-view="${key}"]`);
     if(link) link.style.display = userCanSeeTab(myProfile, key) ? '' : 'none';
   });
+  taApplySubnav();
   const userManagementNavLink = document.querySelector('.nav-link[data-view="userManagementView"]');
   if(userManagementNavLink) userManagementNavLink.style.display = (myProfile && myProfile.is_admin) ? '' : 'none';
-  if(!userCanSeeTab(myProfile, 'dashboardView')){
-    const firstAllowed = GOVERNABLE_TABS.find(t=> userCanSeeTab(myProfile, t.key));
-    if(firstAllowed) switchView(firstAllowed.key);
-  }
+  switchView('homeView');   // everyone lands on the Dashboard
   try{
     document.getElementById('whoAmI').textContent = (myProfile && myProfile.display_name) || currentUser.email;
     document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
+    // add this period's copy of any repeating task that is now inside its lead time (needs supabase-add-recurring-tasks.sql)
+    try{ await db.rpc('spawn_recurring_tasks'); }catch(e){ /* not set up yet */ }
     await loadTasks();
     populateWhoReviewerSelects();
     initTimeFilters();
@@ -8662,6 +9153,7 @@ function vaApplyNav(){
     const link = document.querySelector('.nav-link[data-view="' + key + '"]');
     if(link) link.style.display = userCanSeeTab(myProfile, key) ? '' : 'none';
   });
+  taApplySubnav();
   const um = document.querySelector('.nav-link[data-view="userManagementView"]');
   if(um) um.style.display = (myProfile && myProfile.is_admin) ? '' : 'none';
   document.getElementById('whoAmI').textContent = (myProfile && myProfile.display_name) || (currentUser && currentUser.email) || '—';
@@ -8713,7 +9205,7 @@ async function vaSet(id, mode){
     console.error(err);
     showBanner('globalBanner', 'Could not reload data: ' + err.message, 'error');
   }
-  switchView('dashboardView');
+  switchView('homeView');
 }
 function vaRenderMenu(){
   const users = profiles.filter(p=> !p.is_vendor && !p.is_admin).sort((a, b)=> (a.display_name || '').localeCompare(b.display_name || ''));
@@ -8792,7 +9284,7 @@ function onSignedOut(){
   myVendorCostItems = []; myVendorCostAmounts = []; myOpenTenders = []; myVendorQuotes = [];
   if(notificationPollTimer){ clearInterval(notificationPollTimer); notificationPollTimer = null; }
   if(pmPollTimer){ clearInterval(pmPollTimer); pmPollTimer = null; }
-  pmProjects = []; pmItems = []; pmTeams = []; pmCurrentProjectId = null; pmSchedCache = {}; pmModeInit = false;
+  pmProjects = []; pmItems = []; pmCtxItems = []; pmTeams = []; pmCurrentProjectId = null; pmSchedCache = {}; pmModeInit = false;
   activeNotifications = [];
   document.getElementById('notifDropdown').style.display = 'none';
 }
@@ -8980,7 +9472,8 @@ function initThemeToggle(){
     // Existing Chart.js instances don't restyle on their own — refresh whichever view is showing.
     if(currentUser){
       const active = document.querySelector('.view.active');
-      if(active && active.id === 'timeAnalysisView') renderTimeAnalysis();
+      if(active && active.id === 'homeView') renderHome();
+      else if(active && active.id === 'timeAnalysisView') renderTimeAnalysis();
       else if(active && active.id === 'dashboardView') renderAll();
       else if(active && active.id === 'lettersView') renderLetters();
     }
@@ -8994,6 +9487,7 @@ function initThemeToggle(){
 // re-bases everything anchored to it. See supabase-add-projects.sql.
 
 let pmTeams = [], pmProjects = [], pmItems = [];
+let pmCtxItems = [];   // other people's steps in a limited-view project: dates only, used to work out the user's own dates
 let pmAvailable = true;
 let pmHomeMode = 'projects';   // 'projects' | 'mywork' | 'list' (a clicked KPI card)
 let pmListKind = 'overdue';    // open | overdue | review | blocked
@@ -9041,6 +9535,14 @@ function pmFmtShort(iso){
 }
 function pmWho(id){ const p = id ? profileById[id] : null; return p ? p.display_name : '—'; }
 function pmIsAdmin(){ return !!(myProfile && myProfile.is_admin); }
+// Whole-project access: admins, the project manager, and the people on the project's "full access" list.
+// Anyone else involved in the project sees only the activities they own / review / contribute to.
+function pmFull(p){
+  if(!p || p.is_template || !('full_access' in p)) return true;   // template, or access list not set up yet
+  const uid = myProfile && myProfile.id;
+  return pmIsAdmin() || p.manager_id === uid || (p.full_access || []).indexOf(uid) >= 0;
+}
+function pmLimited(p){ return !!p && !p.is_template && !pmFull(p); }
 function pmProject(id){ return pmProjects.find(p=> p.id === id) || null; }
 function pmSorted(arr){ return arr.slice().sort((x, y)=> (x.sort_order - y.sort_order) || (x.id - y.id)); }
 function pmKpis(pid){ return pmSorted(pmItems.filter(i=> i.project_id === pid && i.kind === 'kpi')); }
@@ -9052,12 +9554,12 @@ function pmChip(cls, label, title){ return `<span class="pm-chip ${cls}"${title 
 function pmFormula(it){
   const off = it.offset_days || 0;
   let base;
-  if(it.kind === 'kpi') base = it.anchor_code || 'LoA';
+  if(it.kind === 'kpi') base = it.anchor_code || 'T0';
   else {
     const parent = pmItem(it.parent_id);
     base = it.anchor_code || (parent && parent.event_code) || 'KPI';
   }
-  if(!off) return it.kind === 'kpi' && !it.anchor_code ? 'LoA date' : base;
+  if(!off) return it.kind === 'kpi' && !it.anchor_code ? 'T0 date' : base;
   return base + (off < 0 ? ' − ' : ' + ') + Math.abs(off) + 'd';
 }
 
@@ -9083,10 +9585,10 @@ function pmCalc(it, a){
 function pmComputeSchedule(pid){
   const project = pmProject(pid);
   const loa = project && project.loa_date;
-  const items = pmItems.filter(i=> i.project_id === pid);
-  const byEvent = {};
+  const items = pmItems.filter(i=> i.project_id === pid).concat(pmCtxItems.filter(i=> i.project_id === pid));
+  const byEvent = {}, byId = {};
   // Any item (KPI or activity) with an event code can be an anchor.
-  items.forEach(i=> { if(i.event_code) byEvent[i.event_code] = i; });
+  items.forEach(i=> { byId[i.id] = i; if(i.event_code) byEvent[i.event_code] = i; });
   const memo = {};
   const root = loa ? { baseline: loa, dd: loa, eff: loa } : null;
 
@@ -9098,7 +9600,7 @@ function pmComputeSchedule(pid){
     let a;
     if(k.anchor_code) a = ev(k.anchor_code, stack.concat(code));
     else if(k.kind === 'activity'){
-      const par = pmItem(k.parent_id);
+      const par = byId[k.parent_id];
       a = par && par.event_code ? ev(par.event_code, stack.concat(code)) : root;   // no anchor = its KPI's date
     } else a = root;
     let d = pmCalc(k, a);
@@ -9207,12 +9709,38 @@ async function pmLoadAll(){
     // projects they manage or hold an item in (owner / reviewer / contributor)
     const uid = viewAsId;
     const mine = new Set(pmItems.filter(i=> i.owner_id === uid || i.reviewer_id === uid || (i.contributors || []).includes(uid)).map(i=> i.project_id));
-    pmProjects = pmProjects.filter(p=> !p.is_template && (p.manager_id === uid || mine.has(p.id)));
+    pmProjects = pmProjects.filter(p=> !p.is_template && (p.manager_id === uid || (p.full_access || []).includes(uid) || mine.has(p.id)));
     const ok = new Set(pmProjects.map(p=> p.id));
     pmItems = pmItems.filter(i=> ok.has(i.project_id));
   }
+  await pmApplyAccess();
   pmSchedCache = {};
   pmAvailable = true;
+}
+// Projects where the user has the limited view: keep only their own activities (and the KPI heading above
+// them) and hold the other steps back as date-only rows. The database enforces the same rule; for a real
+// limited user it has already sent only their own rows, plus a date-only list from pm_context_items.
+async function pmApplyAccess(){
+  pmCtxItems = [];
+  const lim = pmProjects.filter(pmLimited);
+  if(!lim.length) return;
+  const uid = myProfile.id;
+  const mineIt = i=> i.owner_id === uid || i.reviewer_id === uid || (i.contributors || []).indexOf(uid) >= 0;
+  const strip = i=> ({ id:i.id, project_id:i.project_id, parent_id:i.parent_id, kind:i.kind, sort_order:i.sort_order, event_code:i.event_code, anchor_code:i.anchor_code,
+    offset_days:i.offset_days, status:i.status, actual_completion_date:i.actual_completion_date, closure_date:i.closure_date, forecast_override:i.forecast_override, _masked:true });
+  for(const p of lim){
+    const all = pmItems.filter(i=> i.project_id === p.id);
+    const keep = new Set(all.filter(i=> mineIt(i) || (i.kind === 'kpi' && all.some(c=> c.parent_id === i.id && mineIt(c)))).map(i=> i.id));
+    let ctx = [];
+    if(viewAsId) ctx = all.filter(i=> !keep.has(i.id)).map(strip);
+    else {
+      const { data, error } = await db.rpc('pm_context_items', { p_project_id:p.id });
+      if(error) console.warn('pm_context_items failed -- dates of dependent steps may be missing:', error.message);
+      else ctx = (data || []).filter(r=> !keep.has(r.id)).map(r=> Object.assign({ _masked:true }, r));
+    }
+    pmCtxItems = pmCtxItems.concat(ctx);
+    pmItems = pmItems.filter(i=> i.project_id !== p.id || keep.has(i.id));
+  }
 }
 async function pmReload(){
   try{
@@ -9300,6 +9828,7 @@ function pmRenderAll(){
   pmUpdateNavBadge();
   if(pmCurrentProjectId && pmProject(pmCurrentProjectId)) pmRenderDetail();
   else { pmCurrentProjectId = null; pmRenderHome(); }
+  homeRefresh();
 }
 async function pmStartup(){
   try{ await pmReload(); pmUpdateNavBadge(); }catch(e){ /* tab shows setup message on open */ }
@@ -9351,7 +9880,43 @@ function pmRenderHome(){
   else pmRenderMyWork();
 }
 
+// "Why is this project delayed?" line on the project card (project-specific). Only the summary lives on the
+// card; clicking it opens the project page with the full delay details expanded.
+let pmHomeDelayId = null;   // project whose delay details are expanded under the cards (null = all collapsed)
+function pmCardDelayHtml(p){
+  const a = pmDelayAnalysis(p), slip = a.slip || 0;
+  return `<div data-pm-hdelay="${p.id}" title="Show the delay details below the cards" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; cursor:pointer; padding-top:10px; border-top:1px solid var(--border);">
+    <span>${pmHomeDelayId === p.id ? '▾' : '▸'}</span><b style="font-size:calc(12.5px * var(--fs));">Why is this project delayed?</b>
+    ${slip > 0 ? pmChip('bad', '+' + slip + ' days') : pmChip('ok', 'On plan')}${a.overdueNow.length ? pmChip('warn', a.overdueNow.length + ' overdue') : ''}</div>`;
+}
+
+function pmLimitedCardHtml(p){
+  const my = pmMyEntries().filter(e=> e.proj.id === p.id);
+  const open = my.filter(e=> e.it.status === 'open');
+  const over = open.filter(e=> pmState(e.it, e.s).key === 'overdue').length;
+  const soon = open.filter(e=> pmState(e.it, e.s).key === 'soon').length;
+  const rev = my.filter(e=> e.it.status === 'pending_review' && e.roles.indexOf('reviewer') >= 0).length;
+  return `
+    <div class="pm-card" data-pm-open="${p.id}">
+      <div class="pm-card-top">
+        <div>
+          <div class="pm-card-title">${pmEsc(p.name)}</div>
+          <div class="pm-meta">${pmEsc([p.location, p.authority].filter(Boolean).join(' · ') || '—')}${p.buses ? ' · ' + p.buses + ' buses' : ''}</div>
+        </div>
+        ${pmChip('neutral', 'Your activities only')}
+      </div>
+      <div class="pm-stat-row">
+        <span><b style="color:var(--text);">${my.length}</b> activit${my.length === 1 ? 'y' : 'ies'} involve you</span>
+        <span><b style="color:var(--text);">${open.length}</b> open</span>
+      </div>
+      <div class="pm-stat-row">
+        ${over ? pmChip('bad', over + ' overdue') : ''}${soon ? pmChip('warn', soon + ' due ≤7d') : ''}${rev ? pmChip('pend', rev + ' to review') : ''}${!(over || soon || rev) ? pmChip('ok', 'Nothing urgent') : ''}
+      </div>
+    </div>`;
+}
+
 function pmProjectCardHtml(p){
+  if(pmLimited(p)) return pmLimitedCardHtml(p);
   const st = pmProjectStats(p.id);
   const sch = pmSched(p.id);
   const mine = pmMyEntries().filter(e=> e.proj.id === p.id && e.it.status === 'open' && (e.roles.indexOf('owner') >= 0 || e.roles.indexOf('contributor') >= 0)).length;
@@ -9359,7 +9924,7 @@ function pmProjectCardHtml(p){
   const nextS = next ? sch[next.id] : null;
   const nextState = next ? pmState(next, nextS) : null;
   return `
-    <div class="pm-card" data-pm-open="${p.id}">
+    <div class="pm-card" data-pm-open="${p.id}"${pmHomeDelayId === p.id ? ' style="border-color:var(--accent);"' : ''}>
       <div class="pm-card-top">
         <div>
           <div class="pm-card-title">${pmEsc(p.name)}</div>
@@ -9372,7 +9937,7 @@ function pmProjectCardHtml(p){
         <div class="pm-bar"><div style="width:${st.pct}%;"></div></div>
       </div>
       <div class="pm-stat-row">
-        <span>LoA <b style="color:var(--text);">${pmFmt(p.loa_date)}</b></span>
+        <span>T0 <b style="color:var(--text);">${pmFmt(p.loa_date)}</b></span>
         <span>KPIs <b style="color:var(--text);">${st.kpiDone}/${st.kpiTotal}</b></span>
         ${st.endFcst ? `<span>Go-live <b style="color:var(--text);">${pmFmtShort(st.endFcst)}</b>${st.slip ? ` <span class="${st.slip > 0 ? 'pm-late' : 'pm-early'}">(${st.slip > 0 ? '+' : ''}${st.slip}d)</span>` : ''}</span>` : ''}
       </div>
@@ -9384,6 +9949,7 @@ function pmProjectCardHtml(p){
         ${mine ? pmChip('warn', mine + ' mine') : ''}
         ${PM_PROJECT_STATUS[p.status] && p.status !== 'active' ? pmChip('neutral', PM_PROJECT_STATUS[p.status]) : ''}
       </div>
+      ${pmCardDelayHtml(p)}
     </div>`;
 }
 
@@ -9392,21 +9958,25 @@ function pmRenderProjectCards(){
   const shown = real.filter(p=> pmShowClosedProjects || p.status === 'active' || p.status === 'on_hold');
   document.getElementById('pmShowClosed').checked = pmShowClosedProjects;
   document.getElementById('pmProjectsCount').textContent = shown.length + ' project' + (shown.length === 1 ? '' : 's') + (real.length > shown.length ? ' (' + (real.length - shown.length) + ' completed / cancelled hidden)' : '');
+  if(pmHomeDelayId && !shown.some(p=> p.id === pmHomeDelayId)) pmHomeDelayId = null;
   let html = shown.map(pmProjectCardHtml).join('');
-  const tpl = pmProjects.find(p=> p.is_template);
+  const tpls = pmProjects.filter(p=> p.is_template);
   if(!shown.length){
     html = `<div class="empty-state" style="grid-column:1/-1;">${pmIsAdmin()
-      ? (real.length ? 'No active projects.' : 'No projects yet.') + ' Use <b>+ New Project</b> to create one from the master template -- just enter the LoA date.'
+      ? (real.length ? 'No active projects.' : 'No projects yet.') + ' Use <b>+ New Project</b> to create one from the master template -- just pick a template and enter the T0 date.'
       : 'You are not part of any project yet. You see a project once an admin makes you its manager, or the owner, reviewer or contributor of one of its activities.'}</div>`;
   }
-  if(tpl && pmIsAdmin()){
-    html += `<div class="pm-card" data-pm-open="${tpl.id}" style="border-style:dashed;">
-      <div class="pm-card-top"><div><div class="pm-card-title">${pmEsc(tpl.name)}</div><div class="pm-meta">The charter copied into every new project</div></div>${pmChip('neutral', 'Template')}</div>
+  if(pmIsAdmin()){
+    tpls.forEach(tpl=>{
+      html += `<div class="pm-card" data-pm-open="${tpl.id}" style="border-style:dashed;">
+      <div class="pm-card-top"><div><div class="pm-card-title">${pmEsc(tpl.name)}</div><div class="pm-meta">Project template</div></div>${pmChip('neutral', 'Template')}</div>
       <div class="pm-stat-row"><span>${pmKpis(tpl.id).length} KPIs</span><span>${pmItems.filter(i=> i.project_id === tpl.id && i.kind === 'activity').length} activities</span></div>
-      <div class="pm-meta">Edit milestones, activities, formulas and default owners here; existing projects are not changed.</div>
+      <div class="pm-meta">Edit milestones, activities, formulas and owner teams here; existing projects are not changed.</div>
     </div>`;
+    });
   }
   document.getElementById('pmProjectsGrid').innerHTML = html;
+  pmRenderDelayPanel(pmHomeDelayId ? pmProject(pmHomeDelayId) : null, true);
 }
 
 function pmRenderMyWork(){
@@ -9534,6 +10104,7 @@ function pmRenderDetail(){
   document.getElementById('pmDetail').style.display = 'block';
   const admin = pmIsAdmin();
   const tpl = !!p.is_template;
+  const lim = pmLimited(p);
   const st = pmProjectStats(p.id);
   const sch = pmSched(p.id);
 
@@ -9541,11 +10112,12 @@ function pmRenderDetail(){
     <div class="pm-head">
       <div>
         <button class="btn small" data-pm-back style="margin-bottom:10px;">← All projects</button>
-        <h2>${pmEsc(p.name)} ${tpl ? pmChip('neutral', 'Master template') : pmChip(st.health.cls, st.health.label)}</h2>
-        <div class="pm-meta">${tpl ? 'Edit the charter that is copied into every new project. Dates are formulas here; they get real dates once a project has an LoA date.' :
+        <h2>${pmEsc(p.name)} ${tpl ? pmChip('neutral', 'Master template') : lim ? pmChip('neutral', 'Your activities only') : pmChip(st.health.cls, st.health.label)}</h2>
+        <div class="pm-meta">${tpl ? 'Edit the charter that is copied into every new project. Dates are formulas here; they get real dates once a project has a T0 date.' :
           pmEsc([p.location, p.authority].filter(Boolean).join(' · ') || '—') + (p.buses ? ' · ' + p.buses + ' buses' : '') +
-          ' · LoA ' + pmFmt(p.loa_date) + ' · Manager: ' + pmEsc(pmWho(p.manager_id)) + (p.status !== 'active' ? ' · ' + PM_PROJECT_STATUS[p.status] : '')}</div>
+          ' · T0 ' + pmFmt(p.loa_date) + ' · Manager: ' + pmEsc(pmWho(p.manager_id)) + (p.status !== 'active' ? ' · ' + PM_PROJECT_STATUS[p.status] : '')}</div>
         ${p.description ? `<div class="pm-meta" style="margin-top:4px;">${pmEsc(p.description)}</div>` : ''}
+        ${lim ? '<div class="pm-meta" style="margin-top:6px;">You can see only the activities where you are the owner, reviewer or contributor. The rest of this project is visible to its manager and the people the admin has given full access.</div>' : ''}
       </div>
       <div class="pm-toolbar-right">
         ${tpl ? '' : `<button class="btn small" data-pm-print>🖨 Print charter</button><button class="btn small" data-pm-csv>⬇ Export CSV</button>`}
@@ -9557,7 +10129,7 @@ function pmRenderDetail(){
       </div>
     </div>`;
 
-  if(tpl){
+  if(tpl || lim){
     document.getElementById('pmDetailSummary').innerHTML = '';
   } else {
     const nextS = st.nextKpi ? sch[st.nextKpi.id] : null;
@@ -9571,12 +10143,122 @@ function pmRenderDetail(){
   }
 
   document.querySelectorAll('#pmTabs .pm-tab').forEach(t=> t.classList.toggle('active', t.dataset.pmTab === pmDetailTab));
-  document.querySelectorAll('#pmTabs .pm-tab').forEach(t=> { if(tpl && t.dataset.pmTab !== 'charter') t.style.display = 'none'; else t.style.display = ''; });
-  if(tpl) pmDetailTab = 'charter';
+  document.querySelectorAll('#pmTabs .pm-tab').forEach(t=> { if((tpl || lim) && (t.dataset.pmTab === 'timeline' || t.dataset.pmTab === 'dashboard' || (tpl && t.dataset.pmTab !== 'charter'))) t.style.display = 'none'; else t.style.display = ''; });
+  if(tpl || (lim && (pmDetailTab === 'timeline' || pmDetailTab === 'dashboard'))) pmDetailTab = 'charter';
   if(pmDetailTab === 'charter') pmRenderCharter(p);
   else if(pmDetailTab === 'timeline') pmRenderGantt(p);
   else if(pmDetailTab === 'dashboard') pmRenderProjectDashboard(p);
   else pmRenderProjectLog(p);
+  pmRenderDelayPanel(p);
+}
+
+// ---- "Why is this project delayed?" (bottom of the project page) ----
+let pmDelayOpen = false;
+
+// Every item's date = its anchor's date + its days. "Own delay" = how many days the item
+// itself added on top of what it inherited from its anchor (negative = it finished early).
+// Walking back from go-live along the anchors, the own delays add up to the go-live slip.
+function pmDelayAnalysis(p){
+  const sch = pmSched(p.id), st = pmProjectStats(p.id), today = pmToday();
+  const items = pmItems.filter(i=> i.project_id === p.id);
+  const byEvent = {};
+  items.forEach(i=> { if(i.event_code) byEvent[i.event_code] = i; });
+  const anchorOf = it=> it.anchor_code ? (byEvent[it.anchor_code] || null) : (it.kind === 'activity' ? pmItem(it.parent_id) : null);
+  const baseOf = it=>{
+    const a = anchorOf(it);
+    const aEff = a ? (sch[a.id] && sch[a.id].eff) : p.loa_date;
+    return aEff ? pmAddDays(aEff, it.offset_days || 0) : null;
+  };
+  const ownDelay = it=>{ const s = sch[it.id], base = baseOf(it); return (s && s.eff && base) ? pmDiff(s.eff, base) : 0; };
+  const reasonOf = (it, base)=>{
+    const s = sch[it.id] || {};
+    if(s.actual) return 'Finished ' + pmFmtShort(s.actual) + ' against ' + pmFmtShort(base) + ' expected';
+    if(it.forecast_override) return 'Due date moved to ' + pmFmtShort(it.forecast_override) + (it.reschedule_reason ? ' — ' + it.reschedule_reason : '');
+    return 'Running behind its date';
+  };
+  const chain = [];
+  const seen = new Set();
+  let cur = st.endKpi;
+  while(cur && !seen.has(cur.id)){
+    seen.add(cur.id);
+    const d = ownDelay(cur), base = baseOf(cur);
+    chain.push({ it:cur, d, base, reason:reasonOf(cur, base) });
+    cur = anchorOf(cur);
+  }
+  chain.reverse();
+  const causes = chain.filter(c=> c.d > 0);
+  const ahead = chain.filter(c=> c.d < 0).reduce((n, c)=> n + c.d, 0);
+  const total = chain.reduce((n, c)=> n + c.d, 0);
+  const who = it=> it.owner_id ? pmWho(it.owner_id) : (it.owner_team || 'Unassigned');
+  const byOwner = {};
+  causes.forEach(c=> { const k = who(c.it); byOwner[k] = (byOwner[k] || 0) + c.d; });
+  const owners = Object.keys(byOwner).map(k=> ({ name:k, d:byOwner[k] })).sort((a, b)=> b.d - a.d);
+  // open items already past their date: they have not moved the forecast yet, but will if they stay open
+  const overdueNow = items.filter(it=> it.status === 'open' && sch[it.id] && sch[it.id].due && sch[it.id].due < today)
+    .map(it=> ({ it, days: pmDiff(today, sch[it.id].due) })).sort((a, b)=> b.days - a.days);
+  return { st, slip: st.slip, total, ahead, causes, owners, overdueNow, who };
+}
+
+function pmRenderDelayPanel(p, home){
+  const box = document.getElementById(home ? 'pmHomeDelay' : 'pmDelayPanel');
+  if(!box) return;
+  if(!p || p.is_template || pmLimited(p)){ box.innerHTML = ''; return; }
+  const open = home ? true : pmDelayOpen;
+  const a = pmDelayAnalysis(p), slip = a.slip || 0;
+  const colors = {};
+  a.owners.forEach((o, i)=> { colors[o.name] = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length]; });
+  const short = (t, n)=> t.length > n ? t.slice(0, n - 1) + '…' : t;
+  const label = it=> (it.event_code ? '<span class="pm-code">' + pmEsc(it.event_code) + '</span> ' : '') + pmEsc(short(it.title, 70));
+  const head = home
+    ? `<div class="pm-delay-head" style="cursor:default;"><b>Why is ${pmEsc(p.name)} delayed?</b>
+        ${slip > 0 ? pmChip('bad', '+' + slip + ' days at go-live') : pmChip('ok', 'On plan')}
+        ${a.overdueNow.length ? pmChip('warn', a.overdueNow.length + ' overdue now') : ''}
+        <span style="margin-left:auto; display:flex; gap:12px;"><a href="#" data-pm-open="${p.id}" style="color:var(--accent); text-decoration:none; font-size:calc(12px * var(--fs));">Open project →</a>
+        <a href="#" data-pm-hdelay-hide="1" style="color:var(--muted); text-decoration:none; font-size:calc(12px * var(--fs));">Hide ✕</a></span></div>`
+    : `<div class="pm-delay-head" data-pm-delay="1"><span>${pmDelayOpen ? '▾' : '▸'}</span><b>Why is this project delayed?</b>
+        ${slip > 0 ? pmChip('bad', '+' + slip + ' days at go-live') : pmChip('ok', 'On plan')}
+        ${a.overdueNow.length ? pmChip('warn', a.overdueNow.length + ' overdue now') : ''}</div>`;
+  if(!open){ box.innerHTML = '<div class="pm-delay">' + head + '</div>'; return; }
+
+  let body = '';
+  const endIt = a.st.endKpi;
+  if(slip <= 0){
+    body += `<div class="pm-dl-hero"><div class="pm-dl-big" style="color:var(--ontrack);">On plan</div>
+      <div class="pm-dl-sub">Go-live ${endIt ? pmEsc((endIt.event_code ? endIt.event_code + ' · ' : '')) : ''}forecast ${pmFmt(a.st.endFcst)} · planned ${pmFmt(a.st.endBase)}${slip < 0 ? ' · ' + (-slip) + ' days ahead' : ''}</div></div>`;
+  } else {
+    body += `<div class="pm-dl-hero"><div class="pm-dl-big" style="color:var(--overdue);">+${slip} days</div>
+      <div class="pm-dl-sub">Go-live ${endIt && endIt.event_code ? pmEsc(endIt.event_code) + ' ' : ''}moves from <b style="color:var(--text);">${pmFmt(a.st.endBase)}</b> to <b style="color:var(--text);">${pmFmt(a.st.endFcst)}</b>.
+      ${a.ahead < 0 ? 'Some steps finished ' + (-a.ahead) + ' days early, which already offsets part of it.' : ''}</div></div>`;
+    const sumPos = a.causes.reduce((n, c)=> n + c.d, 0) || 1;
+    body += '<div class="pm-dl-title">Where the delay came from — along the critical chain to go-live</div>';
+    body += '<div class="pm-dl-stack">' + a.causes.map(c=> {
+      const k = a.who(c.it);
+      return `<div class="pm-dl-seg" style="width:${c.d / sumPos * 100}%; background:${colors[k]};" title="${pmEsc((c.it.event_code || '') + ' ' + c.it.title + ' — ' + k + ': +' + c.d + ' days')}">+${c.d}d</div>`;
+    }).join('') + '</div>';
+    body += '<div class="pm-dl-legend">' + a.owners.map(o=> `<span><i style="background:${colors[o.name]};"></i>${pmEsc(o.name)} ${o.d}d</span>`).join('') + '</div>';
+
+    const maxOwner = a.owners.length ? a.owners[0].d : 1;
+    body += '<div class="pm-dl-cols"><div><div class="pm-dl-title">Activities that triggered the delay</div>';
+    body += a.causes.slice().sort((x, y)=> y.d - x.d).slice(0, 6).map(c=> {
+      const k = a.who(c.it);
+      return `<div class="pm-dl-row"><div class="pm-dl-days" style="background:${colors[k]};">+${c.d}d</div>
+        <div class="pm-dl-what"><div class="t"><span class="pm-title-link" data-pm-item="${c.it.id}">${label(c.it)}</span></div>
+        <div class="m">${pmEsc(k)}${c.it.owner_team && c.it.owner_id ? ' · ' + pmEsc(c.it.owner_team) : ''} — ${pmEsc(c.reason)}</div></div></div>`;
+    }).join('') || '<div class="pm-dl-sub">No single activity stands out.</div>';
+    body += '</div><div><div class="pm-dl-title">Delay days by owner</div>';
+    body += a.owners.map(o=> `<div class="pm-dl-row"><div style="flex:none; width:140px; font-size:calc(12.5px * var(--fs));">${pmEsc(o.name)}</div>
+      <div class="pm-dl-bar"><div style="width:${o.d / maxOwner * 100}%; background:${colors[o.name]};"></div></div>
+      <div style="flex:none; width:46px; text-align:right; font-family:'IBM Plex Mono',monospace;">${o.d}d</div></div>`).join('');
+    body += '</div></div>';
+  }
+  if(a.overdueNow.length){
+    body += '<div class="pm-dl-title">Overdue right now — not yet counted in the go-live date; each day left open pushes it further</div>';
+    body += a.overdueNow.slice(0, 6).map(o=> `<div class="pm-dl-row"><div class="pm-dl-days" style="background:var(--overdue);">${o.days}d</div>
+      <div class="pm-dl-what"><div class="t"><span class="pm-title-link" data-pm-item="${o.it.id}">${label(o.it)}</span></div>
+      <div class="m">${pmEsc(a.who(o.it))} · due ${pmFmtShort(pmSched(p.id)[o.it.id].due)}${o.it.is_blocked ? ' · blocked: ' + pmEsc(o.it.blocker_note || '') : ''}</div></div></div>`).join('');
+    if(a.overdueNow.length > 6) body += '<div class="pm-dl-sub" style="padding-top:6px;">…and ' + (a.overdueNow.length - 6) + ' more (filter the charter by Overdue)</div>';
+  }
+  box.innerHTML = '<div class="pm-delay">' + head + '<div class="pm-delay-body">' + body + '</div></div>';
 }
 
 function pmOwnerOptions(pid){
@@ -9772,7 +10454,7 @@ function pmRenderCharterTable(p){
     ? '<th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th>'
     : '<th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th><th>Planned</th><th>Due</th><th>Revised due</th><th>Actual</th><th>Slip</th><th>Status</th>';
   wrap.innerHTML = shownCount ? `${focusNote}<div class="table-wrap" style="max-height:none;"><table class="pm-charter"><thead><tr>${head}${admin ? '<th></th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="footer-note" style="margin-top:8px;">Due = anchor event + days. <b>Planned</b> is the original date from the LoA; <b>Due</b> follows the due dates upstream (and any reschedule ⟳); <b>Revised due</b> follows the actual dates upstream once they exist; <b>Slip</b> = Revised due/Actual vs Planned.${tpl ? '' : ' * = timeline note on the item.'}</div>`
+    <div class="footer-note" style="margin-top:8px;">Due = anchor event + days. <b>Planned</b> is the original date from T0; <b>Due</b> follows the due dates upstream (and any reschedule ⟳); <b>Revised due</b> follows the actual dates upstream once they exist; <b>Slip</b> = Revised due/Actual vs Planned.${tpl ? '' : ' * = timeline note on the item.'}</div>`
     : '<div class="empty-state">Nothing matches the current filters.</div>';
 }
 
@@ -9821,7 +10503,7 @@ function pmPrintCharter(){
     tr.k td{background:#eef1f8; font-weight:600;} .s{font-weight:400; color:#666; font-size:7.5pt;} tr{break-inside:avoid;}
     @page{size:A4 landscape; margin:8mm;}</style></head><body>
     <h1>${pmEsc(p.name)} — Pre-Operation Project Charter</h1>
-    <div class="m">${pmEsc([p.location, p.authority].filter(Boolean).join(' · '))}${p.buses ? ' · ' + p.buses + ' buses' : ''} · LoA ${pmFmt(p.loa_date)} · Manager: ${pmEsc(pmWho(p.manager_id))} · Printed ${pmFmt(pmToday())}</div>
+    <div class="m">${pmEsc([p.location, p.authority].filter(Boolean).join(' · '))}${p.buses ? ' · ' + p.buses + ' buses' : ''} · T0 ${pmFmt(p.loa_date)} · Manager: ${pmEsc(pmWho(p.manager_id))} · Printed ${pmFmt(pmToday())}</div>
     <div class="sum"><div>Progress<br><b>${st.pct}%</b></div><div>KPIs closed<br><b>${st.kpiDone}/${st.kpiTotal}</b></div><div>Overdue<br><b>${st.overdue}</b></div><div>Go-live (forecast)<br><b>${pmFmt(st.endFcst)}</b></div><div>Go-live (planned)<br><b>${pmFmt(st.endBase)}</b></div><div>Health<br><b>${pmEsc(st.health.label)}</b></div></div>
     <table><thead><tr><th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th><th>Planned</th><th>Due</th><th>Revised due</th><th>Actual</th><th>Slip</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
     <script>window.onload=function(){window.print();};<\/script></body></html>`;
@@ -10211,7 +10893,7 @@ function pmOpenEdit(itemId, kind, parentId, projectId){
   // Any KPI or activity that has an event code can be an anchor (A8 + 9d, T7 - 60d ...).
   const anchors = [];
   kpis.forEach(kk=> { if(kk.event_code) anchors.push(kk); pmActs(kk.id).forEach(a=> { if(a.event_code) anchors.push(a); }); });
-  document.getElementById('pme-anchor').innerHTML = `<option value="">${k === 'kpi' ? 'LoA date (project start)' : 'Its KPI\'s date'}</option>` +
+  document.getElementById('pme-anchor').innerHTML = `<option value="">${k === 'kpi' ? 'T0 date (project start)' : 'Its KPI\'s date'}</option>` +
     anchors.filter(x=> x.id !== itemId).map(x=> `<option value="${pmEsc(x.event_code)}">${pmEsc(x.event_code)} — ${pmEsc(x.title.length > 50 ? x.title.slice(0, 48) + '…' : x.title)}</option>`).join('');
   document.getElementById('pme-anchor').value = it && it.anchor_code ? it.anchor_code : '';
 
@@ -10370,6 +11052,209 @@ async function pmFillOwners(mode){
 }
 
 // ---- admin: projects ----
+// ---- templates from an Excel / CSV sheet ----
+let pmtParsed = null;
+
+function pmParseFormula(raw){
+  const f = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+  if(!f) return { error:'Formula is missing' };
+  if(/^(loa|t0|start|project start)( date)?$/i.test(f)) return { anchor:null, offset:0 };
+  const m = f.match(/^([A-Za-z]+\d+[A-Za-z]?)\s*(?:([+\-−–])\s*(\d+)\s*d?(?:ays?)?)?$/i);
+  if(!m) return { error:'Formula "' + f + '" is not understood (use e.g. A8 + 9d, T0 + 30d, T7 - 60d, or T0 date)' };
+  return { anchor:m[1], offset: m[3] ? Number(m[3]) * (/^[\-−–]$/.test(m[2]) ? -1 : 1) : 0 };
+}
+
+function pmParseCharterSheet(grid){
+  const errors = [], warnings = [];
+  const norm = c=> String(c == null ? '' : c).trim().toLowerCase();
+  const hi = grid.findIndex(r=> { const l = r.map(norm); return l.indexOf('type') >= 0 && l.indexOf('event') >= 0 && l.indexOf('title') >= 0; });
+  if(hi < 0) return { errors:['The header row was not found. The first row must name the columns Type, Event, Title and Formula (optionally Sl, Teams, Owner, Reviewer, Contributors).'] };
+  const head = grid[hi].map(norm);
+  const col = n=> head.indexOf(n);
+  ['type', 'event', 'title', 'formula'].forEach(n=> { if(col(n) < 0) errors.push('Column "' + n + '" is missing'); });
+  if(errors.length) return { errors };
+
+  const rosterByKey = {};
+  pmTeams.forEach(t=> { rosterByKey[t.name.toLowerCase().replace(/\s+/g, ' ')] = t.name; });
+  const newTeams = {};
+  const team = raw=>{
+    const t = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+    if(!t) return null;
+    const k = t.toLowerCase();
+    if(rosterByKey[k]) return rosterByKey[k];
+    if(!newTeams[k]) newTeams[k] = t;
+    return newTeams[k];
+  };
+  const teamList = raw=> [...new Set(String(raw == null ? '' : raw).split(/[+,;\n]/).map(team).filter(Boolean))];
+  // the informational Teams column never adds roster teams (only Owner / Reviewer / Contributors do)
+  const teamNames = raw=> [...new Set(String(raw == null ? '' : raw).split(/[+,;\n]/).map(x=> x.replace(/\s+/g, ' ').trim()).filter(Boolean).map(x=> rosterByKey[x.toLowerCase()] || x))];
+  const cell = (g, n)=> col(n) >= 0 ? g[col(n)] : '';
+
+  const kpis = [], eventLine = {}, flat = [];
+  for(let r = hi + 1; r < grid.length; r++){
+    const g = grid[r], type = norm(cell(g, 'type'));
+    if(!type) continue;
+    const line = r + 1;
+    if(type !== 'kpi' && type !== 'activity'){ errors.push('Row ' + line + ': Type must be KPI or Activity (found "' + cell(g, 'type') + '")'); continue; }
+    const ev = String(cell(g, 'event')).trim();
+    const title = String(cell(g, 'title')).replace(/\s+/g, ' ').trim();
+    if(!ev) errors.push('Row ' + line + ': Event code is missing');
+    else if(!/^[A-Za-z][A-Za-z0-9]*$/.test(ev)) errors.push('Row ' + line + ': Event code "' + ev + '" may contain only letters and digits');
+    if(!title) errors.push('Row ' + line + ': Title is missing');
+    const fm = pmParseFormula(cell(g, 'formula'));
+    if(fm.error) errors.push('Row ' + line + ' (' + (ev || '?') + '): ' + fm.error);
+    const owners = teamList(cell(g, 'owner')), revs = teamList(cell(g, 'reviewer'));
+    if(owners.length > 1) warnings.push('Row ' + line + ' (' + ev + '): several owner teams listed; only "' + owners[0] + '" is used as owner');
+    if(revs.length > 1) warnings.push('Row ' + line + ' (' + ev + '): several reviewer teams listed; only "' + revs[0] + '" is used as reviewer');
+    const item = { event: ev, title, teams: teamNames(cell(g, 'teams')), owner_team: owners[0] || null, reviewer_team: revs[0] || null,
+      contributor_teams: teamList(cell(g, 'contributors')), anchor: fm.anchor || null, offset: fm.offset || 0, _line: line, _kind: type };
+    if(ev){
+      const k = ev.toLowerCase();
+      if(eventLine[k]) errors.push('Event "' + ev + '" appears twice (rows ' + eventLine[k] + ' and ' + line + ') -- every event code must be unique');
+      else eventLine[k] = line;
+    }
+    if(type === 'kpi'){ item.acts = []; kpis.push(item); }
+    else if(!kpis.length){ errors.push('Row ' + line + ': an Activity must come after a KPI'); continue; }
+    else kpis[kpis.length - 1].acts.push(item);
+    flat.push(item);
+  }
+  if(!kpis.length) errors.push('No KPI rows were found');
+
+  // anchors must exist (match ignoring case) and must not loop
+  const byKey = {};
+  flat.forEach(i=> { if(i.event) byKey[i.event.toLowerCase()] = i; });
+  flat.forEach(i=>{
+    if(!i.anchor) return;
+    const a = byKey[i.anchor.toLowerCase()];
+    if(!a) errors.push('Row ' + i._line + ' (' + i.event + '): formula refers to "' + i.anchor + '", which is not an event in the sheet');
+    else if(a === i) errors.push('Row ' + i._line + ' (' + i.event + '): an event cannot follow itself');
+    else i.anchor = a.event;
+  });
+  flat.forEach(i=>{
+    const seen = new Set(); let cur = i;
+    while(cur && cur.anchor){
+      if(seen.has(cur.event)){ errors.push('The formulas form a loop through ' + cur.event + ' (check the Formula column around row ' + cur._line + ')'); break; }
+      seen.add(cur.event);
+      cur = byKey[cur.anchor.toLowerCase()];
+    }
+  });
+  if(!flat.some(i=> !i.anchor)) warnings.push('No item starts from "T0 date" -- every date would stay empty. The first KPI (T0) should use the formula "T0 date".');
+
+  const clean = flat.map(i=> { delete i._line; delete i._kind; });
+  void clean;
+  return { kpis, errors: [...new Set(errors)], warnings, newTeams: Object.values(newTeams), counts: { kpis: kpis.length, acts: flat.length - kpis.length } };
+}
+
+function pmtRenderPreview(){
+  const box = document.getElementById('pmtPreview'), btn = document.getElementById('pmtCreateBtn');
+  const r = pmtParsed;
+  if(!r){ box.innerHTML = ''; btn.disabled = true; return; }
+  let h = '';
+  if(r.errors.length){
+    h += '<div class="banner error" style="display:block;"><b>Fix these in the sheet and upload it again:</b><ul style="margin:6px 0 0 18px;">' + r.errors.slice(0, 25).map(e=> '<li>' + pmEsc(e) + '</li>').join('') + (r.errors.length > 25 ? '<li>…and ' + (r.errors.length - 25) + ' more</li>' : '') + '</ul></div>';
+  } else {
+    h += '<div class="banner success" style="display:block;">Ready: <b>' + r.counts.kpis + ' KPIs</b> and <b>' + r.counts.acts + ' activities</b> found.</div>';
+  }
+  if(r.newTeams && r.newTeams.length) h += '<div class="banner info" style="display:block;">These team names are not on the Team Roster yet and will be added (set their people in Team Roster afterwards). If one is a misspelling, fix the sheet instead: <b>' + r.newTeams.map(pmEsc).join(', ') + '</b></div>';
+  if(r.warnings && r.warnings.length) h += '<div class="hint" style="font-size:11.5px; color:var(--muted);">' + r.warnings.slice(0, 8).map(pmEsc).join('<br>') + '</div>';
+  box.innerHTML = h;
+  btn.disabled = !!r.errors.length;
+}
+
+async function pmtHandleFile(file){
+  pmtParsed = null; pmtRenderPreview();
+  if(!file) return;
+  const banner = document.getElementById('pmTemplatesBanner');
+  banner.style.display = 'none';
+  if(typeof XLSX === 'undefined'){ showBanner('pmTemplatesBanner', 'The Excel reader could not be loaded (check your internet connection) -- try again, or upload a CSV after reloading.', 'error'); return; }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
+    pmtParsed = pmParseCharterSheet(grid);
+    const nameEl = document.getElementById('pmtName');
+    if(!nameEl.value.trim()) nameEl.value = file.name.replace(/\.[^.]+$/, '');
+  }catch(err){
+    console.error(err);
+    pmtParsed = { errors:['The file could not be read: ' + err.message] };
+  }
+  pmtRenderPreview();
+}
+
+async function pmtCreate(){
+  const name = document.getElementById('pmtName').value.trim();
+  if(!pmtParsed || pmtParsed.errors.length) return;
+  if(!name){ showBanner('pmTemplatesBanner', 'Give the template a name.', 'error'); return; }
+  const btn = document.getElementById('pmtCreateBtn');
+  btn.disabled = true;
+  try{
+    const items = pmtParsed.kpis.map(k=> ({ event:k.event, title:k.title, teams:k.teams, owner_team:k.owner_team, reviewer_team:k.reviewer_team, contributor_teams:k.contributor_teams, anchor:k.anchor, offset:k.offset,
+      acts: k.acts.map(a=> ({ event:a.event, title:a.title, teams:a.teams, owner_team:a.owner_team, reviewer_team:a.reviewer_team, contributor_teams:a.contributor_teams, anchor:a.anchor, offset:a.offset })) }));
+    const { error } = await db.rpc('pm_create_template', { p_name:name, p_description:null, p_items:items });
+    if(error) throw error;
+    await pmLoadAll();
+    pmtParsed = null; document.getElementById('pmtFile').value = ''; document.getElementById('pmtName').value = '';
+    pmtRenderPreview(); pmRenderTemplatesList(); pmRenderAll();
+    showBanner('pmTemplatesBanner', 'Template "' + name + '" created. Set the people for any new teams in Team Roster, then choose it when you create a project.', 'success');
+  }catch(err){
+    console.error(err);
+    const missing = /pm_create_template|function|schema cache/i.test(err.message || '');
+    showBanner('pmTemplatesBanner', 'Could not create the template: ' + err.message + (missing ? ' -- run supabase-projects-multi-template.sql once in the Supabase SQL Editor.' : ''), 'error');
+    btn.disabled = false;
+  }
+}
+
+function pmRenderTemplatesList(){
+  const tpls = pmProjects.filter(p=> p.is_template);
+  document.getElementById('pmTemplatesBody').innerHTML = tpls.map(t=> `<tr>
+    <td data-label="Template"><span class="pm-title-link" data-pmt-open="${t.id}">${pmEsc(t.name)}</span></td>
+    <td data-label="KPIs">${pmKpis(t.id).length}</td>
+    <td data-label="Activities">${pmItems.filter(i=> i.project_id === t.id && i.kind === 'activity').length}</td>
+    <td data-label=""><button class="btn small" data-pmt-open="${t.id}">Open / edit</button> <button class="btn small" data-pmt-del="${t.id}" style="color:var(--overdue); border-color:var(--overdue);">Delete</button></td></tr>`).join('')
+    || '<tr><td colspan="4"><div class="empty-state" style="padding:14px;">No templates yet -- upload an Excel sheet below.</div></td></tr>';
+}
+
+function pmOpenTemplates(){
+  pmtParsed = null;
+  document.getElementById('pmTemplatesBanner').style.display = 'none';
+  document.getElementById('pmtFile').value = '';
+  document.getElementById('pmtName').value = '';
+  pmtRenderPreview();
+  pmRenderTemplatesList();
+  document.getElementById('pmTemplatesOverlay').style.display = 'flex';
+}
+
+async function pmtDelete(id){
+  const t = pmProject(id); if(!t) return;
+  if(!confirm('Delete the template "' + t.name + '"?\n\nProjects already created from it are NOT affected.')) return;
+  try{
+    const { error } = await db.from('pm_projects').delete().eq('id', id).eq('is_template', true);
+    if(error) throw error;
+    await pmLoadAll();
+    pmRenderTemplatesList(); pmRenderAll();
+  }catch(err){
+    showBanner('pmTemplatesBanner', 'Could not delete: ' + err.message, 'error');
+  }
+}
+
+function pmtDownloadSample(){
+  const rows = [
+    ['Sl', 'Type', 'Event', 'Title', 'Teams', 'Owner', 'Reviewer', 'Contributors', 'Formula'],
+    ['1', 'KPI', 'T0', 'Project start', '', 'Business Development', 'Finance', '', 'T0 date'],
+    ['1.1', 'Activity', 'A1', 'First activity', '', 'Secretarial', 'Business Development', 'Finance, Legal', 'T0 + 3d'],
+    ['1.2', 'Activity', 'A2', 'Second activity', '', 'Legal', 'Finance', '', 'A1 + 7d'],
+    ['2', 'KPI', 'T1', 'Next milestone', '', 'Finance', 'Business Development', 'Legal', 'A2 + 5d'],
+    ['2.1', 'Activity', 'A3', 'Activity after the milestone', '', 'Operations', 'Finance', '', 'T1 + 10d']
+  ];
+  const csv = rows.map(r=> r.map(c=> '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const blob = new Blob(['\ufeff' + csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'project-template-sample.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+}
+
 function pmOpenProjectModal(id){
   const p = id ? pmProject(id) : null;
   document.getElementById('pmProjectBanner').style.display = 'none';
@@ -10387,10 +11272,21 @@ function pmOpenProjectModal(id){
   const tpl = !!(p && p.is_template);
   document.getElementById('pmp-status-field').style.display = p && !tpl ? '' : 'none';
   document.getElementById('pmp-loa').closest('.field').style.display = tpl ? 'none' : '';
-  document.getElementById('pmp-hint').textContent = p
-    ? (tpl ? '' : 'Changing the LoA date recalculates every planned and due date in the charter.')
-    : 'The charter (16 milestones and their activities) is copied from the master template and every date is calculated from the LoA date. Owners and reviewers are filled from the Team Roster, with the project manager as the fallback.';
-  document.getElementById('pmProjectDeleteBtn').style.display = p && !tpl ? '' : 'none';
+  // template picker: only when creating a project
+  const tplSel = document.getElementById('pmp-template');
+  const tpls = pmProjects.filter(x=> x.is_template);
+  tplSel.innerHTML = tpls.map(x=> `<option value="${x.id}">${pmEsc(x.name)} (${pmKpis(x.id).length} KPIs, ${pmItems.filter(i=> i.project_id === x.id && i.kind === 'activity').length} activities)</option>`).join('');
+  document.getElementById('pmp-template-field').style.display = p ? 'none' : '';
+  const hasAcc = pmProjects.some(x=> 'full_access' in x);
+  document.getElementById('pmp-access-field').style.display = (tpl || !hasAcc) ? 'none' : '';
+  if(!tpl && hasAcc) pmChecksHtml('pmp-full', pmStaff().map(x=> ({ value:x.id, label:x.display_name })), p ? p.full_access : []);
+  document.getElementById('pmp-hint').textContent = (!tpl && !hasAcc ? 'To choose who sees the whole project, run supabase-projects-access.sql once in the Supabase SQL Editor. ' : '') + (p
+    ? (tpl ? 'Changes to the template charter apply to projects created after this; existing projects are not changed.' : 'Changing the T0 date recalculates every planned and due date in the charter.')
+    : 'The charter is copied from the template you pick, and every date is calculated from the T0 date. Owners, reviewers and contributors are filled from the Team Roster; a team with nobody assigned there shows "-" until you update the roster and use Fill blank / Reset all owners.');
+  // a template carries no location / authority / buses / manager / dates -- those belong to real projects
+  ['pmp-location', 'pmp-buses', 'pmp-manager'].forEach(fid=> { document.getElementById(fid).closest('.row2').style.display = tpl ? 'none' : ''; });
+  document.getElementById('pmProjectModalTitle').textContent = tpl ? 'Edit Template' : (p ? 'Edit Project' : 'New Project');
+  document.getElementById('pmProjectDeleteBtn').style.display = p ? '' : 'none';
   document.getElementById('pmProjectOverlay').style.display = 'flex';
 }
 
@@ -10402,19 +11298,26 @@ async function pmSaveProject(){
     const existing = id ? pmProject(id) : null;
     const tpl = !!(existing && existing.is_template);
     if(!val('pmp-name')) throw new Error('Project name is required');
-    if(!tpl && !val('pmp-loa')) throw new Error('LoA date is required -- every date in the charter is calculated from it');
+    if(!tpl && !val('pmp-loa')) throw new Error('T0 date is required -- every date in the charter is calculated from it');
     const buses = val('pmp-buses') === '' ? null : parseInt(val('pmp-buses'), 10);
     btn.disabled = true;
     if(id){
-      const upd = { name:val('pmp-name'), location:val('pmp-location') || null, authority:val('pmp-authority') || null, buses,
-        manager_id:document.getElementById('pmp-manager').value || null, description:val('pmp-desc') || null };
+      const upd = tpl
+        ? { name:val('pmp-name'), description:val('pmp-desc') || null }
+        : { name:val('pmp-name'), location:val('pmp-location') || null, authority:val('pmp-authority') || null, buses,
+            manager_id:document.getElementById('pmp-manager').value || null, description:val('pmp-desc') || null };
       if(!tpl){ upd.loa_date = val('pmp-loa'); upd.status = document.getElementById('pmp-status').value; }
+      if(!tpl && 'full_access' in existing) upd.full_access = pmChecked('pmp-full');
       const { error } = await db.from('pm_projects').update(upd).eq('id', id);
       if(error) throw error;
       await pmLoadAll();
     } else {
-      const { data, error } = await db.rpc('pm_create_project', { p_name:val('pmp-name'), p_location:val('pmp-location') || null, p_authority:val('pmp-authority') || null,
-        p_buses:buses, p_loa_date:val('pmp-loa'), p_manager:document.getElementById('pmp-manager').value || null, p_description:val('pmp-desc') || null });
+      const templateId = Number(document.getElementById('pmp-template').value);
+      if(!templateId) throw new Error('Choose the template this project should follow (create one first under Templates)');
+      const args = { p_template_id:templateId, p_name:val('pmp-name'), p_location:val('pmp-location') || null, p_authority:val('pmp-authority') || null,
+        p_buses:buses, p_t0_date:val('pmp-loa'), p_manager:document.getElementById('pmp-manager').value || null, p_description:val('pmp-desc') || null };
+      if(pmProjects.some(x=> 'full_access' in x)) args.p_full_access = pmChecked('pmp-full');
+      const { data, error } = await db.rpc('pm_create_project_from_template', args);
       if(error) throw error;
       await pmLoadAll();
       pmOpenProject(data);
@@ -10432,7 +11335,9 @@ async function pmSaveProject(){
 async function pmDeleteProject(){
   const id = Number(document.getElementById('pmProjectSaveBtn').dataset.id);
   const p = pmProject(id); if(!p) return;
-  if(!confirm(`Permanently delete project "${p.name}" with its whole charter and history? This cannot be undone.`)) return;
+  if(!confirm(p.is_template
+    ? `Delete the template "${p.name}"?\n\nProjects already created from it are NOT affected. This cannot be undone.`
+    : `Permanently delete project "${p.name}" with its whole charter and history? This cannot be undone.`)) return;
   try{
     const { error } = await db.from('pm_projects').delete().eq('id', id);
     if(error) throw error;
@@ -10503,6 +11408,17 @@ async function pmSaveTeams(){
 function attachProjectEvents(){
   const view = document.getElementById('projectsView');
   view.addEventListener('click', (e)=>{
+    // "Why is this project delayed?" line on a card: show that project's details under the cards
+    const hd = e.target.closest('[data-pm-hdelay]');
+    if(hd){
+      const id = Number(hd.dataset.pmHdelay);
+      pmHomeDelayId = pmHomeDelayId === id ? null : id;   // click again to collapse
+      pmRenderProjectCards();
+      if(pmHomeDelayId){ const box = document.getElementById('pmHomeDelay'); if(box) box.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
+      return;
+    }
+    if(e.target.closest('[data-pm-hdelay-hide]')){ e.preventDefault(); pmHomeDelayId = null; pmRenderProjectCards(); return; }
+    if(e.target.closest('[data-pm-delay]')){ pmDelayOpen = !pmDelayOpen; pmRenderDelayPanel(pmProject(pmCurrentProjectId)); return; }
     const t = e.target.closest('[data-pm-kpi],[data-pm-sumstat],[data-pm-sum],[data-pm-clearfocus],[data-pm-home],[data-pm-open],[data-pm-back],[data-pm-tab],[data-pm-item],[data-pm-toggle],[data-pm-edit],[data-pm-addact],[data-pm-move],[data-pm-print],[data-pm-csv],[data-pm-addkpi],[data-pm-fill],[data-pm-editproject]');
     if(!t) return;
     const d = t.dataset;
@@ -10531,10 +11447,17 @@ function attachProjectEvents(){
   });
   document.getElementById('pmNewProjectBtn').addEventListener('click', ()=> pmOpenProjectModal(null));
   document.getElementById('pmTeamsBtn').addEventListener('click', pmOpenTeams);
-  document.getElementById('pmTemplateBtn').addEventListener('click', ()=>{
-    const tpl = pmProjects.find(p=> p.is_template);
-    if(tpl) pmOpenProject(tpl.id); else showBanner('pmBanner', 'The master template is missing -- re-run the seed part of supabase-add-projects.sql.', 'error');
+  document.getElementById('pmTemplateBtn').addEventListener('click', pmOpenTemplates);
+  document.getElementById('pmTemplatesCloseBtn').addEventListener('click', ()=> document.getElementById('pmTemplatesOverlay').style.display = 'none');
+  document.getElementById('pmTemplatesOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'pmTemplatesOverlay'){ document.getElementById('pmTemplatesOverlay').style.display = 'none'; return; }
+    const o = e.target.closest('[data-pmt-open]'), d = e.target.closest('[data-pmt-del]');
+    if(o){ document.getElementById('pmTemplatesOverlay').style.display = 'none'; pmOpenProject(Number(o.dataset.pmtOpen)); }
+    else if(d) pmtDelete(Number(d.dataset.pmtDel));
   });
+  document.getElementById('pmtFile').addEventListener('change', (e)=> pmtHandleFile(e.target.files[0]));
+  document.getElementById('pmtCreateBtn').addEventListener('click', pmtCreate);
+  document.getElementById('pmtSampleLink').addEventListener('click', (e)=> { e.preventDefault(); pmtDownloadSample(); });
   document.getElementById('pmShowClosed').addEventListener('change', e=> { pmShowClosedProjects = e.target.checked; pmRenderProjectCards(); });
   document.getElementById('pmMyProject').addEventListener('change', e=> { pmMyFilter.project = e.target.value; pmRenderMyWork(); });
   document.getElementById('pmMyRole').addEventListener('change', e=> { pmMyFilter.role = e.target.value; pmRenderMyWork(); });
@@ -10775,9 +11698,29 @@ function init(){
     setAuthMode(authMode === 'signup' ? 'signin' : 'signup');
   });
   document.getElementById('newTaskForm').addEventListener('submit', handleNewTaskSubmit);
+  document.getElementById('newTaskBtn').addEventListener('click', openNewTaskModal);
+  attachHomeEvents();
+  document.getElementById('newTaskCloseBtn').addEventListener('click', closeNewTaskModal);
+  document.getElementById('newTaskOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'newTaskOverlay') closeNewTaskModal(); });
+  document.querySelectorAll('[data-task-sub]').forEach(b=> b.addEventListener('click', ()=> { switchView(b.dataset.taskSub); document.getElementById('taskMenuDropdown').style.display = 'none'; }));
+  const ntRepeatHint = ()=> { document.getElementById('nt-repeat-hint').textContent = repeatHintText(document.getElementById('nt-repeat').value, document.getElementById('nt-target').value); };
+  document.getElementById('nt-repeat').addEventListener('change', ntRepeatHint);
+  document.getElementById('nt-target').addEventListener('change', ntRepeatHint);
+  document.getElementById('td-repeat').addEventListener('change', ()=> {
+    const t = rawTasks.find(x=> x.id === currentDetailTaskId);
+    document.getElementById('td-repeat-hint').textContent = repeatHintText(document.getElementById('td-repeat').value, t && t.target_date);
+  });
   document.getElementById('passwordForm').addEventListener('submit', handlePasswordSubmit);
   document.getElementById('signOutBtn').addEventListener('click', ()=> db.auth.signOut());
-  document.querySelectorAll('.nav-link').forEach(n=> n.addEventListener('click', ()=> switchView(n.dataset.view)));
+  document.querySelectorAll('.nav-link').forEach(n=> { if(n.id !== 'navTaskMgmt') n.addEventListener('click', ()=> switchView(n.dataset.view)); });
+  document.getElementById('navTaskMgmt').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const dd = document.getElementById('taskMenuDropdown');
+    const inTasks = ['dashboardView', 'timeAnalysisView'].indexOf((document.querySelector('.view.active') || {}).id) >= 0;
+    if(!inTasks){ switchView('dashboardView'); dd.style.display = 'none'; return; }   // coming from another tab: land on Task
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', ()=> { document.getElementById('taskMenuDropdown').style.display = 'none'; });
   document.getElementById('umTableBody').addEventListener('change', (e)=>{
     if(e.target.classList.contains('um-tab-toggle')) handleUserManagementTabToggle(e.target);
   });
