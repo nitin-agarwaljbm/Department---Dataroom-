@@ -198,7 +198,7 @@
   .view.active{display:block;}
 
   /* dashboard bits (same as before) */
-  .kpi-row{display:grid; grid-template-columns:repeat(6,1fr); gap:14px; margin-bottom:22px;}
+  .kpi-row{display:grid; grid-template-columns:repeat(7,1fr); gap:14px; margin-bottom:22px;}
   .kpi{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; position:relative; overflow:hidden;}
   .kpi::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px;}
   .kpi.total::before{background:var(--accent);}
@@ -305,6 +305,9 @@
   .badge-plain::before{display:none;}
   .badge::before{content:''; width:6px; height:6px; border-radius:50%;}
   .badge.overdue{background:var(--overdue-bg); color:var(--overdue);} .badge.overdue::before{background:var(--overdue);}
+  /* Escalation = overdue by more than 7 days */
+  .badge.escalation{background:#B3261E; color:#fff; font-weight:700;} .badge.escalation::before{background:#fff;}
+  .kpi.escalation::before{background:#B3261E;}
   .badge.duesoon{background:var(--duesoon-bg); color:var(--duesoon);} .badge.duesoon::before{background:var(--duesoon);}
   .badge.ontrack{background:var(--ontrack-bg); color:var(--ontrack);} .badge.ontrack::before{background:var(--ontrack);}
   .badge.pending_review{background:var(--pending-bg); color:var(--pending);} .badge.pending_review::before{background:var(--pending);}
@@ -570,6 +573,13 @@
   .pm-chip.ok{background:var(--ontrack-bg); color:var(--ontrack);}
   .pm-chip.warn{background:var(--duesoon-bg); color:var(--duesoon);}
   .pm-chip.bad{background:var(--overdue-bg); color:var(--overdue);}
+  .pm-chip.esc{background:#B3261E; color:#fff; font-weight:700;}
+  .pm-req{display:inline-block; padding:2px 10px; border-radius:20px; font-size:calc(11px * var(--fs)); font-weight:600; border:1px solid var(--border); color:var(--faint); background:transparent; white-space:nowrap;}
+  .pm-req.on{background:var(--accent-tint); color:var(--accent); border-color:var(--accent);}
+  .pm-req.click{cursor:pointer;}
+  .pm-req.click:hover{border-color:var(--accent); color:var(--accent);}
+  .pm-drop{border:2px dashed var(--border); border-radius:8px; padding:12px 14px; background:var(--panel); font-size:calc(13px * var(--fs)); color:var(--muted); text-align:center;}
+  .pm-drop.over{border-color:var(--accent); background:var(--accent-tint); color:var(--text);}
   .pm-chip.pend{background:var(--pending-bg); color:var(--pending);}
   .pm-chip.done{background:var(--closed-bg); color:var(--closed);}
   .pm-code{font-family:'IBM Plex Mono',monospace; font-size:calc(11px * var(--fs)); padding:1px 7px; border-radius:5px; background:var(--accent-tint); color:var(--accent); border:1px solid var(--border); white-space:nowrap;}
@@ -962,6 +972,7 @@
       <span id="viewAsBarText"></span>
       <button class="btn small" id="viewAsExitBtn" style="margin-left:auto; background:#fff; color:#1a2233; border-color:#fff;">Exit preview</button>
     </div>
+    <div id="cloudAlert" style="display:none; align-items:center; gap:12px; flex-wrap:wrap; background:#B3261E; color:#fff; border-radius:8px; padding:11px 16px; margin-bottom:12px; font-size:calc(13.5px * var(--fs)); font-weight:600; box-shadow:0 0 0 2px rgba(179,38,30,0.35);"></div>
     <div id="globalBanner" class="banner"></div>
 
     <!-- ---------- DASHBOARD VIEW ---------- -->
@@ -1025,7 +1036,8 @@
               <label>Status</label>
               <select class="filter-input" id="f-status">
                 <option value="">Active (excl. closed)</option>
-                <option value="overdue">Overdue</option>
+                <option value="escalation">Escalation (overdue &gt;7d)</option>
+                <option value="overdue">Overdue (1–7d)</option>
                 <option value="duesoon">Due soon (≤3d)</option>
                 <option value="ontrack">On track</option>
                 <option value="pending_review">Pending review</option>
@@ -1394,6 +1406,21 @@
         <textarea id="td-newStatus" placeholder="What's the latest on this? Type @Name to tag someone."></textarea>
       </div>
       <button class="btn primary" id="postStatusBtn" style="width:100%; justify-content:center; padding:11px;">Post Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- CLOUD STORAGE ALERT (admins only) ---------- -->
+<div id="cloudAlertOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="border:2px solid #B3261E;">
+    <div class="modal-header" style="background:#B3261E; color:#fff; margin:-18px -18px 14px; padding:14px 18px; border-radius:10px 10px 0 0;">
+      <div class="panel-title" style="border:none; margin:0; padding:0; color:#fff;">⚠ Access to Cloud Storage is broken</div>
+      <button class="btn small" id="cloudAlertCloseBtn">✕ Close</button>
+    </div>
+    <div id="cloudAlertBody" style="font-size:calc(13.5px * var(--fs)); line-height:1.55;"></div>
+    <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+      <a class="btn primary" href="https://make.powerautomate.com" target="_blank" rel="noopener" style="text-decoration:none;">Open Power Automate</a>
+      <button class="btn" id="cloudAlertOkBtn">Close</button>
     </div>
   </div>
 </div>
@@ -2366,6 +2393,7 @@
       <div class="field"><label>…plus days <span style="text-transform:none; letter-spacing:0;">(negative = before)</span></label><input type="number" step="1" id="pme-offset" value="0"></div>
     </div>
     <div class="field"><label>Timeline note <span style="text-transform:none; letter-spacing:0;">(optional, e.g. "or timeline defined in Agreement")</span></label><input type="text" id="pme-note"></div>
+    <div class="field"><label style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0; font-size:calc(13px * var(--fs));"><input type="checkbox" id="pme-filereq" style="width:auto;"> 📎 Evidence file upload is <b>mandatory</b> before closure can be filed</label></div>
     <div id="pme-people">
       <div class="hint" style="font-size:11px; color:var(--faint); margin-bottom:8px;">People come from the Team Roster when a project is created (or "Fill blank / Reset all owners"). Pick a person here only to override that for this item.</div>
       <div class="row2">
@@ -2536,7 +2564,7 @@ function userCanSeeTab(profile, tabKey){
 const LOGO_DATA_URI = "data:image/png;base64,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";
 
 const COLORS = {
-  overdue:'#E2574C', duesoon:'#E0A458', ontrack:'#4FA97F', pending_review:'#9E7BE0', closed:'#6E7A90'
+  escalation:'#B3261E', overdue:'#E2574C', duesoon:'#E0A458', ontrack:'#4FA97F', pending_review:'#9E7BE0', closed:'#6E7A90'
 };
 function themeColors(){
   const light = document.documentElement.dataset.theme === 'light';
@@ -2548,8 +2576,8 @@ function themeColors(){
   };
 }
 const CATEGORY_PALETTE = ['#5B8DEF','#9E7BE0','#4FA97F','#E0A458','#E2574C','#4FB6C9','#C97FD9'];
-const STATUS_ORDER = ['overdue','duesoon','ontrack','pending_review','closed'];
-const STATUS_LABELS = ['Overdue','Due soon','On track','Pending review','Closed'];
+const STATUS_ORDER = ['escalation','overdue','duesoon','ontrack','pending_review','closed'];
+const STATUS_LABELS = ['Escalation (>7d)','Overdue','Due soon','On track','Pending review','Closed'];
 
 let db = null;
 let currentUser = null;   // supabase auth user
@@ -2622,6 +2650,7 @@ function computeStatus(t){
   const target = parseDate(t.target_date);
   if(!target) return {status:'ontrack', rank:2, label:'On track', detail:'No target set'};
   const diff = daysBetween(today, target);
+  if(diff < -7) return {status:'escalation', rank:-1, label:'Escalation', detail: Math.abs(diff)+'d overdue'};
   if(diff < 0) return {status:'overdue', rank:0, label:'Overdue', detail: Math.abs(diff)+'d overdue'};
   if(diff <= 3) return {status:'duesoon', rank:1, label:'Due soon', detail: diff===0 ? 'Due today' : diff+'d left'};
   return {status:'ontrack', rank:2, label:'On track', detail: diff+'d left'};
@@ -2759,6 +2788,7 @@ function setStatusFilter(status){
 function renderKPIs(filtered){
   const closed = getFilteredBase().filter(t=>t.status==='closed').length;
   const total = filtered.length;
+  const escalation = filtered.filter(t=>t.status==='escalation').length;
   const overdue = filtered.filter(t=>t.status==='overdue').length;
   const duesoon = filtered.filter(t=>t.status==='duesoon').length;
   const ontrack = filtered.filter(t=>t.status==='ontrack').length;
@@ -2766,7 +2796,8 @@ function renderKPIs(filtered){
   const grandTotal = total + closed;
   const cards = [
     {cls:'total', label:'Total', value:total, sub:'active in current view', status:null},
-    {cls:'overdue', label:'Overdue', value:overdue, sub: total ? Math.round(overdue/total*100)+'%' : '—', status:'overdue'},
+    {cls:'escalation', label:'Escalation', value:escalation, sub: total ? Math.round(escalation/total*100)+'% · overdue >7d' : 'overdue >7d', status:'escalation'},
+    {cls:'overdue', label:'Overdue', value:overdue, sub: total ? Math.round(overdue/total*100)+'% · 1–7d' : '1–7d', status:'overdue'},
     {cls:'duesoon', label:'Due ≤3d', value:duesoon, sub:'needs attention', status:'duesoon'},
     {cls:'ontrack', label:'On Track', value:ontrack, sub:'within target', status:'ontrack'},
     {cls:'pending', label:'Pending Review', value:pending, sub:'awaiting reviewer', status:'pending_review'},
@@ -2786,20 +2817,22 @@ function renderPersonList(){
   const rows = people.map(person=>{
     const items = scoped.filter(t=>t.whoName===person);
     const total = items.length;
+    const escalation = items.filter(t=>t.status==='escalation').length;
     const overdue = items.filter(t=>t.status==='overdue').length;
     const duesoon = items.filter(t=>t.status==='duesoon').length;
     const ontrack = items.filter(t=>t.status==='ontrack').length;
     const pending = items.filter(t=>t.status==='pending_review').length;
     const closed = items.filter(t=>t.status==='closed').length;
     const pct = k => total ? (k/total*100) : 0;
-    return {person,total,overdue,duesoon,ontrack,pending,closed,pct};
-  }).sort((a,b)=> b.overdue-a.overdue || b.total-a.total);
+    return {person,total,escalation,overdue,duesoon,ontrack,pending,closed,pct};
+  }).sort((a,b)=> (b.escalation+b.overdue)-(a.escalation+a.overdue) || b.total-a.total);
 
   document.getElementById('personCount').textContent = people.length + ' owners';
   document.getElementById('personList').innerHTML = rows.map(r=>`
     <div class="person-card ${activePerson===r.person?'active':''}" data-person="${r.person}">
       <div class="person-top"><span class="person-name">${r.person}</span><span class="person-total">${r.total}</span></div>
       <div class="person-bar">
+        <div style="width:${r.pct(r.escalation)}%;background:${COLORS.escalation}"></div>
         <div style="width:${r.pct(r.overdue)}%;background:${COLORS.overdue}"></div>
         <div style="width:${r.pct(r.duesoon)}%;background:${COLORS.duesoon}"></div>
         <div style="width:${r.pct(r.ontrack)}%;background:${COLORS.ontrack}"></div>
@@ -2824,7 +2857,7 @@ function withAlpha(hex, alpha){
 }
 
 function renderCharts(filtered){
-  const statusCounts = {overdue:0,duesoon:0,ontrack:0,pending_review:0,closed:0};
+  const statusCounts = {escalation:0,overdue:0,duesoon:0,ontrack:0,pending_review:0,closed:0};
   filtered.forEach(t=>statusCounts[t.status]++);
   const activeStatus = document.getElementById('f-status').value;
   const statusColors = STATUS_ORDER.map(s=>{
@@ -3037,6 +3070,7 @@ function homeTaskDays(t){
 }
 function homeDueChip(days){
   if(days == null) return '';
+  if(days < -7) return pmChip('esc', 'Escalation · ' + (-days) + 'd');
   if(days < 0) return pmChip('bad', (-days) + 'd overdue');
   if(days === 0) return pmChip('warn', 'Due today');
   if(days <= 7) return pmChip('warn', 'in ' + days + 'd');
@@ -3051,7 +3085,7 @@ function homeCollect(){
     const scope = rawTasks.filter(t=> role === 'owner' ? t.who === me : role === 'reviewer' ? t.reviewer === me : true);
     const open = rawTasks.filter(t=> t.who === me && t.workflow_status === 'open');
     const review = rawTasks.filter(t=> t.reviewer === me && t.workflow_status === 'pending_review');
-    card.tasks = { scope, open:open.length, overdue:open.filter(t=> t.status === 'overdue').length, soon:open.filter(t=> t.status === 'duesoon').length, review:review.length };
+    card.tasks = { scope, open:open.length, esc:open.filter(t=> t.status === 'escalation').length, overdue:open.filter(t=> t.status === 'overdue').length, soon:open.filter(t=> t.status === 'duesoon').length, review:review.length };
     if(asOwner) open.forEach(t=>{
       const d = homeTaskDays(t);
       if(d == null || d > 7) return;
@@ -3151,8 +3185,8 @@ function renderHome(){
     const big = role === 'reviewer' ? c.review : c.open, bigLabel = role === 'reviewer' ? 'to review' : 'open with me';
     cards.push(`<div class="hm-card" style="--c:${HM_COLOR.task};" data-home-go="dashboardView"><div class="hm-card-label"><span>Tasks</span><span>›</span></div>
       <div class="hm-big">${big}<small>${bigLabel}</small></div>
-      <div class="hm-chips">${role !== 'reviewer' && c.overdue ? pmChip('bad', c.overdue + ' overdue') : ''}${role !== 'reviewer' && c.soon ? pmChip('warn', c.soon + ' due ≤3d') : ''}${role !== 'owner' && c.review && role !== 'reviewer' ? pmChip('pend', c.review + ' to review') : ''}${role === 'reviewer' ? pmChip('neutral', c.scope.length + ' tasks I review') : ''}${!((role !== 'reviewer' && (c.overdue || c.soon || (role === 'all' && c.review))) || role === 'reviewer') ? pmChip('ok', 'Nothing urgent') : ''}</div>
-      ${stack([[all.overdue || 0, COLORS.overdue, 'Overdue'], [all.duesoon || 0, COLORS.duesoon, 'Due soon'], [all.ontrack || 0, COLORS.ontrack, 'On track'], [all.pending_review || 0, COLORS.pending_review, 'Pending review']])}</div>`);
+      <div class="hm-chips">${role !== 'reviewer' && c.esc ? pmChip('esc', c.esc + ' escalation') : ''}${role !== 'reviewer' && c.overdue ? pmChip('bad', c.overdue + ' overdue') : ''}${role !== 'reviewer' && c.soon ? pmChip('warn', c.soon + ' due ≤3d') : ''}${role !== 'owner' && c.review && role !== 'reviewer' ? pmChip('pend', c.review + ' to review') : ''}${role === 'reviewer' ? pmChip('neutral', c.scope.length + ' tasks I review') : ''}${!((role !== 'reviewer' && (c.esc || c.overdue || c.soon || (role === 'all' && c.review))) || role === 'reviewer') ? pmChip('ok', 'Nothing urgent') : ''}</div>
+      ${stack([[all.escalation || 0, COLORS.escalation, 'Escalation'], [all.overdue || 0, COLORS.overdue, 'Overdue'], [all.duesoon || 0, COLORS.duesoon, 'Due soon'], [all.ontrack || 0, COLORS.ontrack, 'On track'], [all.pending_review || 0, COLORS.pending_review, 'Pending review']])}</div>`);
   }
   if(card.letters){
     const c = card.letters, col = { draft:'#6E7A90', pending_modification:'#E0A458', pending_approval:'#9E7BE0', pending_feedback:'#E2574C' };
@@ -3212,7 +3246,7 @@ function renderHome(){
       return `<div class="hm-pcard" data-home-open="project:${p.id}"><div style="display:flex; justify-content:space-between; gap:8px;"><b>${pmEsc(p.name)}</b>${pmChip(st.health.cls, st.health.label)}</div>
         <div class="hm-bar"><i style="width:${st.pct}%;"></i></div>
         <div class="hm-meta">${st.pct}% · ${st.actDone}/${st.actTotal} activities${st.endFcst ? ' · go-live ' + pmFmtShort(st.endFcst) : ''}${st.slip ? ' <b class="' + (st.slip > 0 ? 'pm-late' : 'pm-early') + '">(' + (st.slip > 0 ? '+' : '') + st.slip + 'd)</b>' : ''}</div>
-        <div class="hm-chips" style="margin-top:6px;">${st.overdue ? pmChip('bad', st.overdue + ' overdue') : ''}${st.blocked ? pmChip('bad', st.blocked + ' blocked') : ''}${st.pending ? pmChip('pend', st.pending + ' in review') : ''}${!(st.overdue || st.blocked || st.pending) ? pmChip('ok', 'No alerts') : ''}</div></div>`;
+        <div class="hm-chips" style="margin-top:6px;">${st.overdue ? pmChip('bad', st.overdue + ' overdue') : ''}${st.escalated ? pmChip('esc', st.escalated + ' escalation') : ''}${st.blocked ? pmChip('bad', st.blocked + ' blocked') : ''}${st.pending ? pmChip('pend', st.pending + ' in review') : ''}${!(st.overdue || st.blocked || st.pending) ? pmChip('ok', 'No alerts') : ''}</div></div>`;
     }).join('') + '</div>' : '<div class="hm-empty">No active projects.</div>';
   }
 
@@ -9284,6 +9318,7 @@ function onSignedOut(){
   myVendorCostItems = []; myVendorCostAmounts = []; myOpenTenders = []; myVendorQuotes = [];
   if(notificationPollTimer){ clearInterval(notificationPollTimer); notificationPollTimer = null; }
   if(pmPollTimer){ clearInterval(pmPollTimer); pmPollTimer = null; }
+  cloudAlertReset(); document.getElementById('cloudAlert').style.display = 'none'; document.getElementById('cloudAlertOverlay').style.display = 'none';
   pmProjects = []; pmItems = []; pmCtxItems = []; pmTeams = []; pmCurrentProjectId = null; pmSchedCache = {}; pmModeInit = false;
   activeNotifications = [];
   document.getElementById('notifDropdown').style.display = 'none';
@@ -9645,6 +9680,7 @@ function pmState(it, s){
   if(it.is_blocked) return { key:'blocked', label:'Blocked', cls:'bad' };
   if(s && s.due){
     const d = pmDiff(s.due, today);
+    if(d < -7) return { key:'overdue', esc:true, label:'Escalation ' + (-d) + 'd', cls:'esc' };   // overdue by more than 7 days
     if(d < 0) return { key:'overdue', label:'Overdue ' + (-d) + 'd', cls:'bad' };
     if(d === 0) return { key:'soon', label:'Due today', cls:'warn' };
     if(d <= 7) return { key:'soon', label:'Due in ' + d + 'd', cls:'warn' };
@@ -9660,10 +9696,10 @@ function pmProjectStats(pid){
   const acts = pmItems.filter(i=> i.project_id === pid && i.kind === 'activity');
   const all = kpis.concat(acts);
   const st = { kpiTotal:kpis.length, kpiDone:kpis.filter(pmIsDone).length, actTotal:acts.length, actDone:acts.filter(pmIsDone).length,
-    overdue:0, blocked:0, pending:0, soon:0, nextKpi:null, endBase:null, endFcst:null, slip:null, health:{ label:'On track', cls:'ok' } };
+    overdue:0, escalated:0, blocked:0, pending:0, soon:0, nextKpi:null, endBase:null, endFcst:null, slip:null, health:{ label:'On track', cls:'ok' } };
   all.forEach(it=>{
     const stt = pmState(it, sch[it.id]);
-    if(stt.key === 'overdue') st.overdue++;
+    if(stt.key === 'overdue'){ st.overdue++; if(stt.esc) st.escalated++; }
     if(stt.key === 'soon') st.soon++;
     if(it.status === 'pending_review') st.pending++;
     if(it.status === 'open' && it.is_blocked) st.blocked++;
@@ -9829,6 +9865,7 @@ function pmRenderAll(){
   if(pmCurrentProjectId && pmProject(pmCurrentProjectId)) pmRenderDetail();
   else { pmCurrentProjectId = null; pmRenderHome(); }
   homeRefresh();
+  cloudAlertRefresh();
 }
 async function pmStartup(){
   try{ await pmReload(); pmUpdateNavBadge(); }catch(e){ /* tab shows setup message on open */ }
@@ -9882,6 +9919,67 @@ function pmRenderHome(){
 
 // "Why is this project delayed?" line on the project card (project-specific). Only the summary lives on the
 // card; clicking it opens the project page with the full delay details expanded.
+// Link to the project's SharePoint / OneDrive folder (created by a Power Automate flow when the project is
+// made -- see supabase-project-folder.sql). Admins get a button when there is no folder yet.
+function pmFolderHtml(p){
+  if(!p || p.is_template || !('folder_url' in p)) return '';
+  if(p.folder_url && /^https:\/\//i.test(p.folder_url)){
+    return '<a href="' + pmEsc(p.folder_url) + '" target="_blank" rel="noopener" data-pm-folder-link style="color:var(--accent); text-decoration:none; font-size:calc(12.5px * var(--fs));">📁 Project folder ↗</a>';
+  }
+  const recent = p.folder_requested_at && (Date.now() - new Date(p.folder_requested_at).getTime() < 10 * 60000);
+  if(recent) return '<span class="pm-sub">📁 creating the folder…</span>';
+  return pmIsAdmin() ? '<button class="btn small" data-pm-folder="' + p.id + '" title="Create this project\'s folder in SharePoint / OneDrive">📁 Create folder</button>' : '';
+}
+// Admin-only red alert: a project whose folder was requested more than 3 minutes ago and still has no link means the
+// folder flow is not completing -- usually the OneDrive connection of the flow has expired (e.g. password change).
+let cloudAlertShown = false, cloudAlertHidden = false;
+function cloudAlertProjects(){
+  if(!pmIsAdmin() || viewAsId) return [];
+  const now = Date.now();
+  return pmProjects.filter(p=> !p.is_template && 'folder_url' in p && !p.folder_url && p.folder_requested_at
+    && (now - new Date(p.folder_requested_at).getTime()) > 3 * 60000 && (now - new Date(p.folder_requested_at).getTime()) < 30 * 86400000);
+}
+function cloudAlertRefresh(){
+  const bar = document.getElementById('cloudAlert');
+  if(!bar) return;
+  const bad = cloudAlertHidden ? [] : cloudAlertProjects();
+  if(!bad.length){ bar.style.display = 'none'; return; }
+  const names = bad.slice(0, 4).map(p=> pmEsc(p.name)).join(', ') + (bad.length > 4 ? ' and ' + (bad.length - 4) + ' more' : '');
+  bar.innerHTML = '<span style="font-size:18px;">⚠</span><span style="flex:1; min-width:220px;">Access to Cloud Storage is broken — project folders could not be created for ' + bad.length + ' project' + (bad.length === 1 ? '' : 's') + ': ' + names + '.</span>'
+    + '<button class="btn small" id="cloudAlertHowBtn" style="background:#fff; color:#B3261E; border-color:#fff;">How to fix</button>'
+    + '<button class="btn small" id="cloudAlertHideBtn" style="background:transparent; color:#fff; border-color:#fff;">Hide for now</button>';
+  bar.style.display = 'flex';
+  document.getElementById('cloudAlertBody').innerHTML = '<p style="margin:0 0 8px;">The project-folder flow did not complete for:</p><ul style="margin:0 0 10px 18px;">'
+    + bad.map(p=> '<li><b>' + pmEsc(p.name) + '</b> <span style="color:var(--muted);">(requested ' + pmEsc(fmtDateTime(p.folder_requested_at)) + ')</span></li>').join('') + '</ul>'
+    + '<p style="margin:0 0 8px;"><b>Most likely cause:</b> the OneDrive connection used by the flow has expired, for example after a password change.</p>'
+    + '<ol style="margin:0 0 6px 18px;"><li>Open Power Automate → <b>Connections</b> → <b>OneDrive for Business</b> → <b>Fix connection</b> (sign in again).</li>'
+    + '<li>Check the flow <i>TrackIt - create project folder</i> is switched <b>On</b>.</li>'
+    + '<li>In the flow\'s run history, <b>Resubmit</b> the failed runs. The folders are created and this alert clears by itself.</li></ol>'
+    + '<p style="margin:8px 0 0; color:var(--muted);">If a folder already exists for a project, send its link to TrackIt instead of resubmitting (the guide, <i>Project-folder-flow-setup.md</i>, has the SQL).</p>';
+  document.getElementById('cloudAlertHowBtn').addEventListener('click', ()=> { document.getElementById('cloudAlertOverlay').style.display = 'flex'; });
+  document.getElementById('cloudAlertHideBtn').addEventListener('click', ()=> { cloudAlertHidden = true; cloudAlertRefresh(); });
+  if(!cloudAlertShown){ cloudAlertShown = true; document.getElementById('cloudAlertOverlay').style.display = 'flex'; }   // pop up once per sign-in
+}
+function cloudAlertReset(){ cloudAlertShown = false; cloudAlertHidden = false; }
+
+async function pmRequestFolder(id){
+  try{
+    const { data, error } = await db.rpc('pm_request_project_folder', { p_project_id:id });
+    if(error) throw error;
+    if(data === 'not configured') showBanner('pmBanner', 'Folder creation is not set up yet -- finish the Power Automate setup (Project-folder-flow-setup.md) first.', 'error');
+    else { showBanner('pmBanner', 'Folder requested -- the link appears here in a few seconds.', 'success'); pmRefreshFolderSoon(); }
+    await pmLoadAll(); pmRenderAll();
+  }catch(err){
+    showBanner('pmBanner', 'Could not request the folder: ' + err.message, 'error');
+  }
+}
+// the flow answers a few seconds after the project is created, so look again shortly
+function pmRefreshFolderSoon(){
+  [6000, 15000, 40000, 200000].forEach(ms=> setTimeout(async ()=>{
+    try{ if(!currentUser) return; await pmLoadAll(); pmRenderAll(); }catch(e){ /* next look will retry */ }
+  }, ms));
+}
+
 let pmHomeDelayId = null;   // project whose delay details are expanded under the cards (null = all collapsed)
 function pmCardDelayHtml(p){
   const a = pmDelayAnalysis(p), slip = a.slip || 0;
@@ -9943,12 +10041,13 @@ function pmProjectCardHtml(p){
       </div>
       ${next ? `<div class="pm-meta">Next: ${next.event_code ? `<span class="pm-code">${pmEsc(next.event_code)}</span> ` : ''}${pmEsc(next.title.length > 70 ? next.title.slice(0, 68) + '…' : next.title)} — <b style="color:var(--text);">${pmFmtShort(nextS.eff)}</b> ${nextState ? pmChip(nextState.cls, nextState.label) : ''}</div>` : ''}
       <div class="pm-stat-row">
-        ${st.overdue ? pmChip('bad', st.overdue + ' overdue') : ''}
+        ${st.overdue ? pmChip('bad', st.overdue + ' overdue') : ''}${st.escalated ? pmChip('esc', st.escalated + ' escalation') : ''}
         ${st.blocked ? pmChip('bad', st.blocked + ' blocked') : ''}
         ${st.pending ? pmChip('pend', st.pending + ' in review') : ''}
         ${mine ? pmChip('warn', mine + ' mine') : ''}
         ${PM_PROJECT_STATUS[p.status] && p.status !== 'active' ? pmChip('neutral', PM_PROJECT_STATUS[p.status]) : ''}
       </div>
+      ${pmFolderHtml(p) ? '<div style="margin-top:10px;">' + pmFolderHtml(p) + '</div>' : ''}
       ${pmCardDelayHtml(p)}
     </div>`;
 }
@@ -10117,6 +10216,7 @@ function pmRenderDetail(){
           pmEsc([p.location, p.authority].filter(Boolean).join(' · ') || '—') + (p.buses ? ' · ' + p.buses + ' buses' : '') +
           ' · T0 ' + pmFmt(p.loa_date) + ' · Manager: ' + pmEsc(pmWho(p.manager_id)) + (p.status !== 'active' ? ' · ' + PM_PROJECT_STATUS[p.status] : '')}</div>
         ${p.description ? `<div class="pm-meta" style="margin-top:4px;">${pmEsc(p.description)}</div>` : ''}
+        ${!lim && pmFolderHtml(p) ? '<div style="margin-top:8px;">' + pmFolderHtml(p) + '</div>' : ''}
         ${lim ? '<div class="pm-meta" style="margin-top:6px;">You can see only the activities where you are the owner, reviewer or contributor. The rest of this project is visible to its manager and the people the admin has given full access.</div>' : ''}
       </div>
       <div class="pm-toolbar-right">
@@ -10138,7 +10238,7 @@ function pmRenderDetail(){
       <div class="pm-sum-box pm-sum-click${pmSumActive('progress') ? ' pm-sum-on' : ''}" data-pm-sum="progress" title="Click to list only the closed KPIs and activities"><div class="pm-sum-label">Progress</div><div class="pm-sum-value">${st.pct}%</div><div class="pm-bar" style="margin-top:6px;"><div style="width:${st.pct}%;"></div></div><div class="pm-meta" style="margin-top:4px;">${st.actDone}/${st.actTotal} activities · ${st.kpiDone}/${st.kpiTotal} KPIs</div></div>
       <div class="pm-sum-box pm-sum-click${pmSumActive('next') ? ' pm-sum-on' : ''}" data-pm-sum="next" title="Click to list the next milestone and its open activities"><div class="pm-sum-label">Next milestone</div><div class="pm-sum-value" style="font-size:calc(14px * var(--fs));">${st.nextKpi ? (st.nextKpi.event_code ? pmEsc(st.nextKpi.event_code) + ' · ' : '') + pmFmt(nextS && nextS.eff) : '—'}</div><div class="pm-meta" style="margin-top:4px;">${st.nextKpi ? pmEsc(st.nextKpi.title.length > 60 ? st.nextKpi.title.slice(0, 58) + '…' : st.nextKpi.title) : 'All milestones closed'}</div></div>
       <div class="pm-sum-box pm-sum-click${pmSumActive('golive') ? ' pm-sum-on' : ''}" data-pm-sum="golive" title="Click to list everything still open and jump to the go-live milestone"><div class="pm-sum-label">${st.endKpi && st.endKpi.event_code ? pmEsc(st.endKpi.event_code) + ' — ' : ''}Go-live forecast</div><div class="pm-sum-value" style="font-size:calc(14px * var(--fs));">${pmFmt(st.endFcst)}${slipTxt}</div><div class="pm-meta" style="margin-top:4px;">Planned ${pmFmt(st.endBase)}</div></div>
-      <div class="pm-sum-box pm-sum-click${pmSumActive('attn') ? ' pm-sum-on' : ''}" data-pm-sum="attn" title="Click to list overdue and due-within-7-days items; click a chip for just that group"><div class="pm-sum-label">Attention</div><div class="pm-stat-row" style="margin-top:6px;">${[['overdue', 'bad', st.overdue + ' overdue', st.overdue], ['blocked', 'bad', st.blocked + ' blocked', st.blocked], ['pending', 'pend', st.pending + ' in review', st.pending], ['soon', 'warn', st.soon + ' due ≤7d', st.soon]].map(c=> c[3] ? `<span data-pm-sumstat="${c[0]}" style="cursor:pointer;${pmSumActive('attn', c[0]) ? 'outline:2px solid var(--accent); outline-offset:1px; border-radius:99px;' : ''}">${pmChip(c[1], c[2])}</span>` : '').join('')}${!(st.overdue || st.blocked || st.pending || st.soon) ? pmChip('ok', 'All clear') : ''}</div></div>
+      <div class="pm-sum-box pm-sum-click${pmSumActive('attn') ? ' pm-sum-on' : ''}" data-pm-sum="attn" title="Click to list overdue and due-within-7-days items; click a chip for just that group"><div class="pm-sum-label">Attention</div><div class="pm-stat-row" style="margin-top:6px;">${[['overdue', st.escalated ? 'esc' : 'bad', st.overdue + ' overdue' + (st.escalated ? ' (' + st.escalated + ' escalation)' : ''), st.overdue], ['blocked', 'bad', st.blocked + ' blocked', st.blocked], ['pending', 'pend', st.pending + ' in review', st.pending], ['soon', 'warn', st.soon + ' due ≤7d', st.soon]].map(c=> c[3] ? `<span data-pm-sumstat="${c[0]}" style="cursor:pointer;${pmSumActive('attn', c[0]) ? 'outline:2px solid var(--accent); outline-offset:1px; border-radius:99px;' : ''}">${pmChip(c[1], c[2])}</span>` : '').join('')}${!(st.overdue || st.blocked || st.pending || st.soon) ? pmChip('ok', 'All clear') : ''}</div></div>
     </div>`;
   }
 
@@ -10421,6 +10521,7 @@ function pmCharterRowHtml(it, seq, s, p, admin){
     <td data-label="Reviewer" style="font-weight:400;">${pmEsc(pmWho(it.reviewer_id))}</td>
     <td data-label="Contributors" style="font-weight:400;"><span class="pm-sub" style="margin:0;">${pmEsc((it.contributors || []).map(pmWho).join(', ') || '—')}</span></td>`}
     <td data-label="Formula" style="font-weight:400;"><span class="pm-sub" style="margin:0;" title="${pmEsc(it.timeline_note || '')}">${pmEsc(pmFormula(it))}${it.timeline_note ? ' *' : ''}</span></td>
+    ${('file_required' in it) ? `<td data-label="Evidence file" class="pm-nw"><span class="pm-req${it.file_required ? ' on' : ''}${admin ? ' click' : ''}"${admin ? ` data-pm-filereq="${it.id}" title="${it.file_required ? 'A file must be uploaded before closure -- click to make it optional' : 'File upload is optional -- click to make it mandatory'}"` : ''}>${it.file_required ? 'Required' : 'Optional'}</span></td>` : ''}
     ${dateCells}${adminCell}
   </tr>`;
 }
@@ -10450,9 +10551,10 @@ function pmRenderCharterTable(p){
       (filtersOn ? matchActs : acts).forEach(a=> { rows += pmCharterRowHtml(a, seq[a.id], sch[a.id], p, admin); shownCount++; });
     }
   });
+  const fileTh = (pmItems.length && 'file_required' in pmItems[0]) ? '<th title="Must a file be uploaded before closure can be filed?">Evidence file</th>' : '';
   const head = tpl
-    ? '<th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th>'
-    : '<th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th><th>Planned</th><th>Due</th><th>Revised due</th><th>Actual</th><th>Slip</th><th>Status</th>';
+    ? '<th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th>' + fileTh
+    : '<th>Sl</th><th>KPI / Activity</th><th>Owner</th><th>Reviewer</th><th>Contributors</th><th>Formula</th>' + fileTh + '<th>Planned</th><th>Due</th><th>Revised due</th><th>Actual</th><th>Slip</th><th>Status</th>';
   wrap.innerHTML = shownCount ? `${focusNote}<div class="table-wrap" style="max-height:none;"><table class="pm-charter"><thead><tr>${head}${admin ? '<th></th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div>
     <div class="footer-note" style="margin-top:8px;">Due = anchor event + days. <b>Planned</b> is the original date from T0; <b>Due</b> follows the due dates upstream (and any reschedule ⟳); <b>Revised due</b> follows the actual dates upstream once they exist; <b>Slip</b> = Revised due/Actual vs Planned.${tpl ? '' : ' * = timeline note on the item.'}</div>`
     : '<div class="empty-state">Nothing matches the current filters.</div>';
@@ -10706,12 +10808,23 @@ async function pmLoadItemLog(id){
   const { data, error } = await db.from('pm_item_updates').select('*').eq('item_id', id).order('created_at', { ascending:false });
   if(error){ console.error(error); pmItemLog = []; return; }
   pmItemLog = data;
+  // files saved in the project folder for this item (table exists once supabase-project-files.sql has been run)
+  const f = await db.from('pm_item_files').select('*').eq('item_id', id).order('seq');
+  pmItemFiles = f.error ? [] : f.data;
+}
+
+// "Completed on" / "Closed on" are dates the user types; this adds the system date and time the entry was
+// actually made and by whom, taken from the item's history (the latest 'submitted' / 'approved' entry).
+function pmStamp(kind){
+  const e = pmItemLog.find(u=> u.kind === kind);
+  if(!e) return '';
+  return '<br><span class="pm-sub" style="font-size:calc(11px * var(--fs));">entered ' + pmEsc(fmtDateTime(e.created_at)) + ' by ' + pmEsc(pmWho(e.author)) + '</span>';
 }
 
 async function pmOpenItem(id){
   pmCurrentItemId = id;
   pmItemMode = '';
-  pmItemLog = [];
+  pmItemLog = []; pmItemFiles = []; pmPendingFile = null; pmUploaded = null;
   document.getElementById('pmItemBanner').style.display = 'none';
   document.getElementById('pmItemOverlay').style.display = 'flex';
   pmRenderItemModal();
@@ -10724,12 +10837,79 @@ function pmCloseItem(){
   pmCurrentItemId = null;
 }
 
+// ---- evidence file: browse or drag & drop; it is saved in the project's folder under a standard name ----
+let pmPendingFile = null;       // File chosen but not yet sent
+let pmUploaded = null;          // { itemId, url, name } -- already saved in the folder (kept if the closure then fails)
+let pmItemFiles = [];           // files already saved for the open item
+
+function pmProjectFolderReady(it){
+  const p = pmProject(it.project_id);
+  return !!(p && 'folder_url' in p && p.folder_url);
+}
+// what the file will be called (the database makes the final decision; this is only the preview)
+function pmUploadNamePreview(it, fileName){
+  const p = pmProject(it.project_id);
+  const clean = t=> String(t || '').replace(/["*:<>?\/\\|#%~&{}]/g, '-').replace(/^[ .]+|[ .]+$/g, '');
+  const ext = fileName && fileName.indexOf('.') >= 0 ? '.' + fileName.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) : '';
+  const seq = String(pmItemFiles.length + 1).padStart(3, '0');
+  let base = clean(p && p.name);
+  if(it.kind === 'kpi') base += ' - ' + (it.event_code || 'KPI');
+  else { const k = pmItem(it.parent_id); base += ' - ' + ((k && k.event_code) || 'KPI') + ' - ' + (it.event_code || 'A'); }
+  return base + ' - ' + seq + ext;
+}
+function pmDropTextHtml(it){
+  if(pmUploaded && pmUploaded.itemId === it.id) return '✅ Saved in the project folder as <b>' + pmEsc(pmUploaded.name) + '</b>';
+  if(pmPendingFile){
+    return '📎 <b>' + pmEsc(pmPendingFile.name) + '</b> <span class="pm-sub">(' + Math.max(1, Math.round(pmPendingFile.size / 1024)) + ' KB)</span> <button type="button" class="btn small" data-pm-clearfile>✕ Remove</button>'
+      + '<div class="pm-sub" style="margin-top:4px;">Will be saved as <b>' + pmEsc(pmUploadNamePreview(it, pmPendingFile.name)) + '</b></div>';
+  }
+  return '📎 Drag a file here, or <button type="button" class="btn small" data-pm-browse>Browse…</button>';
+}
+function pmUploadFieldHtml(it){
+  const req = !!it.file_required;
+  const tag = req ? '<span style="text-transform:none; letter-spacing:0; color:var(--overdue); font-weight:700;">(MANDATORY -- the closure cannot be filed without it)</span>' : '<span style="text-transform:none; letter-spacing:0;">(optional)</span>';
+  if(!pmProjectFolderReady(it)){
+    return '<label>Evidence file ' + tag + '</label>'
+      + '<div class="pm-drop" style="opacity:0.8;' + (req ? ' border-color:var(--overdue); color:var(--overdue);' : '') + '">File upload is available once the project folder has been created' + (req ? ' -- ask an admin to create it (📁 Create folder), then file the closure.' : '.') + '</div>';
+  }
+  return '<label>Evidence file ' + (req ? tag : '<span style="text-transform:none; letter-spacing:0;">(optional -- saved in the project folder, up to 20 MB)</span>') + '</label>'
+    + '<div class="pm-drop" id="pmf-drop"><span id="pmf-drop-text">' + pmDropTextHtml(it) + '</span><input type="file" id="pmf-file" style="display:none;"></div>';
+}
+function pmSetPendingFile(file){
+  const it = pmItem(pmCurrentItemId);
+  if(!it || !file) return;
+  if(file.size > 20 * 1024 * 1024){ showBanner('pmItemBanner', 'That file is larger than 20 MB.', 'error'); return; }
+  pmPendingFile = file; pmUploaded = null;
+  document.getElementById('pmItemBanner').style.display = 'none';
+  pmRefreshDropText();
+}
+function pmRefreshDropText(){
+  const it = pmItem(pmCurrentItemId), box = document.getElementById('pmf-drop-text');
+  if(it && box) box.innerHTML = pmDropTextHtml(it);
+}
+async function pmUploadEvidence(it, file){
+  if(vaReadOnly()) throw new Error('Preview mode is read-only -- exit "View as user" to upload.');
+  const { data } = await db.auth.getSession();
+  const token = data && data.session && data.session.access_token;
+  if(!token) throw new Error('Your session has expired -- please sign in again.');
+  const fd = new FormData(); fd.append('item_id', it.id); fd.append('file', file);
+  let res;
+  try{
+    res = await fetch(CONFIG.supabaseUrl + '/functions/v1/upload-project-file', { method:'POST', headers:{ Authorization:'Bearer ' + token, apikey:CONFIG.supabaseAnonKey }, body:fd });
+  }catch(e){ throw new Error('Could not reach the upload service. Check your connection and try again.'); }
+  let out = {};
+  try{ out = await res.json(); }catch(e){ /* not JSON */ }
+  if(res.status === 404) throw new Error('The upload service is not set up yet (Edge Function upload-project-file). Paste a link instead for now.');
+  if(!res.ok || !out.url) throw new Error(out.error || 'The file could not be uploaded (' + res.status + ').');
+  return { url:out.url, name:out.file_name };
+}
+
 function pmFormBlock(mode, it, s){
   const cancel = '<button class="btn small" data-pm-mode="">Cancel</button>';
   const ta = (id, ph)=> `<div class="field"><textarea id="${id}" placeholder="${ph}"></textarea></div>`;
   if(mode === 'close') return `<div class="pm-form"><div class="pm-section-title" style="margin-top:0;">File closure</div>
     <div class="row2"><div class="field"><label>Completed on</label><input type="date" id="pmf-date" value="${pmToday()}" max="${pmToday()}"></div>
-    <div class="field"><label>Evidence link <span style="text-transform:none; letter-spacing:0;">(optional -- OneDrive / SharePoint)</span></label><input type="text" id="pmf-url" placeholder="https://…"></div></div>
+    <div class="field">${pmUploadFieldHtml(it)}</div></div>
     <div class="field"><label>Remarks</label><textarea id="pmf-remarks" placeholder="What was done, reference numbers, anything the reviewer should know"></textarea></div>
     <div style="display:flex; gap:8px;"><button class="btn primary" data-pm-do="submit">Submit for review</button>${cancel}</div></div>`;
   if(mode === 'approve') return `<div class="pm-form"><div class="pm-section-title" style="margin-top:0;">Approve closure</div>${ta('pmf-note', 'Note (optional)')}<div style="display:flex; gap:8px;"><button class="btn primary" data-pm-do="approve">Approve &amp; close</button>${cancel}</div></div>`;
@@ -10772,13 +10952,15 @@ function pmRenderItemModal(){
     ${tpl ? '' : row('Planned date', pmFmt(s.baseline))}
     ${tpl ? '' : row('Due date', pmFmt(s.dd) + (it.forecast_override ? ' ⟳' : ''))}
     ${tpl ? '' : row('Revised due date', `<span class="${state.key === 'overdue' ? 'pm-late' : ''}">${pmFmt(s.due)}</span>`)}
-    ${tpl ? '' : row('Completed on', pmFmt(s.actual))}
-    ${tpl ? '' : row('Closed on', pmFmt(it.closure_date))}
+    ${tpl ? '' : row('Completed on', pmFmt(s.actual) + (s.actual ? pmStamp('submitted') : ''))}
+    ${tpl ? '' : row('Closed on', pmFmt(it.closure_date) + (it.closure_date && it.status === 'closed' ? pmStamp('approved') : ''))}
     ${tpl ? '' : row('Slip vs plan', s.slip == null ? '—' : (s.slip > 0 ? '+' : '') + s.slip + ' days')}
     ${it.annex ? row('Annex / note', pmEsc(it.annex), true) : ''}
     ${it.reschedule_reason && it.forecast_override ? row('Due date moved because', pmEsc(it.reschedule_reason), true) : ''}
     ${it.is_blocked && it.status === 'open' ? row('Blocker', pmEsc(it.blocker_note || ''), true) : ''}
-    ${it.evidence_url ? row('Evidence', pmSafeLink(it.evidence_url), true) : ''}
+    ${tpl || !('file_required' in it) ? '' : row('Evidence file', it.file_required ? '<b>Mandatory</b> before closure' : 'Optional')}
+    ${pmItemFiles.length ? row('Files', pmItemFiles.map(f=> '<div><a href="' + pmEsc(f.url) + '" target="_blank" rel="noopener" style="color:var(--accent);">📎 ' + pmEsc(f.file_name) + '</a> <span class="pm-sub">· ' + pmEsc(pmWho(f.uploaded_by)) + ', ' + pmEsc(fmtDateTime(f.uploaded_at)) + '</span></div>').join(''), true) : ''}
+    ${it.evidence_url && !pmItemFiles.some(f=> f.url === it.evidence_url) ? row('Evidence', pmSafeLink(it.evidence_url), true) : ''}
     ${it.closure_remarks ? row(it.status === 'waived' ? 'Reason' : 'Closure remarks', pmEsc(it.closure_remarks), true) : ''}
   </div>`;
 
@@ -10832,8 +11014,18 @@ async function pmDo(action){
   document.querySelectorAll('#pmItemBody [data-pm-do]').forEach(b=> b.disabled = true);
   try{
     if(action === 'submit'){
-      const url = val('pmf-url');
+      let url = val('pmf-url');
       if(url && !/^https?:\/\//i.test(url)) throw new Error('The evidence link must start with http:// or https://');
+      if(it.file_required && !(pmUploaded && pmUploaded.itemId === id) && !pmPendingFile && !pmItemFiles.length){
+        throw new Error('A file upload is mandatory for this item. Please upload the evidence file (drag it onto the box or click Browse), then submit again. The closure has not been saved.');
+      }
+      if(pmUploaded && pmUploaded.itemId === id) url = pmUploaded.url;               // saved earlier; the closure failed and is being retried
+      else if(pmPendingFile){
+        showBanner('pmItemBanner', 'Uploading the file to the project folder… please wait.', 'success');
+        const up = await pmUploadEvidence(it, pmPendingFile);
+        pmUploaded = { itemId:id, url:up.url, name:up.name }; pmPendingFile = null; url = up.url;
+        pmRefreshDropText();
+      }
       await rpc('pm_submit_closure', { p_item_id:id, p_completion_date:need(val('pmf-date'), 'Pick the completion date'), p_remarks:val('pmf-remarks') || null, p_evidence_url:url || null });
     } else if(action === 'approve') await rpc('pm_review_item', { p_item_id:id, p_approve:true, p_note:val('pmf-note') || null });
     else if(action === 'sendback') await rpc('pm_review_item', { p_item_id:id, p_approve:false, p_note:need(val('pmf-note'), 'Please say what needs to be corrected') });
@@ -10845,7 +11037,7 @@ async function pmDo(action){
     else if(action === 'resched-clear') await rpc('pm_reschedule_item', { p_item_id:id, p_new_date:null, p_reason:null });
     else if(action === 'waive') await rpc('pm_waive_item', { p_item_id:id, p_reason:need(val('pmf-note'), 'A reason is required') });
     else if(action === 'comment') await rpc('pm_add_comment', { p_item_id:id, p_message:need(val('pmf-comment'), 'Write a comment first') });
-    pmItemMode = '';
+    pmItemMode = ''; pmPendingFile = null; pmUploaded = null;
     document.getElementById('pmItemBanner').style.display = 'none';
     await pmLoadAll();
     await pmLoadItemLog(id);
@@ -10885,6 +11077,8 @@ function pmOpenEdit(itemId, kind, parentId, projectId){
   document.getElementById('pme-annex').value = it ? (it.annex || '') : '';
   document.getElementById('pme-offset').value = it && it.offset_days != null ? it.offset_days : 0;
   document.getElementById('pme-note').value = it ? (it.timeline_note || '') : '';
+  document.getElementById('pme-filereq').checked = !!(it && it.file_required);
+  document.getElementById('pme-filereq').closest('.field').style.display = (pmItems.length && !('file_required' in pmItems[0])) ? 'none' : '';
 
   const kpis = pmKpis(pid);
   document.getElementById('pme-parent').innerHTML = kpis.map(x=> `<option value="${x.id}">${pmEsc((x.event_code ? x.event_code + ' · ' : '') + x.title)}</option>`).join('');
@@ -10909,6 +11103,21 @@ function pmOpenEdit(itemId, kind, parentId, projectId){
   pmChecksHtml('pme-contrib', pmStaff().map(p=> ({ value:p.id, label:p.display_name })), it ? it.contributors : []);
   document.getElementById('pmEditDeleteBtn').style.display = it ? '' : 'none';
   document.getElementById('pmEditOverlay').style.display = 'flex';
+}
+
+// one-click switch in the charter: evidence file mandatory / optional for this KPI or activity (admins)
+async function pmToggleFileRequired(id){
+  const it = pmItem(id);
+  if(!it || !pmIsAdmin()) return;
+  if(!('file_required' in it)){ showBanner('pmBanner', 'Run supabase-project-file-required.sql in the Supabase SQL Editor first.', 'error'); return; }
+  try{
+    const { error } = await db.from('pm_items').update({ file_required: !it.file_required }).eq('id', id);
+    if(error) throw error;
+    await pmLoadAll();
+    pmRenderAll();
+  }catch(err){
+    showBanner('pmBanner', 'Could not change the setting: ' + err.message, 'error');
+  }
 }
 
 function pmAnchorCycle(projectId, selfCode, newAnchor){
@@ -10943,6 +11152,7 @@ async function pmSaveEdit(){
       offset_days: isNaN(offset) ? 0 : offset,
       timeline_note: val('pme-note') || null
     };
+    if(pmItems.length && 'file_required' in pmItems[0]) payload.file_required = document.getElementById('pme-filereq').checked;
     if(!isTpl){
       payload.owner_id = document.getElementById('pme-owner').value || null;
       payload.reviewer_id = document.getElementById('pme-reviewer').value || null;
@@ -11321,6 +11531,7 @@ async function pmSaveProject(){
       if(error) throw error;
       await pmLoadAll();
       pmOpenProject(data);
+      pmRefreshFolderSoon();
     }
     document.getElementById('pmProjectOverlay').style.display = 'none';
     pmRenderAll();
@@ -11408,6 +11619,10 @@ async function pmSaveTeams(){
 function attachProjectEvents(){
   const view = document.getElementById('projectsView');
   view.addEventListener('click', (e)=>{
+    // project folder: the link opens the folder (not the project); the button asks for the folder to be created
+    if(e.target.closest('[data-pm-folder-link]')){ e.stopPropagation(); return; }
+    const fbtn = e.target.closest('[data-pm-folder]');
+    if(fbtn){ e.stopPropagation(); fbtn.disabled = true; pmRequestFolder(Number(fbtn.dataset.pmFolder)); return; }
     // "Why is this project delayed?" line on a card: show that project's details under the cards
     const hd = e.target.closest('[data-pm-hdelay]');
     if(hd){
@@ -11419,7 +11634,7 @@ function attachProjectEvents(){
     }
     if(e.target.closest('[data-pm-hdelay-hide]')){ e.preventDefault(); pmHomeDelayId = null; pmRenderProjectCards(); return; }
     if(e.target.closest('[data-pm-delay]')){ pmDelayOpen = !pmDelayOpen; pmRenderDelayPanel(pmProject(pmCurrentProjectId)); return; }
-    const t = e.target.closest('[data-pm-kpi],[data-pm-sumstat],[data-pm-sum],[data-pm-clearfocus],[data-pm-home],[data-pm-open],[data-pm-back],[data-pm-tab],[data-pm-item],[data-pm-toggle],[data-pm-edit],[data-pm-addact],[data-pm-move],[data-pm-print],[data-pm-csv],[data-pm-addkpi],[data-pm-fill],[data-pm-editproject]');
+    const t = e.target.closest('[data-pm-kpi],[data-pm-sumstat],[data-pm-sum],[data-pm-clearfocus],[data-pm-home],[data-pm-open],[data-pm-back],[data-pm-tab],[data-pm-item],[data-pm-toggle],[data-pm-edit],[data-pm-addact],[data-pm-move],[data-pm-filereq],[data-pm-print],[data-pm-csv],[data-pm-addkpi],[data-pm-fill],[data-pm-editproject]');
     if(!t) return;
     const d = t.dataset;
     if(d.pmKpi){
@@ -11439,6 +11654,7 @@ function attachProjectEvents(){
     else if(d.pmEdit){ pmOpenEdit(Number(d.pmEdit)); }
     else if(d.pmAddact){ pmOpenEdit(null, 'activity', Number(d.pmAddact), pmCurrentProjectId); }
     else if(d.pmMove){ const m = d.pmMove.split(':'); pmMoveItem(Number(m[0]), Number(m[1])); }
+    else if(d.pmFilereq){ pmToggleFileRequired(Number(d.pmFilereq)); }
     else if('pmPrint' in d){ pmPrintCharter(); }
     else if('pmCsv' in d){ pmExportCsv(); }
     else if('pmAddkpi' in d){ pmOpenEdit(null, 'kpi', null, pmCurrentProjectId); }
@@ -11468,13 +11684,24 @@ function attachProjectEvents(){
   const itemOverlay = document.getElementById('pmItemOverlay');
   itemOverlay.addEventListener('click', (e)=>{
     if(e.target.id === 'pmItemOverlay'){ pmCloseItem(); return; }
+    if(e.target.closest('[data-pm-browse]')){ const inp = document.getElementById('pmf-file'); if(inp) inp.click(); return; }
+    if(e.target.closest('[data-pm-clearfile]')){ pmPendingFile = null; pmRefreshDropText(); const inp = document.getElementById('pmf-file'); if(inp) inp.value = ''; return; }
     const t = e.target.closest('[data-pm-mode],[data-pm-do],[data-pm-item],[data-pm-edit-this]');
     if(!t) return;
     const d = t.dataset;
-    if('pmMode' in d){ pmItemMode = d.pmMode; document.getElementById('pmItemBanner').style.display = 'none'; pmRenderItemModal(); }
+    if('pmMode' in d){ pmItemMode = d.pmMode; document.getElementById('pmItemBanner').style.display = 'none'; pmPendingFile = null; pmRenderItemModal(); }
     else if(d.pmDo){ pmDo(d.pmDo); }
     else if(d.pmItem){ pmOpenItem(Number(d.pmItem)); }
     else if(d.pmEditThis){ pmOpenEdit(Number(d.pmEditThis)); }
+  });
+  // evidence file: chosen with Browse, or dragged onto the drop box (a stray drop elsewhere must not make the browser open the file)
+  itemOverlay.addEventListener('change', (e)=>{ if(e.target.id === 'pmf-file' && e.target.files[0]) pmSetPendingFile(e.target.files[0]); });
+  itemOverlay.addEventListener('dragover', (e)=>{ e.preventDefault(); const z = e.target.closest('.pm-drop'); if(z) z.classList.add('over'); });
+  itemOverlay.addEventListener('dragleave', (e)=>{ const z = e.target.closest('.pm-drop'); if(z) z.classList.remove('over'); });
+  itemOverlay.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    const z = e.target.closest('.pm-drop');
+    if(z){ z.classList.remove('over'); if(e.dataTransfer.files && e.dataTransfer.files[0]) pmSetPendingFile(e.dataTransfer.files[0]); }
   });
   document.getElementById('pmItemCloseBtn').addEventListener('click', pmCloseItem);
 
@@ -11699,6 +11926,7 @@ function init(){
   });
   document.getElementById('newTaskForm').addEventListener('submit', handleNewTaskSubmit);
   document.getElementById('newTaskBtn').addEventListener('click', openNewTaskModal);
+  ['cloudAlertCloseBtn', 'cloudAlertOkBtn'].forEach(id=> document.getElementById(id).addEventListener('click', ()=> { document.getElementById('cloudAlertOverlay').style.display = 'none'; }));
   attachHomeEvents();
   document.getElementById('newTaskCloseBtn').addEventListener('click', closeNewTaskModal);
   document.getElementById('newTaskOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'newTaskOverlay') closeNewTaskModal(); });
