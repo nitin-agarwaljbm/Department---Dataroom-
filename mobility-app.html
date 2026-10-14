@@ -318,6 +318,21 @@
   .badge.pending_approval{background:var(--pending-bg); color:var(--pending);} .badge.pending_approval::before{background:var(--pending);}
   .badge.approved{background:var(--ontrack-bg); color:var(--ontrack);} .badge.approved::before{background:var(--ontrack);}
   .badge.pending_feedback{background:var(--overdue-bg); color:var(--overdue);} .badge.pending_feedback::before{background:var(--overdue);}
+  .badge.closure_pending{background:rgba(232,129,43,.16); color:#E8812B;} .badge.closure_pending::before{background:#E8812B;}
+  .kpi.closurepending::before{background:#E8812B;}
+  .badge.received{background:rgba(79,140,255,.16); color:#4F8CFF;} .badge.received::before{background:#4F8CFF;}
+  .kpi.received::before{background:#4F8CFF;}
+  .pp{position:relative;}
+  .pp-menu{position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:70; max-height:220px; overflow-y:auto; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 28px rgba(0,0,0,0.35);}
+  .pp-menu[hidden]{display:none;}
+  .pp-item{display:flex; justify-content:space-between; gap:14px; padding:8px 12px; cursor:pointer; font-size:calc(12.5px * var(--fs));}
+  .pp-item small{color:var(--muted); font-size:calc(11.5px * var(--fs));}
+  .pp-item.active, .pp-item:hover{background:var(--accent-tint); color:var(--accent);}
+  .pp-empty{padding:8px 12px; color:var(--muted); font-size:calc(12px * var(--fs));}
+  .lc-record{border:1px solid var(--border); border-radius:10px; background:var(--panel); padding:10px 12px; font-size:calc(12.5px * var(--fs));}
+  .lc-record.pending{border-color:#E8812B;}
+  .lc-record .lc-files a{color:var(--accent); text-decoration:none; display:inline-block; margin:2px 12px 2px 0;}
+  .lc-record .lc-stamp{color:var(--muted); font-size:calc(11.5px * var(--fs)); margin-top:2px;}
   .badge.open{background:var(--pending-bg); color:var(--pending);} .badge.open::before{background:var(--pending);}
   .badge.completed{background:var(--ontrack-bg); color:var(--ontrack);} .badge.completed::before{background:var(--ontrack);}
   .badge.invited{background:var(--closed-bg); color:var(--closed);} .badge.invited::before{background:var(--closed);}
@@ -698,6 +713,21 @@
   .pm-info-row > span:first-child{color:var(--muted); flex:none;}
   .pm-info-row > span:last-child{text-align:right; min-width:0; overflow-wrap:anywhere;}
   .pm-info-row.full{grid-column:1/-1;}
+  /* earlier due dates: a small "+" next to the due date opens a floating card (it overlays the page, so the lines below do not move) */
+  .pm-due-wrap{position:relative;}
+  .pm-due-plus{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:6px; padding:0; border:1px solid var(--border); border-radius:5px; background:var(--panel-2); color:var(--accent); font-size:14px; line-height:1; font-weight:700; cursor:pointer; vertical-align:middle;}
+  .pm-due-plus:hover{border-color:var(--accent);}
+  .pm-due-card{position:absolute; top:calc(100% + 4px); right:0; z-index:30; width:min(380px, 88vw); text-align:left; background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.35); padding:10px 12px;}
+  .pm-due-card[hidden]{display:none;}
+  .pm-due-card h5{margin:0 0 6px; font-size:calc(11.5px * var(--fs)); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700;}
+  .pm-due-chg{border-top:1px solid var(--border); padding:7px 0; font-size:calc(12.5px * var(--fs));}
+  .pm-due-chg:first-of-type{border-top:none;}
+  .pm-due-chg .was{text-decoration:line-through; color:var(--muted);}
+  .pm-due-chg .why{margin-top:2px;}
+  .pm-due-mv{border:none; background:none; color:inherit; cursor:pointer; padding:0 2px; font:inherit; border-radius:4px;}
+  .pm-due-mv:hover, .pm-due-mv[aria-expanded="true"]{color:var(--accent);}
+  .pm-due-pop{position:fixed; right:auto; z-index:1300;}
+  .pm-due-chg .by{margin-top:2px; font-size:calc(11.5px * var(--fs)); color:var(--muted);}
   .pm-actions{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0;}
   .pm-form{background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
   .pm-log-item{border-left:2px solid var(--border); padding:6px 0 6px 12px; margin-left:4px; font-size:calc(12.5px * var(--fs));}
@@ -1200,7 +1230,9 @@
                 <option value="pending_modification">Pending modification</option>
                 <option value="pending_approval">Pending approval</option>
                 <option value="pending_feedback">Pending feedback</option>
-                <option value="approved">Approved</option>
+                <option value="closure_pending">Approved — closure pending</option>
+                <option value="received">Received (incoming letters)</option>
+                <option value="approved">Approved &amp; closed</option>
               </select>
             </div>
             <div class="filter-group"><label>Date From</label><input type="date" class="filter-input" id="lf-date-from"></div>
@@ -1689,7 +1721,7 @@
       <form id="newLetterForm">
         <div class="row4">
           <div class="field">
-            <label>Reference Number</label>
+            <label id="nl-ref-label">Reference Number</label>
             <input type="text" id="nl-ref-preview" disabled placeholder="Auto-generated on save">
           </div>
           <div class="field">
@@ -1729,7 +1761,7 @@
             <input type="text" id="nl-address-display" class="field-compact" disabled>
           </div>
           <div class="field">
-            <label>Addressed To (person name)</label>
+            <label id="nl-person-label">Addressed To (person name)</label>
             <input type="text" id="nl-person">
           </div>
         </div>
@@ -1747,7 +1779,7 @@
           </div>
         </div>
         <div class="field">
-          <label>Letter Body</label>
+          <label id="nl-body-label">Letter Body</label>
           <div class="rte-toolbar" data-rte-toolbar-for="nl-body">
             <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
             <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
@@ -1781,7 +1813,7 @@
             <div class="rte-resize-overlay" id="nl-body-overlay"></div>
           </div>
         </div>
-        <div class="row2">
+        <div class="row2" id="nl-sign-row">
           <div class="field">
             <label>Signing Authority Name</label>
             <input type="text" id="nl-sign-name">
@@ -1791,11 +1823,11 @@
             <input type="text" id="nl-sign-desig">
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="nl-encl-field">
           <label>Enclosures <span style="text-transform:none; letter-spacing:0;">(optional)</span></label>
           <input type="text" id="nl-encl" placeholder="e.g. Annexure A, Copy of agreement">
         </div>
-        <div class="row3">
+        <div class="row3" id="nl-people-row">
           <div class="field">
             <label>Preparer <span style="text-transform:none; letter-spacing:0;">(you)</span></label>
             <input type="text" id="nl-preparer-display" disabled>
@@ -1807,6 +1839,18 @@
           <div class="field">
             <label>Approver</label>
             <select id="nl-approver" required></select>
+          </div>
+        </div>
+        <div id="nl-inbound-extra" style="display:none;">
+          <div class="field">
+            <label>Letter Received <span style="text-transform:none; letter-spacing:0;">(required — attach the scan / photo of the letter received)</span></label>
+            <div class="pm-drop" id="nl-drop"><span>📎 Drag files here, or <button type="button" class="btn small" id="nl-browse">Browse…</button></span>
+              <div id="nl-files" class="pm-sub" style="margin-top:6px; text-align:left;"></div></div>
+            <input type="file" id="nl-file-input" multiple style="display:none;">
+          </div>
+          <div class="field">
+            <label>Share with <span style="text-transform:none; letter-spacing:0;">(they can open this letter for information and future correspondence with the authority)</span></label>
+            <div class="pp" id="nl-share-wrap"><input type="text" id="nl-share" autocomplete="off" placeholder="Type a name or e-mail (e.g. Ad…) and pick from the list — people are separated by ;"><div class="pp-menu" id="nl-share-menu" hidden></div></div>
           </div>
         </div>
         <button type="submit" class="btn primary" id="nlSubmitBtn" style="width:100%; justify-content:center; padding:11px;">Save Draft</button>
@@ -1866,7 +1910,7 @@
           <input type="text" id="ld-address" class="field-compact" disabled>
         </div>
         <div class="field">
-          <label>Addressed To (person name)</label>
+          <label id="ld-person-label">Addressed To (person name)</label>
           <input type="text" id="ld-person">
         </div>
       </div>
@@ -1884,7 +1928,7 @@
         </div>
       </div>
       <div class="field">
-        <label>Letter Body</label>
+        <label id="ld-body-label">Letter Body</label>
         <div class="rte-view-controls" id="ld-view-controls">
           <button type="button" class="btn small active" id="ld-view-clean" data-view="clean">Clean copy</button>
           <button type="button" class="btn small" id="ld-view-track" data-view="track">Track changes</button>
@@ -1924,7 +1968,7 @@
           <div class="rte-resize-overlay" id="ld-body-overlay"></div>
         </div>
       </div>
-      <div class="row2">
+      <div class="row2" id="ld-sign-row">
         <div class="field">
           <label>Signing Authority Name</label>
           <input type="text" id="ld-sign-name">
@@ -1934,11 +1978,11 @@
           <input type="text" id="ld-sign-desig">
         </div>
       </div>
-      <div class="field">
+      <div class="field" id="ld-encl-field">
         <label>Enclosures</label>
         <input type="text" id="ld-encl">
       </div>
-      <div class="row3">
+      <div class="row3" id="ld-people-row">
         <div class="field">
           <label>Preparer</label>
           <select id="ld-preparer" disabled></select>
@@ -1952,14 +1996,52 @@
           <select id="ld-approver" disabled></select>
         </div>
       </div>
+      <div class="field" id="letterReceivedField" style="display:none;">
+        <label>Letter received <span style="text-transform:none; letter-spacing:0;">(attachment required — at least one file stays attached)</span></label>
+        <div id="ld-rcv-files"></div>
+        <div id="ld-rcv-add" style="margin-top:6px;">
+          <div class="pm-drop" id="ld-rcv-drop"><span>📎 Drag files here, or <button type="button" class="btn small" id="ld-rcv-browse">Browse…</button> to add more</span>
+            <div id="ld-rcv-status" class="pm-sub" style="margin-top:6px; text-align:left;"></div></div>
+          <input type="file" id="ld-rcv-input" multiple style="display:none;">
+        </div>
+        <label style="margin-top:12px;">Shared with <span style="text-transform:none; letter-spacing:0;">(for information and future correspondence)</span></label>
+        <div class="pp" id="ld-share-wrap"><input type="text" id="ld-share" autocomplete="off" placeholder="Type a name or e-mail (e.g. Ad…) and pick from the list — people are separated by ;"><div class="pp-menu" id="ld-share-menu" hidden></div></div>
+        <div id="ld-share-text" style="display:none;"></div>
+      </div>
       <div class="field">
         <label>Status</label>
         <div id="ld-status-badge"></div>
+      </div>
+      <div class="field" id="letterClosureField" style="display:none;">
+        <label>Closure <span style="text-transform:none; letter-spacing:0;">(signed letter submitted to the authority)</span></label>
+        <div id="letterClosureRecord"></div>
       </div>
       <div id="letterDetailSaveWrap">
         <button class="btn primary" id="letterDetailSaveBtn" style="width:100%; justify-content:center; padding:11px; margin-bottom:12px;">Save Changes</button>
       </div>
       <div id="letterWorkflowActions" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- LETTER CLOSURE WINDOW (preparer files the signed copy of an approved outgoing letter) ---------- -->
+<div id="letterClosureOverlay" class="modal-overlay modal-nested" style="display:none;">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="panel-title" style="border:none; margin:0; padding:0;">Close letter</div>
+      <button class="btn small" id="lcCloseBtn">✕ Close</button>
+    </div>
+    <div id="lcBanner" class="banner"></div>
+    <div class="modal-body">
+      <div class="pm-meta" id="lcLetter" style="margin-bottom:10px;"></div>
+      <div class="field"><label>Date the signed letter was submitted to the authority</label><input type="date" id="lc-date"></div>
+      <div class="field"><label>Remarks <span style="text-transform:none; letter-spacing:0;">(optional — how and to whom it was submitted, acknowledgement no., etc.)</span></label>
+        <textarea id="lc-remarks" placeholder="e.g. Hand-delivered at the Commissioner's office, receipt no. 1234"></textarea></div>
+      <div class="field"><label>Signed letter <span style="text-transform:none; letter-spacing:0;">(required — scan / photo of the signed and submitted letter)</span></label>
+        <div class="pm-drop" id="lc-drop"><span>📎 Drag files here, or <button type="button" class="btn small" id="lc-browse">Browse…</button></span>
+          <div id="lc-pending" class="pm-sub" style="margin-top:6px; text-align:left;"></div></div>
+        <input type="file" id="lc-file-input" multiple style="display:none;"></div>
+      <button class="btn primary" id="lcConfirmBtn" style="width:100%; justify-content:center; padding:11px;">Close letter</button>
     </div>
   </div>
 </div>
@@ -2717,7 +2799,7 @@ function vaTaskVisible(t, uid){
   return t.who === uid || t.reviewer === uid || t.created_by === uid || (t.contributors || []).includes(uid);
 }
 function vaLetterVisible(l, uid){
-  return l.preparer === uid || l.modifier === uid || l.approver === uid || l.created_by === uid || l.pending_with === uid;
+  return l.preparer === uid || l.modifier === uid || l.approver === uid || l.created_by === uid || l.pending_with === uid || (l.shared_with || []).includes(uid);
 }
 
 function userCanSeeTab(profile, tabKey){
@@ -5084,13 +5166,13 @@ function homeCollect(){
     const isOwnerL = l=> l.preparer === me;
     const isRevL = l=> l.modifier === me || l.approver === me || l.pending_with === me;
     const scope = rawLetters.filter(l=> role === 'owner' ? isOwnerL(l) : role === 'reviewer' ? isRevL(l) : true);
-    const ownerMove = l=> l.workflow_status === 'draft' && l.preparer === me;
+    const ownerMove = l=> (l.dstatus === 'draft' || l.dstatus === 'closure_pending') && l.preparer === me;
     const revMove = l=> (l.workflow_status === 'pending_modification' && l.modifier === me) || (l.workflow_status === 'pending_approval' && l.approver === me) || (l.workflow_status === 'pending_feedback' && l.pending_with === me);
     const mine = rawLetters.filter(l=> (asOwner && ownerMove(l)) || (asRev && revMove(l)));
     const by = {};
-    scope.forEach(l=> { if(l.workflow_status !== 'approved') by[l.workflow_status] = (by[l.workflow_status] || 0) + 1; });
+    scope.forEach(l=> { if(l.dstatus !== 'approved' && l.dstatus !== 'received') by[l.dstatus] = (by[l.dstatus] || 0) + 1; });
     card.letters = { mine:mine.length, pipeline:Object.keys(by).reduce((n, k)=> n + by[k], 0), by };
-    mine.forEach(l=> act.push({ mod:'letter', title:l.subject || l.reference_number, sub:[l.reference_number, l.company_name, letterStatusLabel(l.workflow_status)].filter(Boolean).join(' · '), days:null, score:350, open:'letter:' + l.id, actions:letterActionCellFor(l) }));
+    mine.forEach(l=> act.push({ mod:'letter', title:l.subject || l.reference_number, sub:[l.reference_number, l.company_name, letterStatusLabel(l.dstatus)].filter(Boolean).join(' · '), days:null, score:350, open:'letter:' + l.id, actions:letterActionCellFor(l) }));
   }
   // ---- tenders ----
   if(homeCan('tendersView') && rawTenders.length){
@@ -5190,7 +5272,7 @@ function renderHome(){
       ${stack([[all.escalation || 0, COLORS.escalation, 'Escalation'], [all.overdue || 0, COLORS.overdue, 'Overdue'], [all.duesoon || 0, COLORS.duesoon, 'Due soon'], [all.ontrack || 0, COLORS.ontrack, 'On track'], [all.pending_review || 0, COLORS.pending_review, 'Pending review']])}</div>`);
   }
   if(card.letters){
-    const c = card.letters, col = { draft:'#6E7A90', pending_modification:'#E0A458', pending_approval:'#9E7BE0', pending_feedback:'#E2574C' };
+    const c = card.letters, col = { draft:'#6E7A90', pending_modification:'#E0A458', pending_approval:'#9E7BE0', pending_feedback:'#E2574C', closure_pending:'#E8812B' };
     cards.push(`<div class="hm-card" style="--c:${HM_COLOR.letter};" data-home-go="lettersView"><div class="hm-card-label"><span>Letters</span><span>›</span></div>
       <div class="hm-big">${c.mine}<small>waiting on me</small></div>
       <div class="hm-chips">${pmChip('neutral', c.pipeline + ' in the pipeline')}${c.mine ? pmChip('warn', 'your move') : pmChip('ok', 'Nothing urgent')}</div>
@@ -5313,7 +5395,7 @@ function renderHome(){
   }
   const lcv = document.getElementById('homeLetterChart');
   if(lcv){
-    const keys = ['draft', 'pending_modification', 'pending_approval', 'pending_feedback'], col = ['#6E7A90', '#E0A458', '#9E7BE0', '#E2574C'];
+    const keys = ['draft', 'pending_modification', 'pending_approval', 'pending_feedback', 'closure_pending'], col = ['#6E7A90', '#E0A458', '#9E7BE0', '#E2574C', '#E8812B'];
     homeCharts.letter = new Chart(lcv, { type:'bar', data:{ labels:keys.map(letterStatusLabel), datasets:[{ data:keys.map(k=> card.letters.by[k] || 0), backgroundColor:col, borderRadius:5, maxBarThickness:24 }] },
       options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:axis, y:yaxis } } });
   }
@@ -5966,12 +6048,32 @@ async function loadTasks(){
 
 function letterDirectionLabel(d){ return d === 'inbound' ? 'Inbound' : 'Outbound'; }
 function letterStatusLabel(s){
-  return { draft:'Draft', pending_modification:'Pending Modification', pending_approval:'Pending Approval', pending_feedback:'Pending Feedback', approved:'Approved' }[s] || s;
+  return { draft:'Draft', pending_modification:'Pending Modification', pending_approval:'Pending Approval', pending_feedback:'Pending Feedback', closure_pending:'Approved — Closure Pending', received:'Received', approved:'Approved' }[s] || s;
+}
+
+// An approved OUTGOING letter still needs its closure (signed copy filed) -> shown as "Approved — Closure Pending".
+// The closure tables exist once supabase-letter-closure.sql has been run; until then letters show as before.
+let letterClosureOn = false;
+let letterClosures = {};       // letter_id -> closure row
+let letterFilesAll = [];       // signed-copy files of closed letters
+function letterDStatus(l){
+  if(l.received_entry) return 'received';
+  if(l.workflow_status !== 'approved') return l.workflow_status;
+  return (l.direction === 'outbound' && letterClosureOn && !letterClosures[l.id]) ? 'closure_pending' : 'approved';
+}
+function letterBadgeHtml(l){
+  const label = l.dstatus === 'approved' ? (l.closure ? 'Approved · Closed' : 'Approved') : letterStatusLabel(l.dstatus);
+  return `<span class="badge ${l.dstatus}">${label}</span>`;
+}
+function letterCanClose(l){
+  return !!(myProfile && l.dstatus === 'closure_pending' && (l.preparer === myProfile.id || l.created_by === myProfile.id || myProfile.is_admin) && !vaReadOnly());
 }
 
 function enrichLetters(letters){
   return letters.map(l=>({
     ...l,
+    closure: letterClosures[l.id] || null,
+    dstatus: letterDStatus(l),
     preparerName: nameOf(l.preparer),
     modifierName: nameOf(l.modifier),
     approverName: nameOf(l.approver)
@@ -6445,7 +6547,7 @@ function renderPastRefCheckboxList(containerId, candidates, selectedIds){
 function handleNlCompanyChange(){
   const id = document.getElementById('nl-company').value;
   const c = rawCompanies.find(x=> String(x.id) === String(id));
-  document.getElementById('nl-ref-preview').value = c ? refPreviewFor(c.name) : '';
+  if(!nlIsInbound()) document.getElementById('nl-ref-preview').value = c ? refPreviewFor(c.name) : '';
   setCompactAddressField('nl-company-address-display', c ? c.address : '');
 }
 
@@ -6468,6 +6570,12 @@ function handleLdStakeholderChange(){
 async function loadLetters(){
   const { data, error } = await db.from('letters').select('*');
   if(error) throw error;
+  const [cl, fl] = await Promise.all([db.from('letter_closure').select('*'), db.from('letter_files').select('*').order('seq')]);
+  letterClosureOn = !cl.error;
+  letterClosures = {}; (cl.error ? [] : cl.data).forEach(c=> { letterClosures[c.letter_id] = c; });
+  letterFilesAll = fl.error ? [] : fl.data;
+  const probe = await db.from('letters').select('received_entry, shared_with').limit(1);      // columns of supabase-letter-inbound.sql
+  letterInboundOn = !probe.error;
   rawLetters = enrichLetters(viewAsId ? data.filter(l=> vaLetterVisible(l, viewAsId)) : data);
   initLetterFilters();
   renderLetters();
@@ -6506,7 +6614,7 @@ function getFilteredLettersBase(opts){
 // Status filter to see them, same pattern as Tasks' "Active (excl. closed)".
 function applyLetterStatusFilter(letters){
   const status = document.getElementById('lf-status').value;
-  return letters.filter(l=> status ? l.workflow_status === status : l.workflow_status !== 'approved');
+  return letters.filter(l=> status ? l.dstatus === status : (l.dstatus !== 'approved' && l.dstatus !== 'received'));
 }
 
 function getFilteredLetters(opts){
@@ -6530,16 +6638,19 @@ function renderLetterKPIs(filtered){
   // Approved is counted independently of the current status selection (same
   // as Tasks' Closed KPI) so it stays accurate even though the default view
   // -- and therefore "filtered" -- excludes approved letters.
-  const approvedCount = getFilteredLettersBase().filter(l=>l.workflow_status==='approved').length;
-  const counts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0 };
-  filtered.forEach(l=>{ if(counts[l.workflow_status] !== undefined) counts[l.workflow_status]++; });
+  const approvedCount = getFilteredLettersBase().filter(l=>l.dstatus==='approved').length;
+  const receivedCount = getFilteredLettersBase().filter(l=>l.dstatus==='received').length;
+  const counts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0, closure_pending:0 };
+  filtered.forEach(l=>{ if(counts[l.dstatus] !== undefined) counts[l.dstatus]++; });
   const cards = [
     { cls:'total', label:'Total', value:filtered.length, sub:'active, excl. approved', status:null },
     { cls:'closed', label:'Draft', value:counts.draft, sub:'with preparer', status:'draft' },
     { cls:'duesoon', label:'Pending Modification', value:counts.pending_modification, sub:'with modifier', status:'pending_modification' },
     { cls:'pending', label:'Pending Approval', value:counts.pending_approval, sub:'with approver', status:'pending_approval' },
     { cls:'overdue', label:'Pending Feedback', value:counts.pending_feedback, sub:'forwarded out', status:'pending_feedback' },
-    { cls:'ontrack', label:'Approved', value:approvedCount, sub:'locked', status:'approved' }
+    ...(letterClosureOn ? [{ cls:'closurepending', label:'Closure Pending', value:counts.closure_pending, sub:'approved, signed copy awaited', status:'closure_pending' }] : []),
+    ...(letterInboundOn ? [{ cls:'received', label:'Received', value:receivedCount, sub:'incoming, recorded', status:'received' }] : []),
+    { cls:'ontrack', label:letterClosureOn ? 'Approved & Closed' : 'Approved', value:approvedCount, sub:'locked', status:'approved' }
   ];
   document.getElementById('letterKpiRow').innerHTML = cards.map(c=>`
     <div class="kpi ${c.cls}" data-status="${c.status||''}" style="cursor:pointer;"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>
@@ -6576,6 +6687,9 @@ function letterActionCellFor(l){
   if(l.workflow_status === 'pending_feedback' && isPendingWith){
     buttons.push(`<button class="btn small primary" data-letter-action="send_back_feedback" data-id="${l.id}">Send Back Feedback</button>`);
   }
+  if(letterCanClose(l)){
+    buttons.push(`<button class="btn small primary" data-letter-action="file_closure" data-id="${l.id}">File Closure</button>`);
+  }
   if(!buttons.length) return '<span style="color:var(--faint); font-size:11.5px;">—</span>';
   return `<div style="display:flex; gap:6px; flex-wrap:wrap;">${buttons.join('')}</div>`;
 }
@@ -6596,9 +6710,9 @@ function renderLettersTable(filtered){
         <td data-label="Stakeholder">${l.stakeholder_name || '—'}${l.stakeholder_type ? `<div class="activity-meta">${l.stakeholder_type}</div>` : ''}</td>
         <td data-label="Subject">${l.subject || '—'}</td>
         <td data-label="Preparer"><span class="who-chip">${l.preparerName}</span></td>
-        <td data-label="Modifier"><span class="who-chip">${l.modifierName}</span></td>
-        <td data-label="Approver"><span class="who-chip">${l.approverName}</span></td>
-        <td data-label="Status"><span class="badge ${l.workflow_status}">${letterStatusLabel(l.workflow_status)}</span></td>
+        <td data-label="Modifier">${l.received_entry ? '—' : '<span class="who-chip">' + l.modifierName + '</span>'}</td>
+        <td data-label="Approver">${l.received_entry ? '—' : '<span class="who-chip">' + l.approverName + '</span>'}</td>
+        <td data-label="Status">${letterBadgeHtml(l)}</td>
         <td data-label="Action">
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
             <button class="btn small" data-letter-log="${l.id}" title="View activity log">📜</button>
@@ -6635,8 +6749,8 @@ function renderLetterAuthorityList(){
   const rows = authorities.map(name=>{
     const items = scoped.filter(l=>l.stakeholder_name===name);
     const total = items.length;
-    const counts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0, approved:0 };
-    items.forEach(l=>{ if(counts[l.workflow_status] !== undefined) counts[l.workflow_status]++; });
+    const counts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0, closure_pending:0, received:0, approved:0 };
+    items.forEach(l=>{ if(counts[l.dstatus] !== undefined) counts[l.dstatus]++; });
     const pct = k => total ? (k/total*100) : 0;
     return { name, total, counts, pct };
   }).sort((a,b)=> b.total-a.total);
@@ -6650,6 +6764,8 @@ function renderLetterAuthorityList(){
         <div style="width:${r.pct(r.counts.pending_modification)}%;background:${COLORS.duesoon}"></div>
         <div style="width:${r.pct(r.counts.pending_approval)}%;background:${COLORS.pending_review}"></div>
         <div style="width:${r.pct(r.counts.pending_feedback)}%;background:${COLORS.overdue}"></div>
+        <div style="width:${r.pct(r.counts.closure_pending)}%;background:#E8812B"></div>
+        <div style="width:${r.pct(r.counts.received)}%;background:#4F8CFF"></div>
         <div style="width:${r.pct(r.counts.approved)}%;background:${COLORS.ontrack}"></div>
       </div>
     </div>
@@ -6665,12 +6781,12 @@ function renderLetterAuthorityList(){
 }
 
 function renderLetterCharts(filtered){
-  const statusCounts = { draft:0, pending_modification:0, pending_approval:0, approved:0 };
-  filtered.forEach(l=>{ if(statusCounts[l.workflow_status] !== undefined) statusCounts[l.workflow_status]++; });
-  const statusOrder = ['draft','pending_modification','pending_approval','pending_feedback','approved'];
+  const statusCounts = { draft:0, pending_modification:0, pending_approval:0, pending_feedback:0, closure_pending:0, received:0, approved:0 };
+  filtered.forEach(l=>{ if(statusCounts[l.dstatus] !== undefined) statusCounts[l.dstatus]++; });
+  const statusOrder = ['draft','pending_modification','pending_approval','pending_feedback','closure_pending','received','approved'];
   const statusLabels = statusOrder.map(letterStatusLabel);
   const activeLetterStatus = document.getElementById('lf-status').value;
-  const letterStatusColorMap = { draft:COLORS.closed, pending_modification:COLORS.duesoon, pending_approval:COLORS.pending_review, pending_feedback:COLORS.overdue, approved:COLORS.ontrack };
+  const letterStatusColorMap = { draft:COLORS.closed, pending_modification:COLORS.duesoon, pending_approval:COLORS.pending_review, pending_feedback:COLORS.overdue, closure_pending:'#E8812B', received:'#4F8CFF', approved:COLORS.ontrack };
   const statusColors = statusOrder.map(s=>{
     const base = letterStatusColorMap[s];
     return (!activeLetterStatus || activeLetterStatus===s) ? base : withAlpha(base, 0.25);
@@ -6712,6 +6828,10 @@ function renderLetterCharts(filtered){
 }
 
 async function handleLetterWorkflowAction(action, letterId){
+  if(action === 'file_closure'){
+    openLetterClosure(letterId);
+    return;
+  }
   if(action === 'forward_feedback'){
     openForwardFeedbackModal(letterId);
     return;
@@ -6748,13 +6868,261 @@ async function handleLetterWorkflowAction(action, letterId){
   }
 }
 
+// ---------------- incoming letters: recorded directly (no Modifier / Approver), received copy attached, shared with chosen people ----------------
+// Needs supabase-letter-inbound.sql; until it has been run, an incoming letter goes through the normal workflow as before.
+let letterInboundOn = false;
+let nlFiles = [];       // received copy chosen in the New Letter window (uploaded right after the letter is saved)
+function nlIsInbound(){ return letterInboundOn && document.getElementById('nl-direction').value === 'inbound'; }
+function letterCanEditContent(l){
+  if(!myProfile) return false;
+  if(l.received_entry) return l.created_by === myProfile.id || !!myProfile.is_admin;
+  return (l.workflow_status === 'draft' && l.preparer === myProfile.id)
+    || (l.workflow_status === 'pending_modification' && l.modifier === myProfile.id)
+    || (l.workflow_status === 'pending_approval' && l.approver === myProfile.id)
+    || (l.workflow_status === 'pending_feedback' && l.pending_with === myProfile.id);
+}
+function shareCandidates(){
+  return profiles.filter(p=> !p.is_vendor && (!myProfile || p.id !== myProfile.id)).slice().sort((a, b)=> a.display_name.localeCompare(b.display_name));
+}
+// "Share with": one box, people separated by ";" -- type part of a name or e-mail and pick from the matches (like the To: line of an e-mail)
+function ppDisplay(p){ return p.display_name; }      // the box shows names only; e-mail ids are shown in the drop-down while typing
+function ppTokens(text){ return text.split(';').map(t=> t.trim()).filter(Boolean); }
+function ppFind(token, cands){
+  const t = token.toLowerCase();
+  return cands.find(p=> ppDisplay(p, cands).toLowerCase() === t)
+    || cands.find(p=> (p.display_name || '').toLowerCase() === t)
+    || cands.find(p=> (p.email || '').toLowerCase() === t) || null;
+}
+function renderShareList(inputId, selectedIds){
+  const inp = document.getElementById(inputId), cands = shareCandidates();
+  const byId = new Map(cands.map(p=> [p.id, p]));
+  const chosen = (selectedIds || []).map(id=> byId.get(id)).filter(Boolean);
+  inp.value = chosen.length ? chosen.map(ppDisplay).join('; ') + '; ' : '';
+  inp._picked = chosen.slice();                 // the people picked from the list (two users can share a name)
+  if(!inp.dataset.ppReady){ inp.dataset.ppReady = '1'; ppWire(inp); }
+}
+function ppGetIds(inputId){
+  const inp = document.getElementById(inputId), cands = shareCandidates(), ids = [], bad = [], used = new Set();
+  ppTokens(inp.value).forEach(t=> {
+    const low = t.toLowerCase();
+    const p = (inp._picked || []).find(x=> !used.has(x.id) && x.display_name.toLowerCase() === low) || ppFind(t, cands);
+    if(p){ used.add(p.id); if(ids.indexOf(p.id) < 0) ids.push(p.id); } else bad.push(t);
+  });
+  if(bad.length) throw new Error('Share with: "' + bad.join('", "') + '" is not a user -- pick the names from the list that appears while you type.');
+  return ids;
+}
+function ppWire(inp){
+  const menu = document.getElementById(inp.id + '-menu');
+  let items = [], idx = -1;
+  const close = ()=> { menu.hidden = true; idx = -1; };
+  const mark = ()=> { [...menu.children].forEach((c, i)=> c.classList.toggle('active', i === idx)); const a = menu.children[idx]; if(a && a.scrollIntoView) a.scrollIntoView({ block:'nearest' }); };
+  const draw = ()=> {
+    const cands = shareCandidates();
+    const parts = inp.value.split(';');
+    const token = parts[parts.length - 1].trim().toLowerCase();
+    const present = ppTokens(parts.slice(0, -1).join(';')).map(t=> t.toLowerCase());          // names still in the box
+    const chosen = new Set((inp._picked || []).filter(p=> present.indexOf(p.display_name.toLowerCase()) >= 0).map(p=> p.id));
+    items = cands.filter(p=> !chosen.has(p.id) && (!token || (p.display_name || '').toLowerCase().indexOf(token) >= 0 || (p.email || '').toLowerCase().indexOf(token) >= 0));
+    if(!items.length){ menu.innerHTML = token ? '<div class="pp-empty">No matching user</div>' : ''; menu.hidden = !token; idx = -1; return; }
+    idx = 0;
+    menu.innerHTML = items.map((p, i)=> '<div class="pp-item' + (i === 0 ? ' active' : '') + '" data-i="' + i + '"><span>' + pmEsc(p.display_name) + '</span><small>' + pmEsc(p.email || '') + '</small></div>').join('');
+    menu.hidden = false;
+  };
+  const pick = (i)=> {
+    const p = items[i]; if(!p) return;
+    const parts = inp.value.split(';');
+    (inp._picked = inp._picked || []).push(p);
+    parts[parts.length - 1] = ppDisplay(p);
+    inp.value = parts.map(x=> x.trim()).filter(Boolean).join('; ') + '; ';
+    close(); inp.focus();
+  };
+  inp.addEventListener('input', draw);
+  inp.addEventListener('focus', draw);
+  inp.addEventListener('blur', close);
+  inp.addEventListener('keydown', (e)=> {
+    if(e.key === 'Enter'){ e.preventDefault(); if(!menu.hidden && idx >= 0) pick(idx); return; }       // Enter never submits the letter from this box
+    if(menu.hidden) return;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); idx = Math.min(items.length - 1, idx + 1); mark(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); idx = Math.max(0, idx - 1); mark(); }
+    else if(e.key === 'Tab' && idx >= 0 && items.length){ e.preventDefault(); pick(idx); }
+    else if(e.key === 'Escape'){ e.stopPropagation(); close(); }
+  });
+  menu.addEventListener('mousedown', (e)=> { e.preventDefault(); const it = e.target.closest('.pp-item'); if(it) pick(Number(it.dataset.i)); });
+}
+function nlRenderFiles(){
+  document.getElementById('nl-files').innerHTML = nlFiles.map((f, i)=> '📄 ' + pmEsc(f.name) + ' <span class="pm-sub">(' + Math.max(1, Math.round(f.size / 1024)) + ' KB)</span> <button type="button" class="btn small" data-nl-unpend="' + i + '">✕</button>').join('<br>');
+}
+// shows / hides the fields that belong to an outgoing letter only
+function applyNlDirection(){
+  const inb = nlIsInbound();
+  ['nl-sign-row', 'nl-encl-field', 'nl-people-row'].forEach(id=> { document.getElementById(id).style.display = inb ? 'none' : ''; });
+  document.getElementById('nl-inbound-extra').style.display = inb ? 'block' : 'none';
+  document.getElementById('nl-body-label').textContent = inb ? 'Intent of the Letter' : 'Letter Body';
+  document.getElementById('nl-person-label').textContent = inb ? 'From (person name)' : 'Addressed To (person name)';
+  document.getElementById('nlSubmitBtn').textContent = inb ? 'Save' : 'Save Draft';
+  // the reference number of an incoming letter is the one printed on the letter received -- typed in; outgoing numbers are automatic
+  const ref = document.getElementById('nl-ref-preview');
+  ref.disabled = !inb;
+  ref.value = '';
+  ref.placeholder = inb ? "Reference no. as written on the received letter" : 'Auto-generated on save';
+  document.getElementById('nl-ref-label').textContent = inb ? 'Reference Number (of the letter received)' : 'Reference Number';
+  if(!inb) handleNlCompanyChange();
+}
+// the received copy of a saved incoming letter: list, add (entry person / admin) and remove
+function letterReceivedFiles(l){ return letterFilesAll.filter(f=> f.letter_id === l.id && f.kind === 'received'); }
+function renderLetterReceivedFiles(l){
+  const can = letterCanEditContent(l);
+  const files = letterReceivedFiles(l);
+  document.getElementById('ld-rcv-files').innerHTML = files.length
+    ? files.map(f=> '<div style="margin:3px 0;"><a href="' + pmEsc(f.url) + '" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none;">📎 ' + pmEsc(f.file_name) + '</a>'
+        + (can && files.length > 1 ? ' <button type="button" class="btn small" data-ld-rcv-remove="' + f.id + '" title="Remove this file from the letter">✕</button>' : '') + '</div>').join('')
+    : '<div class="pm-sub" style="color:var(--overdue);">No file attached — the received letter must be attached. Add it below.</div>';
+  document.getElementById('ld-rcv-add').style.display = can ? 'block' : 'none';
+}
+function renderLetterReceivedPanel(l){
+  const field = document.getElementById('letterReceivedField');
+  const rcv = !!l.received_entry;
+  field.style.display = rcv ? 'block' : 'none';
+  ['ld-sign-row', 'ld-encl-field', 'ld-people-row'].forEach(id=> { document.getElementById(id).style.display = rcv ? 'none' : ''; });
+  document.getElementById('ld-body-label').textContent = rcv ? 'Intent of the Letter' : 'Letter Body';
+  document.getElementById('ld-person-label').textContent = rcv ? 'From (person name)' : 'Addressed To (person name)';
+  if(!rcv) return;
+  renderLetterReceivedFiles(l);
+  if(letterCanEditContent(l)){
+    renderShareList('ld-share', l.shared_with || []);
+    document.getElementById('ld-share-wrap').style.display = '';
+    document.getElementById('ld-share-text').style.display = 'none';
+  } else {
+    document.getElementById('ld-share-wrap').style.display = 'none';
+    const t = document.getElementById('ld-share-text');
+    t.style.display = 'block';
+    t.textContent = (l.shared_with || []).map(nameOf).join(', ') || '—';
+  }
+}
+async function ldAddReceivedFiles(list){
+  const l = rawLetters.find(x=> x.id === currentLetterDetailId); if(!l) return;
+  const status = document.getElementById('ld-rcv-status');
+  const files = [...list]; let failed = '';
+  for(let i = 0; i < files.length; i++){
+    status.textContent = 'Uploading ' + (i + 1) + ' of ' + files.length + '…';
+    try{ await uploadLetterFile(l.id, files[i], 'received'); }
+    catch(err){ failed = err.message; break; }
+  }
+  const fl = await db.from('letter_files').select('*').order('seq');
+  if(!fl.error) letterFilesAll = fl.data;
+  if(currentLetterDetailId === l.id) renderLetterReceivedFiles(l);
+  status.textContent = failed;
+  status.style.color = failed ? 'var(--overdue)' : '';
+}
+async function ldRemoveReceivedFile(fileId){
+  if(!confirm('Remove this file from the letter? (It stays in OneDrive.)')) return;
+  const { error } = await db.rpc('letter_remove_received_file', { p_file_id:fileId });
+  if(error){ showBanner('letterDetailBanner', 'Could not remove: ' + error.message, 'error'); return; }
+  letterFilesAll = letterFilesAll.filter(f=> f.id !== fileId);
+  const l = rawLetters.find(x=> x.id === currentLetterDetailId); if(l) renderLetterReceivedFiles(l);
+}
+
+// ---------------- closing an approved outgoing letter: date, remarks and the signed copy ----------------
+let lcCtx = null;       // { letterId, files:[File] }
+function openLetterClosure(letterId){
+  const l = rawLetters.find(x=> x.id === letterId); if(!l) return;
+  lcCtx = { letterId, files:[] };
+  document.getElementById('lcLetter').innerHTML = '<b>' + pmEsc(l.reference_number || '') + '</b> · ' + pmEsc(l.stakeholder_name || '—') + ' · ' + pmEsc(l.subject || '');
+  const d = document.getElementById('lc-date'); d.value = tcToday(); d.max = tcToday();
+  document.getElementById('lc-remarks').value = '';
+  document.getElementById('lcBanner').style.display = 'none';
+  lcRenderFiles();
+  document.getElementById('letterClosureOverlay').style.display = 'flex';
+}
+function lcRenderFiles(){
+  document.getElementById('lc-pending').innerHTML = lcCtx ? lcCtx.files.map((f, i)=> '📄 ' + pmEsc(f.name) + ' <span class="pm-sub">(' + Math.max(1, Math.round(f.size / 1024)) + ' KB)</span> <button type="button" class="btn small" data-lc-unpend="' + i + '">✕</button>').join('<br>') : '';
+}
+function lcAddFiles(list){ if(!lcCtx) return; [...list].forEach(f=> lcCtx.files.push(f)); lcRenderFiles(); }
+function closeLetterClosure(force){
+  const dirty = lcCtx && (lcCtx.files.length || document.getElementById('lc-remarks').value.trim());
+  if(!force && dirty && !confirm('Discard what you entered?')) return;
+  document.getElementById('letterClosureOverlay').style.display = 'none';
+  lcCtx = null;
+}
+async function uploadLetterFile(letterId, file, kind){
+  if(file.size > 20 * 1024 * 1024) throw new Error('"' + file.name + '" is larger than 20 MB.');
+  if(vaReadOnly()) throw new Error('Preview mode is read-only.');
+  const { data } = await db.auth.getSession();
+  const token = data && data.session && data.session.access_token;
+  if(!token) throw new Error('Your session has expired -- please sign in again.');
+  const fd = new FormData(); fd.append('letter_id', letterId); fd.append('kind', kind || 'signed'); fd.append('file', file);
+  let res;
+  try{
+    res = await fetch(CONFIG.supabaseUrl + '/functions/v1/upload-letter-file', { method:'POST', headers:{ Authorization:'Bearer ' + token, apikey:CONFIG.supabaseAnonKey }, body:fd });
+  }catch(e){ throw new Error('Could not reach the upload service. Check your connection and try again.'); }
+  let out = {};
+  try{ out = await res.json(); }catch(e){ /* not JSON */ }
+  if(res.status === 404) throw new Error('The upload service is not set up yet (Edge Function upload-letter-file).');
+  if(!res.ok || !out.url) throw new Error(out.error || '"' + file.name + '" could not be uploaded (' + res.status + ').');
+  return out;
+}
+async function submitLetterClosure(){
+  const x = lcCtx; if(!x) return;
+  const btn = document.getElementById('lcConfirmBtn');
+  const date = document.getElementById('lc-date').value;
+  try{
+    if(!date) throw new Error('Enter the date the signed letter was submitted.');
+    // files saved earlier (an earlier attempt that failed part-way) also count
+    const saved = letterFilesAll.filter(f=> f.letter_id === x.letterId && !f.closure_id && f.uploaded_by === (myProfile && myProfile.id)).length;
+    if(!x.files.length && !saved) throw new Error('Attach the signed letter (scan or photo) -- at least one file is required to close.');
+    btn.disabled = true;
+    const total = x.files.length;
+    for(let i = 0; x.files.length; i++){                      // files first; each one that is saved leaves the list, so a retry never repeats it
+      btn.textContent = 'Uploading ' + (i + 1) + ' of ' + total + '…';
+      await uploadLetterFile(x.letterId, x.files[0]);
+      x.files.shift(); lcRenderFiles(); x.uploaded = true;
+    }
+    btn.textContent = 'Saving…';
+    const { error } = await db.rpc('letter_file_closure', { p_letter_id:x.letterId, p_closure_date:date, p_remarks:document.getElementById('lc-remarks').value.trim() || null });
+    if(error){
+      if(/Could not find the function/.test(error.message)) throw new Error('The letter closure update has not been installed yet: run supabase-letter-closure.sql in the Supabase SQL Editor first.');
+      throw error;
+    }
+    closeLetterClosure(true);
+    showBanner('globalBanner', 'Letter closed with the signed copy.', 'success');
+    const open = currentLetterDetailId;
+    await loadLetters();
+    if(open === x.letterId) openLetterDetail(open);
+  }catch(err){
+    console.error(err);
+    showBanner('lcBanner', err.message, 'error');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Close letter';
+  }
+}
+// closure record in the letter's detail window
+function renderLetterClosureRecord(l){
+  const field = document.getElementById('letterClosureField'), box = document.getElementById('letterClosureRecord');
+  if(!l.closure && l.dstatus !== 'closure_pending'){ field.style.display = 'none'; box.innerHTML = ''; return; }
+  field.style.display = 'block';
+  if(!l.closure){
+    box.innerHTML = '<div class="lc-record pending"><b>Approved — closure pending.</b> The preparer closes this letter by filing the date it was submitted to the authority along with the signed copy.</div>';
+    return;
+  }
+  const c = l.closure, files = letterFilesAll.filter(f=> f.closure_id === c.id);
+  box.innerHTML = '<div class="lc-record"><div><b>Signed letter submitted on ' + fmtDate(c.closure_date) + '</b></div>'
+    + '<div class="lc-stamp">Closed by ' + pmEsc(nameOf(c.closed_by)) + ' · entered ' + pmEsc(fmtDateTime(c.closed_at)) + '</div>'
+    + (c.remarks ? '<div style="margin-top:6px;">' + pmEsc(c.remarks).replace(/\n/g, '<br>') + '</div>' : '')
+    + (files.length ? '<div class="lc-files" style="margin-top:6px;">' + files.map(f=> '<a href="' + pmEsc(f.url) + '" target="_blank" rel="noopener">📎 ' + pmEsc(f.file_name) + '</a>').join('') + '</div>' : '')
+    + '</div>';
+}
+
 function populateLetterPeopleSelects(){
-  const opts = profiles.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
+  // the pick-lists for a new letter hold only JBM Group staff (@jbmgroup.com); external users and vendors are left out.
+  // The read-only boxes in a saved letter's window keep everyone, so a letter saved earlier still shows its people.
+  const mk = list=> list.slice().sort((a,b)=> a.display_name.localeCompare(b.display_name))
     .map(p=>`<option value="${p.id}">${p.display_name}</option>`).join('');
+  const staffOpts = mk(profiles.filter(p=> !p.is_vendor && /@jbmgroup\.com$/i.test((p.email || '').trim())));
+  const allOpts = mk(profiles);
   ['nl-modifier','nl-approver','ld-preparer','ld-modifier','ld-approver'].forEach(id=>{
     const sel = document.getElementById(id);
     const prev = sel.value;
-    sel.innerHTML = opts;
+    sel.innerHTML = id.startsWith('nl-') ? staffOpts : allOpts;
     if(prev) sel.value = prev;
   });
   if(myProfile) document.getElementById('nl-preparer-display').value = myProfile.display_name;
@@ -6773,6 +7141,7 @@ function openNewLetterModal(){
   renderPastRefCheckboxList('nl-pastrefs', [], []);
   document.getElementById('nl-body').innerHTML = '';
   setRichTextEditable('nl-body', true);
+  nlFiles = []; nlRenderFiles(); renderShareList('nl-share', []); applyNlDirection();
   document.getElementById('newLetterBanner').style.display = 'none';
   document.getElementById('newLetterOverlay').style.display = 'flex';
   refreshTableOverlay('nl-body');
@@ -6794,7 +7163,11 @@ async function handleNewLetterSubmit(e){
     if(!company) throw new Error('Please select a Company.');
     if(!stakeholder) throw new Error('Please select a Stakeholder.');
     const bodyHtmlValue = sanitizeRichHtml(document.getElementById('nl-body').innerHTML);
-    if(!bodyHtmlValue.replace(/<[^>]*>/g,'').trim()) throw new Error('Letter Body cannot be empty.');
+    const inb = nlIsInbound();
+    const inRef = document.getElementById('nl-ref-preview').value.trim();
+    if(inb && !inRef) throw new Error('Enter the reference number of the letter received (as written on it).');
+    if(inb && !nlFiles.length) throw new Error('Attach the letter received (scan or photo) -- it is required.');
+    if(!bodyHtmlValue.replace(/<[^>]*>/g,'').trim()) throw new Error(document.getElementById('nl-body-label').textContent + ' cannot be empty.');
     const row = {
       letter_date: document.getElementById('nl-date').value,
       direction: document.getElementById('nl-direction').value,
@@ -6812,11 +7185,22 @@ async function handleNewLetterSubmit(e){
       signing_authority_designation: document.getElementById('nl-sign-desig').value.trim() || null,
       enclosures: document.getElementById('nl-encl').value.trim() || null,
       preparer: myProfile.id,
-      modifier: document.getElementById('nl-modifier').value,
-      approver: document.getElementById('nl-approver').value
+      modifier: inb ? myProfile.id : document.getElementById('nl-modifier').value,
+      approver: inb ? myProfile.id : document.getElementById('nl-approver').value
     };
-    const { error } = await db.from('letters').insert(row);
-    if(error) throw error;
+    if(inb){ row.reference_number = inRef; row.signing_authority_name = null; row.signing_authority_designation = null; row.enclosures = null; row.shared_with = ppGetIds('nl-share'); }
+    const ins = await db.from('letters').insert(row).select('id').single();
+    if(ins.error) throw new Error(/letters_ref_received_uq|duplicate key/.test(ins.error.message) ? 'This reference number is already recorded for this stakeholder.' : ins.error.message);
+    if(inb){
+      // an incoming letter is final on save: attach the received copy now (a file that fails can be added again from the letter)
+      const failed = [];
+      for(const f of nlFiles){ try{ await uploadLetterFile(ins.data.id, f, 'received'); }catch(e){ failed.push(e.message); } }
+      closeNewLetterModal();
+      await loadLetters();
+      document.getElementById('lf-status').value = 'received'; renderLetters();
+      showBanner('globalBanner', failed.length ? 'Incoming letter saved, but a file could not be uploaded (' + failed[0] + ') -- open the letter and add it again.' : 'Incoming letter saved.', failed.length ? 'error' : 'success');
+      return;
+    }
     showBanner('globalBanner', 'Letter saved as draft.', 'success');
     closeNewLetterModal();
     await loadLetters();
@@ -6824,7 +7208,7 @@ async function handleNewLetterSubmit(e){
     console.error(err);
     showBanner('newLetterBanner', 'Could not save: ' + err.message, 'error');
   }finally{
-    btn.disabled = false; btn.textContent = 'Save Draft';
+    btn.disabled = false; btn.textContent = nlIsInbound() ? 'Save' : 'Save Draft';
   }
 }
 
@@ -6839,10 +7223,7 @@ function reapplyLetterEditableState(letterId){
   const isModifier = myProfile && l.modifier === myProfile.id;
   const isApprover = myProfile && l.approver === myProfile.id;
   const isPendingWith = myProfile && l.pending_with === myProfile.id;
-  const canEditContent = (l.workflow_status === 'draft' && isPreparer)
-    || (l.workflow_status === 'pending_modification' && isModifier)
-    || (l.workflow_status === 'pending_approval' && isApprover)
-    || (l.workflow_status === 'pending_feedback' && isPendingWith);
+  const canEditContent = letterCanEditContent(l);
 
   ['ld-person','ld-subject','ld-sign-name','ld-sign-desig','ld-encl'].forEach(id=>{
     document.getElementById(id).disabled = !canEditContent;
@@ -6853,6 +7234,7 @@ function reapplyLetterEditableState(letterId){
   document.getElementById('ld-stakeholder-add').style.display = canEditContent ? 'inline-flex' : 'none';
   document.getElementById('ld-stakeholder-hint').textContent = canEditContent ? '(editable)' : '';
   document.getElementById('letterDetailSaveWrap').style.display = canEditContent ? 'block' : 'none';
+  document.getElementById('ld-ref').disabled = !(l.received_entry && canEditContent);        // typed for incoming letters, so it can be corrected
 }
 
 function openLetterDetail(letterId){
@@ -6889,14 +7271,16 @@ function openLetterDetail(letterId){
   document.getElementById('ld-preparer').value = l.preparer || '';
   document.getElementById('ld-modifier').value = l.modifier || '';
   document.getElementById('ld-approver').value = l.approver || '';
-  document.getElementById('ld-status-badge').innerHTML = `<span class="badge ${l.workflow_status}">${letterStatusLabel(l.workflow_status)}</span>`;
+  document.getElementById('ld-status-badge').innerHTML = letterBadgeHtml(l);
+  renderLetterClosureRecord(l);
+  renderLetterReceivedPanel(l);
   renderPastRefCheckboxList('ld-pastrefs', candidatePastLettersFor(l.stakeholder_id, l.id), l.past_reference_ids || []);
 
   reapplyLetterEditableState(letterId);
 
   const isAdmin = !!(myProfile && myProfile.is_admin);
   document.getElementById('letterDeleteBtn').style.display = (isAdmin && l.workflow_status !== 'approved') ? 'inline-flex' : 'none';
-  document.getElementById('letterPrintBtn').style.display = 'inline-flex';
+  document.getElementById('letterPrintBtn').style.display = l.received_entry ? 'none' : 'inline-flex';
 
   const actionsWrap = document.getElementById('letterWorkflowActions');
   actionsWrap.innerHTML = letterActionCellFor(l);
@@ -6932,7 +7316,7 @@ async function saveLetterDetail(){
     // live edited content (not the diff markup or a read-only historical copy).
     const bodySource = ldViewMode === 'clean' ? document.getElementById('ld-body').innerHTML : ldLiveEditedBody;
     const bodyHtmlValue = sanitizeRichHtml(bodySource);
-    if(!bodyHtmlValue.replace(/<[^>]*>/g,'').trim()) throw new Error('Letter Body cannot be empty.');
+    if(!bodyHtmlValue.replace(/<[^>]*>/g,'').trim()) throw new Error(document.getElementById('ld-body-label').textContent + ' cannot be empty.');
     const row = {
       stakeholder_id: stakeholder.id,
       stakeholder_type: stakeholder.stakeholder_type,
@@ -6946,8 +7330,14 @@ async function saveLetterDetail(){
       signing_authority_designation: document.getElementById('ld-sign-desig').value.trim() || null,
       enclosures: document.getElementById('ld-encl').value.trim() || null
     };
+    const cur = rawLetters.find(x=> x.id === currentLetterDetailId);
+    if(cur && cur.received_entry && letterCanEditContent(cur)){
+      row.shared_with = ppGetIds('ld-share');
+      row.reference_number = document.getElementById('ld-ref').value.trim();
+      if(!row.reference_number) throw new Error('Enter the reference number of the letter received.');
+    }
     const { error } = await db.from('letters').update(row).eq('id', currentLetterDetailId);
-    if(error) throw error;
+    if(error) throw new Error(/letters_ref_received_uq|duplicate key/.test(error.message) ? 'This reference number is already recorded for this stakeholder.' : error.message);
     ldLiveEditedBody = bodyHtmlValue;
     showBanner('letterDetailBanner', 'Changes saved.', 'success');
     await loadLetters();
@@ -6989,10 +7379,7 @@ function setLetterBodyViewMode(mode, historyBody){
   const isModifier = myProfile && l.modifier === myProfile.id;
   const isApprover = myProfile && l.approver === myProfile.id;
   const isPendingWith = myProfile && l.pending_with === myProfile.id;
-  const canEditContent = (l.workflow_status === 'draft' && isPreparer)
-    || (l.workflow_status === 'pending_modification' && isModifier)
-    || (l.workflow_status === 'pending_approval' && isApprover)
-    || (l.workflow_status === 'pending_feedback' && isPendingWith);
+  const canEditContent = letterCanEditContent(l);
 
   // Leaving Clean copy -- capture whatever's currently live so it isn't lost.
   if(ldViewMode === 'clean' && mode !== 'clean'){
@@ -7109,6 +7496,7 @@ function letterActivityLabel(entry){
     case 'recalled': return `${actor} recalled the submission back to Draft`;
     case 'forwarded_for_approval': return `${actor} forwarded to the Approver`;
     case 'approved': return `${actor} approved and locked this letter`;
+    case 'closed': return `${actor} closed the letter with the signed copy` + (entry.note ? `: "${entry.note}"` : '');
     case 'rejected_to_modifier': return `${actor} sent this back to the Modifier` + (entry.note ? `: "${entry.note}"` : '');
     case 'rejected_to_preparer': return `${actor} sent this back to the Preparer` + (entry.note ? `: "${entry.note}"` : '');
     case 'forwarded_for_feedback': return `${actor} forwarded to ${target||'someone'} for feedback` + (entry.note ? `: "${entry.note}"` : '');
@@ -7348,6 +7736,22 @@ function attachLetterEvents(){
   document.getElementById('nl-pastrefs-toggle').addEventListener('click', (e)=>{ e.stopPropagation(); toggleMultiselect('nl-pastrefs'); });
   document.getElementById('nl-company-add').addEventListener('click', ()=> openNewCompanyModal('nl'));
   document.getElementById('nl-stakeholder-add').addEventListener('click', ()=> openNewStakeholderModal('nl'));
+  // incoming letters: no Modifier / Approver; received copy and the share list instead
+  document.getElementById('nl-direction').addEventListener('change', applyNlDirection);
+  document.getElementById('nl-browse').addEventListener('click', ()=> document.getElementById('nl-file-input').click());
+  document.getElementById('nl-file-input').addEventListener('change', (e)=> { nlFiles.push(...e.target.files); nlRenderFiles(); e.target.value = ''; });
+  const nlDrop = document.getElementById('nl-drop');
+  nlDrop.addEventListener('dragover', (e)=> { e.preventDefault(); nlDrop.classList.add('over'); });
+  nlDrop.addEventListener('dragleave', ()=> nlDrop.classList.remove('over'));
+  nlDrop.addEventListener('drop', (e)=> { e.preventDefault(); nlDrop.classList.remove('over'); nlFiles.push(...e.dataTransfer.files); nlRenderFiles(); });
+  document.getElementById('nl-files').addEventListener('click', (e)=> { const u = e.target.closest('[data-nl-unpend]'); if(u){ nlFiles.splice(Number(u.dataset.nlUnpend), 1); nlRenderFiles(); } });
+  document.getElementById('ld-rcv-browse').addEventListener('click', ()=> document.getElementById('ld-rcv-input').click());
+  document.getElementById('ld-rcv-input').addEventListener('change', (e)=> { const f = [...e.target.files]; e.target.value = ''; if(f.length) ldAddReceivedFiles(f); });
+  const ldDrop = document.getElementById('ld-rcv-drop');
+  ldDrop.addEventListener('dragover', (e)=> { e.preventDefault(); ldDrop.classList.add('over'); });
+  ldDrop.addEventListener('dragleave', ()=> ldDrop.classList.remove('over'));
+  ldDrop.addEventListener('drop', (e)=> { e.preventDefault(); ldDrop.classList.remove('over'); if(e.dataTransfer.files.length) ldAddReceivedFiles([...e.dataTransfer.files]); });
+  document.getElementById('ld-rcv-files').addEventListener('click', (e)=> { const b = e.target.closest('[data-ld-rcv-remove]'); if(b) ldRemoveReceivedFile(Number(b.dataset.ldRcvRemove)); });
 
   document.getElementById('letterDetailCloseBtn').addEventListener('click', closeLetterDetail);
   document.getElementById('letterDetailOverlay').addEventListener('click', (e)=>{
@@ -11613,6 +12017,8 @@ let pmGanttShowActs = false;
 let pmCurrentItemId = null;
 let pmItemMode = '';
 let pmItemLog = [];
+let pmDueAll = {};       // item_id -> earlier due dates, for the "⟳" button in the charter table
+let pmDueHist = [];      // earlier due dates of the open item (table pm_due_history, from supabase-pm-due-date-history.sql)
 let pmEditCtx = null;
 let pmSchedCache = {};
 let pmPollTimer = null;
@@ -11817,6 +12223,11 @@ async function pmLoadAll(){
   pmTeams = teamsRes.data;
   pmProjects = projRes.data;
   pmItems = await pmFetchAll('pm_items');
+  try{                                                    // the table exists once supabase-pm-due-date-history.sql has been run
+    const hist = await pmFetchAll('pm_due_history');
+    pmDueAll = {};
+    hist.sort((a, b)=> String(a.changed_at).localeCompare(String(b.changed_at))).forEach(h=> (pmDueAll[h.item_id] = pmDueAll[h.item_id] || []).push(h));
+  }catch(e){ pmDueAll = {}; }
   if(viewAsId){
     // same rule as the database for a normal user: not the template, and only
     // projects they manage or hold an item in (owner / reviewer / contributor)
@@ -12572,7 +12983,7 @@ function pmCharterRowHtml(it, seq, s, p, admin){
   const dueCls = state.key === 'overdue' ? 'pm-late' : '';
   const dateCells = tpl ? '' : `
     <td data-label="Planned" class="pm-nw">${pmFmtShort(s && s.baseline)}</td>
-    <td data-label="Due" class="pm-nw">${pmFmtShort(s && s.dd)}${it.forecast_override ? ` <span title="Moved: ${pmEsc(it.reschedule_reason || '')}" style="cursor:help;">⟳</span>` : ''}</td>
+    <td data-label="Due" class="pm-nw">${pmFmtShort(s && s.dd)}${it.forecast_override ? ' <button type="button" class="pm-due-mv" data-pm-duepop="' + it.id + '" aria-expanded="false" title="Moved — click to see the earlier due dates">⟳ ▾</button>' : ''}</td>
     <td data-label="Revised due" class="pm-nw ${dueCls}">${pmFmtShort(s && s.due)}</td>
     <td data-label="Actual" class="pm-nw">${pmFmtShort(s && s.actual)}</td>
     <td data-label="Slip" class="pm-nw">${pmSlipHtml(s)}</td>
@@ -12606,6 +13017,7 @@ function pmCharterRowHtml(it, seq, s, p, admin){
 function pmRenderCharterTable(p){
   const wrap = document.getElementById('pmCharterWrap');
   if(!wrap) return;
+  pmDuePopClose();
   const admin = pmIsAdmin();
   const tpl = !!p.is_template;
   const sch = pmSched(p.id);
@@ -12888,6 +13300,9 @@ async function pmLoadItemLog(id){
   // files saved in the project folder for this item (table exists once supabase-project-files.sql has been run)
   const f = await db.from('pm_item_files').select('*').eq('item_id', id).order('seq');
   pmItemFiles = f.error ? [] : f.data;
+  // every earlier due date (the table exists once supabase-pm-due-date-history.sql has been run)
+  const h = await db.from('pm_due_history').select('*').eq('item_id', id).order('changed_at');
+  pmDueHist = h.error ? [] : h.data;
 }
 
 // "Completed on" / "Closed on" are dates the user types; this adds the system date and time the entry was
@@ -12901,7 +13316,7 @@ function pmStamp(kind){
 async function pmOpenItem(id){
   pmCurrentItemId = id;
   pmItemMode = '';
-  pmItemLog = []; pmItemFiles = []; pmPendingFile = null; pmUploaded = null;
+  pmItemLog = []; pmItemFiles = []; pmDueHist = []; pmPendingFile = null; pmUploaded = null;
   document.getElementById('pmItemBanner').style.display = 'none';
   document.getElementById('pmItemOverlay').style.display = 'flex';
   pmRenderItemModal();
@@ -13001,6 +13416,59 @@ function pmFormBlock(mode, it, s){
   return '';
 }
 
+// the "+" beside the due date and the card with the earlier dates (newest change first)
+function pmDueChangesHtml(list, fallbackReason){
+  if(!list.length){          // moved before the history existed
+    return '<h5>Due date moved</h5><div class="pm-due-chg"><div class="why">' + pmEsc(fallbackReason || 'No reason recorded') + '</div></div>';
+  }
+  const rows = list.slice().reverse().map(c=> {
+    const was = c.old_date ? '<span class="was">' + pmFmt(c.old_date) + '</span>' : '<span class="was">earlier date not recorded</span>';
+    const now = c.new_date ? '<b>' + pmFmt(c.new_date) + '</b>' : '<b>charter formula</b>';
+    return '<div class="pm-due-chg"><div>' + was + ' → ' + now + '</div>'
+      + (c.reason ? '<div class="why">' + pmEsc(c.reason).replace(/\n/g, '<br>') + '</div>' : '')
+      + '<div class="by">' + pmEsc(fmtDateTime(c.changed_at)) + ' · ' + pmEsc(pmWho(c.changed_by)) + '</div></div>';
+  }).join('');
+  return '<h5>Earlier due dates (' + list.length + ' change' + (list.length > 1 ? 's' : '') + ')</h5>' + rows;
+}
+function pmDueHistHtml(){
+  if(!pmDueHist.length) return '';
+  return '<button type="button" class="pm-due-plus" data-pm-duehist title="Show earlier due dates" aria-expanded="false">+</button>'
+    + '<div class="pm-due-card" hidden>' + pmDueChangesHtml(pmDueHist) + '</div>';
+}
+// the "⟳" beside a moved due date in the charter table: click to open / close a card with the earlier dates.
+// The card is fixed to the screen next to the button, so it never pushes the table rows around or gets clipped by it.
+function pmDuePopClose(){
+  const p = document.getElementById('pmDuePop'); if(p) p.remove();
+  document.querySelectorAll('[data-pm-duepop][aria-expanded="true"]').forEach(b=> { b.setAttribute('aria-expanded', 'false'); b.textContent = '⟳ ▾'; });
+}
+function pmDuePopToggle(btn){
+  const id = Number(btn.dataset.pmDuepop);
+  const wasOpen = btn.getAttribute('aria-expanded') === 'true';
+  pmDuePopClose();
+  if(wasOpen) return;
+  const it = pmItem(id);
+  const pop = document.createElement('div');
+  pop.id = 'pmDuePop'; pop.className = 'pm-due-card pm-due-pop';
+  pop.innerHTML = pmDueChangesHtml(pmDueAll[id] || [], it && it.reschedule_reason);
+  document.body.appendChild(pop);
+  btn.setAttribute('aria-expanded', 'true'); btn.textContent = '⟳ ▴';
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  pop.style.top = (r.bottom + 6 + h > window.innerHeight - 8 && r.top - 6 - h > 8 ? r.top - 6 - h : r.bottom + 6) + 'px';
+}
+document.addEventListener('click', (e)=> {
+  const b = e.target.closest('[data-pm-duepop]');
+  if(b){ e.preventDefault(); pmDuePopToggle(b); return; }
+  if(!e.target.closest('#pmDuePop')) pmDuePopClose();
+});
+document.addEventListener('keydown', (e)=> { if(e.key === 'Escape') pmDuePopClose(); });
+window.addEventListener('scroll', (e)=> { if(!(e.target.closest && e.target.closest('#pmDuePop'))) pmDuePopClose(); }, true);
+function pmToggleDueHist(btn){
+  const card = btn.parentElement.querySelector('.pm-due-card'); if(!card) return;
+  const open = card.hidden;
+  card.hidden = !open; btn.textContent = open ? '−' : '+'; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 function pmRenderItemModal(){
   const it = pmItem(pmCurrentItemId);
   if(!it){ pmCloseItem(); return; }
@@ -13027,7 +13495,7 @@ function pmRenderItemModal(){
     ${row('Contributors', pmEsc((it.contributors || []).map(pmWho).join(', ') || '—'), true)}
     ${row('Timeline', pmEsc(pmFormula(it)) + (it.timeline_note ? ' <span class="pm-sub">(' + pmEsc(it.timeline_note) + ')</span>' : ''))}
     ${tpl ? '' : row('Planned date', pmFmt(s.baseline))}
-    ${tpl ? '' : row('Due date', pmFmt(s.dd) + (it.forecast_override ? ' ⟳' : ''))}
+    ${tpl ? '' : row('Due date', '<span class="pm-due-wrap">' + pmFmt(s.dd) + (it.forecast_override ? ' ⟳' : '') + pmDueHistHtml() + '</span>')}
     ${tpl ? '' : row('Revised due date', `<span class="${state.key === 'overdue' ? 'pm-late' : ''}">${pmFmt(s.due)}</span>`)}
     ${tpl ? '' : row('Completed on', pmFmt(s.actual) + (s.actual ? pmStamp('submitted') : ''))}
     ${tpl ? '' : row('Closed on', pmFmt(it.closure_date) + (it.closure_date && it.status === 'closed' ? pmStamp('approved') : ''))}
@@ -13110,7 +13578,13 @@ async function pmDo(action){
     else if(action === 'reopen') await rpc('pm_reopen_item', { p_item_id:id, p_reason:need(val('pmf-note'), 'A reason is required to reopen') });
     else if(action === 'block') await rpc('pm_set_blocker', { p_item_id:id, p_blocked:true, p_note:need(val('pmf-note'), 'Describe what is blocking this') });
     else if(action === 'unblock') await rpc('pm_set_blocker', { p_item_id:id, p_blocked:false, p_note:null });
-    else if(action === 'resched') await rpc('pm_reschedule_item', { p_item_id:id, p_new_date:need(val('pmf-date'), 'Pick the new due date'), p_reason:need(val('pmf-note'), 'A reason is required to move the due date') });
+    else if(action === 'resched'){
+      const args = { p_item_id:id, p_new_date:need(val('pmf-date'), 'Pick the new due date'), p_reason:need(val('pmf-note'), 'A reason is required to move the due date') };
+      const shown = (pmSched(it.project_id)[id] || {}).dd || null;          // the due date shown now = the "earlier date" once it is moved
+      let r = await db.rpc('pm_reschedule_item', { ...args, p_old_date:shown });
+      if(r.error && /p_old_date|Could not find the function/.test(r.error.message)) r = await db.rpc('pm_reschedule_item', args);   // history update not installed yet
+      if(r.error) throw r.error;
+    }
     else if(action === 'resched-clear') await rpc('pm_reschedule_item', { p_item_id:id, p_new_date:null, p_reason:null });
     else if(action === 'waive') await rpc('pm_waive_item', { p_item_id:id, p_reason:need(val('pmf-note'), 'A reason is required') });
     else if(action === 'comment') await rpc('pm_add_comment', { p_item_id:id, p_message:need(val('pmf-comment'), 'Write a comment first') });
@@ -13761,6 +14235,9 @@ function attachProjectEvents(){
   const itemOverlay = document.getElementById('pmItemOverlay');
   itemOverlay.addEventListener('click', (e)=>{
     if(e.target.id === 'pmItemOverlay'){ pmCloseItem(); return; }
+    const dh = e.target.closest('[data-pm-duehist]');
+    if(dh){ pmToggleDueHist(dh); return; }
+    if(!e.target.closest('.pm-due-card')) document.querySelectorAll('#pmItemBody .pm-due-card:not([hidden])').forEach(c=> { c.hidden = true; const b = c.parentElement.querySelector('[data-pm-duehist]'); if(b){ b.textContent = '+'; b.setAttribute('aria-expanded', 'false'); } });
     if(e.target.closest('[data-pm-browse]')){ const inp = document.getElementById('pmf-file'); if(inp) inp.click(); return; }
     if(e.target.closest('[data-pm-clearfile]')){ pmPendingFile = null; pmRefreshDropText(); const inp = document.getElementById('pmf-file'); if(inp) inp.value = ''; return; }
     const t = e.target.closest('[data-pm-mode],[data-pm-do],[data-pm-item],[data-pm-edit-this]');
@@ -14016,6 +14493,18 @@ function init(){
   tcDrop.addEventListener('dragover', (e)=> { e.preventDefault(); tcDrop.classList.add('over'); });
   tcDrop.addEventListener('dragleave', ()=> tcDrop.classList.remove('over'));
   tcDrop.addEventListener('drop', (e)=> { e.preventDefault(); tcDrop.classList.remove('over'); tcAddFiles(e.dataTransfer.files); });
+  // the letter closure window (closes only with its Close button)
+  document.getElementById('lcCloseBtn').addEventListener('click', ()=> closeLetterClosure(false));
+  document.getElementById('lcConfirmBtn').addEventListener('click', submitLetterClosure);
+  document.getElementById('lc-browse').addEventListener('click', ()=> document.getElementById('lc-file-input').click());
+  document.getElementById('lc-file-input').addEventListener('change', (e)=> { lcAddFiles(e.target.files); e.target.value = ''; });
+  const lcDrop = document.getElementById('lc-drop');
+  lcDrop.addEventListener('dragover', (e)=> { e.preventDefault(); lcDrop.classList.add('over'); });
+  lcDrop.addEventListener('dragleave', ()=> lcDrop.classList.remove('over'));
+  lcDrop.addEventListener('drop', (e)=> { e.preventDefault(); lcDrop.classList.remove('over'); lcAddFiles(e.dataTransfer.files); });
+  document.getElementById('lc-pending').addEventListener('click', (e)=> {
+    const u = e.target.closest('[data-lc-unpend]'); if(u && lcCtx){ lcCtx.files.splice(Number(u.dataset.lcUnpend), 1); lcRenderFiles(); }
+  });
   document.getElementById('tc-pending').addEventListener('click', (e)=> {
     const u = e.target.closest('[data-tc-unpend]'); if(u && tcCtx){ tcCtx.files.splice(Number(u.dataset.tcUnpend), 1); tcRenderFiles(); }
   });
