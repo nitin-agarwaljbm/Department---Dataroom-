@@ -3583,10 +3583,38 @@ const VB_STATUS = {
   under_review: { label:'Under review',       cls:'pending_review' },
   query:        { label:'Query with vendor',  cls:'overdue' },
   verified:     { label:'Verified',           cls:'pending_review' },
+  approved1:    { label:'Approved by Approver 1', cls:'pending_review' },
   approved:     { label:'Approved',           cls:'ontrack' },
   rejected:     { label:'Rejected (closed)',  cls:'closed' }          // only a few old bills; new bills are sent back with a query
 };
-const VB_STEPS = ['Submitted', 'Under review', 'Verified', 'Approved', 'Paid'];
+const VB_STEPS = ['Submitted', 'Under review', 'Verified', 'Approver 1', 'Approver 2', 'GRN', 'Booked in SAP', 'SAP payment', 'Paid'];      // company view
+const VB_STEPS_V = ['Submitted', 'Under review', 'Verified', 'Approved', 'Paid'];                                                          // the vendor sees fewer steps
+
+// the people on a contract, in the order a bill travels through them (a step nobody is chosen for is skipped)
+const VB_CHAIN = [
+  { n:1, id:'verifier',  role:'verifier',  field:'verifier_id',  label:'Verifier',    hint:'checks the bill and its documents, raises queries' },
+  { n:2, id:'approver',  role:'approver',  field:'approver_id',  label:'Approver 1',  hint:'first approval' },
+  { n:3, id:'approver2', role:'approver2', field:'approver2_id', label:'Approver 2',  hint:'second approval' },
+  { n:4, id:'grn',       role:'grn',       field:'grn_user_id',  label:'GRN',         hint:'enters the GRN no. and forwards the bill' },
+  { n:5, id:'booker',    role:'accounts',  field:'booker_id',    label:'Accounts',    hint:'books the bill in SAP, enters the accounting transaction no. and forwards it' },
+  { n:6, id:'sappay',    role:'sappay',    field:'sap_payer_id', label:'SAP payment', hint:'makes the payment entry in SAP, enters the payment transaction no. and forwards it' },
+  { n:7, id:'payer',     role:'payer',     field:'payer_id',     label:'Payer',       hint:'pays the vendor and records the RTGS / UTR no., date and amount' }
+];
+// after both approvals the bill passes through these, in order; the last one is the payment
+const VB_PROC = [
+  { stage:'grn',         n:4, role:'grn',      field:'grn_user_id',  label:'GRN',               title:'Update the GRN',                  noLabel:'GRN no.',                    pending:'GRN pending' },
+  { stage:'booking',     n:5, role:'accounts', field:'booker_id',    label:'booking in SAP',    title:'Book the bill in SAP',            noLabel:'Accounting transaction no.', pending:'booking in SAP pending' },
+  { stage:'sap_payment', n:6, role:'sappay',   field:'sap_payer_id', label:'SAP payment entry', title:'Make the payment entry in SAP',   noLabel:'Payment transaction no.',    pending:'SAP payment pending' },
+  { stage:'payment',     n:7, role:'payer',    field:'payer_id',     label:'payment',           title:'Payment',                         noLabel:'',                           pending:'payment pending' }
+];
+function vbProcStage(b){ return b && b.status === 'approved' ? (b.proc_stage || (b.pay_status === 'paid' ? 'done' : 'payment')) : null; }   // bills approved before the chain existed are at the payment step
+function vbProcDef(stage){ return VB_PROC.find(s=> s.stage === stage) || null; }
+function vbNextStage(c, after){        // same rule as the database: a step nobody is chosen for is skipped; payment is always last
+  for(let i = after ? VB_PROC.findIndex(s=> s.stage === after) + 1 : 0; i < VB_PROC.length - 1; i++){ if(c[VB_PROC[i].field]) return VB_PROC[i].stage; }
+  return 'payment';
+}
+function vbHasApprover2(c){ return !!(c && c.approver2_id && c.approver2_id !== c.approver_id); }       // no separate second approver = one approval is enough
+function vbChainReady(){ return !vbContracts.length || 'approver2_id' in vbContracts[0]; }                // false until supabase-vendor-bills-chain.sql has been run
 
 function vbRs(n){ return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
 function vbRate(n){ return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }); }   // rates are billed to 2 decimals
@@ -3627,9 +3655,7 @@ function vbRolesOf(c){
   if(!c || !myProfile) return r;
   if(myProfile.is_admin) r.push('admin');
   if(c.vendor_user === me) r.push('vendor');
-  if(c.verifier_id === me) r.push('verifier');
-  if(c.approver_id === me) r.push('approver');
-  if(c.payer_id === me) r.push('payer');
+  VB_CHAIN.forEach(st=> { if(c[st.field] && c[st.field] === me) r.push(st.role); });
   return r;
 }
 function vbCan(c, roles){ const r = vbRolesOf(c); return roles.some(x=> r.indexOf(x) >= 0); }
@@ -3637,11 +3663,17 @@ function vbStaffHasRole(){ return vbContracts.some(c=> vbRolesOf(c).some(r=> r !
 
 function vbStatusChip(b){
   if(b.status === 'approved'){
-    if(b.pay_status === 'paid') return '<span class="badge ontrack">Paid</span>';
+    const ps = vbProcStage(b);
+    if(b.pay_status === 'paid' || ps === 'done') return '<span class="badge ontrack">Paid</span>';
     const overdue = b.due_date && b.due_date < vbToday();
+    if(ps !== 'payment'){           // approved, but still with GRN / accounts / SAP payment
+      const d = vbProcDef(ps);
+      return '<span class="badge ' + (overdue ? 'overdue' : 'duesoon') + '">' + (vbIsVendor() ? 'Approved · payment in process' : 'Approved · ' + (d ? d.pending : ps)) + '</span>';
+    }
     if(b.pay_status === 'partial') return '<span class="badge pending_review">Part paid</span>' + (overdue ? ' <span class="badge overdue">Overdue</span>' : '');
     return '<span class="badge ' + (overdue ? 'overdue' : 'duesoon') + '">' + (overdue ? 'Payment overdue' : 'Approved · payment pending') + '</span>';
   }
+  if(b.status === 'approved1' && vbIsVendor()) return '<span class="badge pending_review">Under approval</span>';
   const s = VB_STATUS[b.status] || { label:b.status, cls:'draft' };
   return '<span class="badge ' + s.cls + '">' + s.label + '</span>';
 }
@@ -3650,19 +3682,26 @@ function vbStatusChip(b){
 function vbNeedsMe(b){
   const c = vbContract(b.contract_id);
   if(!c) return false;
-  const r = vbRolesOf(c);
-  const sole = (role)=> !c[role + '_id'] && r.indexOf('admin') >= 0;   // admin steps in when nobody is assigned
-  if(r.indexOf('vendor') >= 0 && (b.status === 'draft' || b.status === 'query')) return true;
-  if((b.status === 'submitted' || b.status === 'under_review') && (r.indexOf('verifier') >= 0 || (r.indexOf('approver') >= 0 && c.verifier_id === c.approver_id) || sole('verifier'))) return true;
-  if(b.status === 'verified' && (r.indexOf('approver') >= 0 || sole('approver'))) return true;
-  if(b.status === 'approved' && b.pay_status !== 'paid' && (r.indexOf('payer') >= 0 || sole('payer'))) return true;
+  const r = vbRolesOf(c), admin = r.indexOf('admin') >= 0;
+  const has = role=> r.indexOf(role) >= 0;
+  const sole = field=> !c[field] && admin;       // admin steps in when nobody is assigned
+  if(has('vendor') && (b.status === 'draft' || b.status === 'query')) return true;
+  if((b.status === 'submitted' || b.status === 'under_review') && (has('verifier') || (has('approver') && c.verifier_id === c.approver_id) || sole('verifier_id'))) return true;
+  if(b.status === 'verified' && (has('approver') || sole('approver_id'))) return true;
+  if(b.status === 'approved1' && (has('approver2') || sole('approver2_id'))) return true;
+  if(b.status === 'approved' && b.pay_status !== 'paid'){
+    const d = vbProcDef(vbProcStage(b));
+    if(d && (has(d.role) || sole(d.field))) return true;
+  }
   return false;
 }
 
 // the contract's columns a bidder may read: everything except "template", the company's standard monthly lines
-const VB_CONTRACT_COLS = 'id,tender_id,quote_id,vendor_user,vendor_name,location_name,start_date,end_date,credit_days,tds_rate,verifier_id,approver_id,payer_id,billing_mode,km_rule,status,created_by,created_at,is_legacy,vendor_email,contract_ref,required_docs';
+const VB_CONTRACT_COLS_OLD = 'id,tender_id,quote_id,vendor_user,vendor_name,location_name,start_date,end_date,credit_days,tds_rate,verifier_id,approver_id,payer_id,billing_mode,km_rule,status,created_by,created_at,is_legacy,vendor_email,contract_ref,required_docs';
+const VB_CONTRACT_COLS = VB_CONTRACT_COLS_OLD + ',approver2_id,grn_user_id,booker_id,sap_payer_id';
 async function vbLoad(){
   let c = await db.from('vb_contracts').select(VB_CONTRACT_COLS).order('id');
+  if(c.error) c = await db.from('vb_contracts').select(VB_CONTRACT_COLS_OLD).order('id');          // supabase-vendor-bills-chain.sql not run yet
   if(c.error) c = await db.from('vb_contracts').select('*').order('id');            // an older database: some columns are not there yet
   if(c.error){ vbAvailable = false; vbContracts = []; vbBills = []; return false; }   // supabase-vendor-bills.sql not run yet
   if(!vbIsVendor()){                                                                // company staff: the standard comes through a function
@@ -3759,18 +3798,42 @@ async function vbRpc(fn, args, okMsg){
 
 // ---------- shared pieces of the bill window ----------
 function vbStepper(b){
-  let at = 0;
+  if(b.status === 'rejected') return '<div class="vb-steps"><span class="vb-step bad">✕ Rejected (closed)</span></div>';
+  if(b.status === 'draft') return '<div class="vb-steps"><span class="vb-step now">Draft — not yet submitted</span></div>';
+  const c = vbCur && vbCur.contract, vendor = vbIsVendor(), ps = vbProcStage(b);
+  const labels = vendor ? VB_STEPS_V : VB_STEPS, last = labels.length - 1;
+  let at = 0;                                   // how many steps are done
   if(b.status === 'submitted') at = 1;
   else if(b.status === 'under_review' || b.status === 'query') at = 2;
   else if(b.status === 'verified') at = 3;
-  else if(b.status === 'approved') at = b.pay_status === 'paid' ? 5 : 4;
-  if(b.status === 'rejected') return '<div class="vb-steps"><span class="vb-step bad">✕ Rejected (closed)</span></div>';
-  if(b.status === 'draft') return '<div class="vb-steps"><span class="vb-step now">Draft — not yet submitted</span></div>';
-  return '<div class="vb-steps">' + VB_STEPS.map((s, i)=> {
-    const done = i < at, now = i === at - 1 && at < 5 || (at === 5 && i === 4);
-    const label = (i === 1 && b.status === 'query') ? 'Query with vendor' : (i === 4 && b.pay_status === 'partial' ? 'Part paid' : s);
-    return '<span class="vb-step' + (done ? ' done' : '') + (now ? ' now' : '') + (i === 1 && b.status === 'query' ? ' bad' : '') + '">' + (done ? '✓ ' : '') + label + '</span>';
-  }).join('<span class="vb-arrow">›</span>') + '</div>';
+  else if(b.status === 'approved1') at = vendor ? 3 : 4;
+  else if(b.status === 'approved') at = vendor ? (ps === 'done' ? 5 : 4) : ({ grn:5, booking:6, sap_payment:7, payment:8, done:9 }[ps] || 8);
+  // steps nobody is chosen for are not shown to the company
+  const hidden = i=> !vendor && !!c && ((i === 4 && !vbHasApprover2(c)) || (i === 5 && !c.grn_user_id && !b.grn_no) || (i === 6 && !c.booker_id && !b.booking_no) || (i === 7 && !c.sap_payer_id && !b.sap_pay_no));
+  let now = -1;
+  for(let i = 0; i < labels.length; i++){ if(i < at && !hidden(i)) now = i; }
+  return '<div class="vb-steps">' + labels.map((s, i)=> {
+    if(hidden(i)) return '';
+    const done = i < at;
+    const label = (i === 1 && b.status === 'query') ? 'Query with vendor' : (i === last && b.pay_status === 'partial' ? 'Part paid' : s);
+    return '<span class="vb-step' + (done ? ' done' : '') + (i === now ? ' now' : '') + (i === 1 && b.status === 'query' ? ' bad' : '') + '">' + (done ? '✓ ' : '') + label + '</span>';
+  }).filter(Boolean).join('<span class="vb-arrow">›</span>') + '</div>';
+}
+
+// "now with ..." line under the steps (company side)
+function vbWaitingHtml(b){
+  const c = vbCur && vbCur.contract;
+  if(!c || vbIsVendor()) return '';
+  let label = '', field = '';
+  if(b.status === 'submitted' || b.status === 'under_review'){ label = 'Verification'; field = 'verifier_id'; }
+  else if(b.status === 'verified'){ label = 'First approval (Approver 1)'; field = 'approver_id'; }
+  else if(b.status === 'approved1'){ label = 'Second approval (Approver 2)'; field = 'approver2_id'; }
+  else if(b.status === 'approved' && b.pay_status !== 'paid'){
+    const d = vbProcDef(vbProcStage(b));
+    if(d){ label = 'Step ' + d.n + ' — ' + d.title; field = d.field; }
+  }
+  if(!label) return '';
+  return '<div class="pm-meta" style="margin-top:8px;">Now with: <b>' + pmEsc(label) + '</b> — ' + (c[field] ? pmEsc(pmWho(c[field])) : '<i>nobody assigned (an admin can act)</i>') + (vbNeedsMe(b) ? ' <span class="pm-chip warn">you</span>' : '') + '</div>';
 }
 
 function vbThreadHtml(){
@@ -3987,9 +4050,9 @@ function vbCompareHtml(){
 
 // every submission, query and re-submission of this bill, in order (visible to the vendor and the company)
 function vbRevisionsHtml(){
-  const ev = vbCur.events.filter(e=> ['submitted', 'resubmitted', 'query_raised', 'verified', 'approved', 'withdrawn'].indexOf(e.event) >= 0);
+  const ev = vbCur.events.filter(e=> ['submitted', 'resubmitted', 'query_raised', 'verified', 'approved_1', 'approved', 'withdrawn'].indexOf(e.event) >= 0);
   if(!ev.some(e=> e.event === 'query_raised' || e.event === 'resubmitted')) return '';
-  const chip = { submitted:['ok', 'Submitted'], resubmitted:['ok', 'Re-submitted'], query_raised:['warn', 'Query'], verified:['ok', 'Verified'], approved:['ok', 'Approved'], withdrawn:['', 'Taken back'] };
+  const chip = { submitted:['ok', 'Submitted'], resubmitted:['ok', 'Re-submitted'], query_raised:['warn', 'Query'], verified:['ok', 'Verified'], approved_1:['ok', 'Approver 1'], approved:['ok', 'Approved'], withdrawn:['', 'Taken back'] };
   const nQ = ev.filter(e=> e.event === 'query_raised').length;
   return '<div class="pm-section-title">Revision history <span class="pm-sub">· version ' + vbCur.bill.version + (nQ ? ' · ' + nQ + ' quer' + (nQ === 1 ? 'y' : 'ies') : '') + '</span></div>'
     + '<div class="vb-thread" style="max-height:none;">' + ev.map(e=> {
@@ -4042,22 +4105,29 @@ function vbRenderStaff(){
 
   const today = vbToday();
   const live = vbBills.filter(b=> b.status !== 'draft');            // staff never see vendor drafts (the database hides them too)
+  const inProc = b=> b.status === 'approved' && ['grn', 'booking', 'sap_payment'].indexOf(vbProcStage(b)) >= 0;      // approved, with GRN / accounts / SAP payment
+  const atPay = b=> b.status === 'approved' && vbProcStage(b) === 'payment' && b.pay_status !== 'paid';             // at the payment step
   const cnt = {
     me: live.filter(vbNeedsMe).length,
     submitted: live.filter(b=> b.status === 'submitted').length,
     review: live.filter(b=> b.status === 'under_review').length,
     query: live.filter(b=> b.status === 'query').length,
     verified: live.filter(b=> b.status === 'verified').length,
-    unpaid: live.filter(b=> b.status === 'approved' && b.pay_status !== 'paid').length,
+    approved1: live.filter(b=> b.status === 'approved1').length,
+    proc: live.filter(inProc).length,
+    unpaid: live.filter(atPay).length,
     overdue: live.filter(b=> b.status === 'approved' && b.pay_status !== 'paid' && b.due_date && b.due_date < today).length,
     paid: live.filter(b=> b.status === 'approved' && b.pay_status === 'paid').length
   };
-  const payable = live.filter(b=> b.status === 'approved' && b.pay_status !== 'paid').reduce((n, b)=> n + Number(b.net_payable) - Number(b.paid_amount), 0);
+  const owed = list=> list.reduce((n, b)=> n + Number(b.net_payable) - Number(b.paid_amount), 0);
+  const payable = owed(live.filter(atPay)), inProcAmt = owed(live.filter(inProc));
+  const procBy = st=> live.filter(b=> b.status === 'approved' && vbProcStage(b) === st).length;
   const cards = [['me', 'Needs my action', cnt.me, 'accent'], ['submitted', 'Awaiting review', cnt.submitted, 'duesoon'], ['review', 'Under review', cnt.review, 'pending'], ['query', 'Query with vendor', cnt.query, 'overdue'],
-    ['verified', 'Awaiting approval', cnt.verified, 'pending'], ['unpaid', 'Payment pending', cnt.unpaid, 'duesoon'], ['overdue', 'Payment overdue', cnt.overdue, 'overdue'], ['paid', 'Paid', cnt.paid, 'ontrack']];
+    ['verified', 'Awaiting Approver 1', cnt.verified, 'pending'], ['approved1', 'Awaiting Approver 2', cnt.approved1, 'pending'], ['proc', 'GRN / SAP stages', cnt.proc, 'duesoon'], ['unpaid', 'Payment pending', cnt.unpaid, 'duesoon'], ['overdue', 'Payment overdue', cnt.overdue, 'overdue'], ['paid', 'Paid', cnt.paid, 'ontrack']];
   const kpiHtml = '<div class="kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">' + cards.map(c=>
     '<div class="kpi ' + (c[3] === 'accent' ? 'total' : c[3]) + (vbFilter.kpi === c[0] ? ' vb-kpi-on' : '') + '" data-vb-kpi="' + c[0] + '" style="cursor:pointer;"><div class="kpi-label">' + c[1] + '</div><div class="kpi-value">' + c[2] + '</div>'
-    + (c[0] === 'unpaid' ? '<div class="kpi-sub">' + vbRs(payable) + ' to pay</div>' : '') + '</div>').join('') + '</div>';
+    + (c[0] === 'unpaid' ? '<div class="kpi-sub">' + vbRs(payable) + ' to pay</div>' : '')
+    + (c[0] === 'proc' ? '<div class="kpi-sub">GRN ' + procBy('grn') + ' · Booking ' + procBy('booking') + ' · SAP pay ' + procBy('sap_payment') + (inProcAmt ? ' · ' + vbRs(inProcAmt) : '') + '</div>' : '') + '</div>').join('') + '</div>';
 
   let rows = live.filter(b=> {
     const c = vbContract(b.contract_id);
@@ -4066,7 +4136,9 @@ function vbRenderStaff(){
     if(vbFilter.kpi === 'review' && b.status !== 'under_review') return false;
     if(vbFilter.kpi === 'query' && b.status !== 'query') return false;
     if(vbFilter.kpi === 'verified' && b.status !== 'verified') return false;
-    if(vbFilter.kpi === 'unpaid' && !(b.status === 'approved' && b.pay_status !== 'paid')) return false;
+    if(vbFilter.kpi === 'approved1' && b.status !== 'approved1') return false;
+    if(vbFilter.kpi === 'proc' && !inProc(b)) return false;
+    if(vbFilter.kpi === 'unpaid' && !atPay(b)) return false;
     if(vbFilter.kpi === 'overdue' && !(b.status === 'approved' && b.pay_status !== 'paid' && b.due_date && b.due_date < today)) return false;
     if(vbFilter.kpi === 'paid' && !(b.status === 'approved' && b.pay_status === 'paid')) return false;
     if(vbFilter.vendor && String(b.contract_id) !== vbFilter.vendor) return false;
@@ -4091,7 +4163,7 @@ function vbRenderStaff(){
         + '<td><b>' + pmEsc(c.vendor_name || '—') + '</b><div class="pm-sub">' + pmEsc(c.location_name || '') + '</div></td>'
         + '<td>' + vbMonth(b.period_month) + '</td><td>' + pmEsc(b.invoice_number || '—') + '<div class="pm-sub">' + (b.invoice_date ? fmtDate(b.invoice_date) : '') + '</div></td>'
         + '<td style="text-align:right;">' + vbRs(Number(b.claimed_taxable) + Number(b.claimed_gst)) + '</td>'
-        + '<td style="text-align:right;">' + (['approved', 'verified', 'under_review'].indexOf(b.status) >= 0 ? vbRs(b.net_payable) : '—') + '</td>'
+        + '<td style="text-align:right;">' + (['approved', 'approved1', 'verified', 'under_review'].indexOf(b.status) >= 0 ? vbRs(b.net_payable) : '—') + '</td>'
         + '<td>' + vbStatusChip(b) + (vbNeedsMe(b) ? ' <span class="pm-chip warn">your move</span>' : '') + '</td>'
         + '<td class="pm-sub">' + pmEsc(dueTxt) + '</td><td><button type="button" class="btn small" data-vb-open="' + b.id + '">Open</button></td></tr>';
     }).join('') + '</tbody></table></div>'
@@ -4118,14 +4190,14 @@ function vbRenderContracts(box){
     return '<tr><td><b>' + pmEsc(c.vendor_name) + '</b>' + (c.is_legacy ? ' <span class="pm-chip">Existing</span>' : '') + '<div class="pm-sub">' + pmEsc(c.location_name || '') + (c.contract_ref ? ' · ' + pmEsc(c.contract_ref) : '') + '</div></td>'
       + '<td>' + (c.vendor_user ? pmEsc(pmWho(c.vendor_user)) : (c.is_legacy ? '<span class="pm-chip bad">Not linked yet</span>' : '—')) + '</td><td>' + (c.billing_mode === 'per_km' ? 'Per KM' : 'Management fee') + '</td>'
       + '<td>' + fmtDate(c.start_date) + (c.end_date ? ' → ' + fmtDate(c.end_date) : ' →') + '</td>'
-      + '<td>' + pmEsc(pmWho(c.verifier_id)) + '</td><td>' + pmEsc(pmWho(c.approver_id)) + '</td><td>' + pmEsc(pmWho(c.payer_id)) + '</td>'
+      + VB_CHAIN.map(st=> '<td>' + (c[st.field] ? pmEsc(pmWho(c[st.field])) : '<span class="pm-sub">' + (st.id === 'approver2' || st.id === 'grn' || st.id === 'booker' || st.id === 'sappay' ? 'skipped' : '—') + '</span>') + '</td>').join('')
       + '<td>' + c.credit_days + ' d</td><td>' + Number(c.tds_rate) + '%</td><td>' + n + '</td><td>' + (c.status === 'active' ? '<span class="badge ontrack">Active</span>' : '<span class="badge closed">Closed</span>')
       + '</td><td><button type="button" class="btn small" data-vb-editc="' + c.id + '">Edit</button></td></tr>';
   }).join('');
   const unlinked = vbContracts.filter(c=> c.is_legacy && !c.vendor_user).length;
   box.innerHTML = '<div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;"><button type="button" class="btn primary small" data-vb-addlegacy>+ Add a running contract (awarded before TrackIt)</button>'
     + (unlinked ? '<span class="pm-chip bad">' + unlinked + ' not linked to a bidder login yet</span>' : '') + '</div>' + todo + '<div class="panel"><div class="panel-title">Billing contracts <span class="count">' + vbContracts.length + '</span></div>'
-    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Vendor / location</th><th>Bidder login</th><th>Billing</th><th>Period</th><th>Verifier</th><th>Approver</th><th>Payer</th><th>Credit</th><th>TDS</th><th>Bills</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Vendor / location</th><th>Bidder login</th><th>Billing</th><th>Period</th>' + VB_CHAIN.map(st=> '<th>' + st.n + ' ' + st.label + '</th>').join('') + '<th>Credit</th><th>TDS</th><th>Bills</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<div class="empty-state">No contract yet. Once a tender is awarded, set up its billing here.</div>') + '</div>';
 }
 
@@ -4298,9 +4370,7 @@ async function vbOpenSetup(tenderId, contractId){
       + '<div class="field"><label>Contract ends <span style="text-transform:none; letter-spacing:0;">(optional)</span></label><input type="date" id="vbc-end" value="' + (c && c.end_date ? c.end_date : '') + '"></div></div>'
       + '<div class="row2"><div class="field"><label>Credit period <span style="text-transform:none; letter-spacing:0;">(days to pay after approval)</span></label><input type="text" inputmode="numeric" autocomplete="off" class="vb-n" id="vbc-credit" value="' + vbNumStr(c ? c.credit_days : 30) + '"></div>'
       + '<div class="field"><label>TDS % <span style="text-transform:none; letter-spacing:0;">(on the certified taxable value)</span></label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vbc-tds" value="' + vbNumStr(c ? c.tds_rate : 2) + '"></div></div>'
-      + '<div class="row2"><div class="field"><label>Verifier <span style="text-transform:none; letter-spacing:0;">(reviews, raises queries)</span></label><select id="vbc-verifier">' + opts(c && c.verifier_id) + '</select></div>'
-      + '<div class="field"><label>Approver</label><select id="vbc-approver">' + opts(c && c.approver_id) + '</select></div></div>'
-      + '<div class="field"><label>Payer <span style="text-transform:none; letter-spacing:0;">(records payments; must be a different person from the verifier and approver)</span></label><select id="vbc-payer">' + opts(c && c.payer_id) + '</select></div>'
+      + vbChainFieldsHtml(c)
       + (c ? '<div class="field"><label>Status</label><select id="vbc-status"><option value="active"' + (c.status === 'active' ? ' selected' : '') + '>Active</option><option value="closed"' + (c.status === 'closed' ? ' selected' : '') + '>Closed (no new bills)</option></select></div>' : '')
       + ruleHtml + (mode === 'management' && kmRule && Number(kmRule.rate_per_km) > 0 ? vbFeePanelHtml(kmRule) : '') + docsHtml;
     document.getElementById('vbContractSaveBtn').textContent = c ? 'Save changes' : 'Set up billing';
@@ -4322,6 +4392,7 @@ async function vbSaveSetup(){
   const btn = document.getElementById('vbContractSaveBtn');
   btn.disabled = true;
   try{
+    vbChainCheck(val);
     let res;
     if(x.contractId){
       res = await db.rpc('vb_update_contract', { p_contract_id:x.contractId, p_end:val('vbc-end') || null, p_credit_days:Math.round(vbVal(val('vbc-credit'))), p_tds_rate:vbVal(val('vbc-tds')),
@@ -4331,6 +4402,14 @@ async function vbSaveSetup(){
         p_verifier:val('vbc-verifier') || null, p_approver:val('vbc-approver') || null, p_payer:val('vbc-payer') || null, p_mode:x.mode, p_template:x.mode === 'management' ? x.template : '[]', p_km_rule:kmRule, p_docs:vbCollectDocs() });
     }
     if(res.error) throw res.error;
+    try{ await vbSaveChain(x.contractId || res.data, val); }
+    catch(e2){
+      if(x.contractId) throw e2;
+      document.getElementById('vbContractOverlay').style.display = 'none';
+      await vbLoad(); vbRenderStaff();
+      showBanner('globalBanner', 'Billing was set up, but the approval chain could not be saved: ' + e2.message + ' Open the contract with Edit and save it again.', 'error');
+      return;
+    }
     document.getElementById('vbContractOverlay').style.display = 'none';
     await vbLoad(); vbRenderStaff();
     showBanner('globalBanner', x.contractId ? 'Billing set-up saved.' : 'Billing is set up. The vendor can now submit monthly bills.', 'success');
@@ -4426,9 +4505,7 @@ async function vbOpenLegacy(c){
     + (c ? '<div class="field"><label>Status</label><select id="vbc-status"><option value="active"' + (c.status === 'active' ? ' selected' : '') + '>Active</option><option value="closed"' + (c.status === 'closed' ? ' selected' : '') + '>Closed (no new bills)</option></select></div>' : '<div></div>') + '</div>'
     + '<div class="row2"><div class="field"><label>' + lab('Credit period', 'days to pay after approval') + '</label><input type="text" inputmode="numeric" autocomplete="off" class="vb-n" id="vbc-credit" value="' + vbNumStr(c ? c.credit_days : 30) + '"></div>'
     + '<div class="field"><label>' + lab('TDS %', 'on the certified taxable value') + '</label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vbc-tds" value="' + vbNumStr(c ? c.tds_rate : 2) + '"></div></div>'
-    + '<div class="row2"><div class="field"><label>' + lab('Verifier', 'reviews, raises queries') + '</label><select id="vbc-verifier">' + opts(c && c.verifier_id) + '</select></div>'
-    + '<div class="field"><label>Approver</label><select id="vbc-approver">' + opts(c && c.approver_id) + '</select></div></div>'
-    + '<div class="field"><label>' + lab('Payer', 'records payments; must be a different person from the verifier and approver') + '</label><select id="vbc-payer">' + opts(c && c.payer_id) + '</select></div>'
+    + vbChainFieldsHtml(c)
     // per-KM terms
     + '<div class="panel" id="vbl-km-panel" style="margin:10px 0;' + (mode === 'per_km' ? '' : ' display:none;') + '"><div class="panel-title">Per-KM billing terms</div>'
     + '<div class="row2"><div class="field"><label>Rate per KM (₹, excl. GST)</label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vbc-rate" value="' + vbNumStr(rule.rate_per_km) + '"></div>'
@@ -4457,6 +4534,7 @@ async function vbSaveLegacy(){
   const btn = document.getElementById('vbContractSaveBtn');
   btn.disabled = true;
   try{
+    vbChainCheck(val);
     const mode = x.contractId ? x.mode : val('vbl-mode');
     let kmRule = null, template = null;
     if(mode === 'per_km'){
@@ -4479,11 +4557,13 @@ async function vbSaveLegacy(){
       vbAddFleetDrivers(template, fleet);
     }
     const user = val('vbl-user') || null;
+    let newId = x.contractId;
     const common = { p_credit_days:Math.round(vbVal(val('vbc-credit'))), p_tds_rate:vbVal(val('vbc-tds')), p_verifier:val('vbc-verifier') || null, p_approver:val('vbc-approver') || null, p_payer:val('vbc-payer') || null };
     if(!x.contractId){
       const res = await db.rpc('vb_create_legacy_contract', Object.assign({ p_vendor_name:val('vbl-name'), p_location:val('vbl-loc'), p_vendor_user:user, p_vendor_email:val('vbl-email') || null, p_ref:val('vbl-ref') || null,
         p_start:val('vbc-start'), p_end:val('vbc-end') || null, p_mode:mode, p_template:mode === 'management' ? template : [], p_km_rule:kmRule, p_docs:vbCollectDocs() }, common));
       if(res.error) throw res.error;
+      newId = res.data;
     } else {
       if((x.vendorUser || null) !== user){ const r1 = await db.rpc('vb_link_vendor', { p_contract_id:x.contractId, p_vendor:user }); if(r1.error) throw r1.error; }
       const r2 = await db.rpc('vb_update_legacy_details', { p_contract_id:x.contractId, p_vendor_name:val('vbl-name'), p_location:val('vbl-loc'), p_vendor_email:val('vbl-email') || null, p_ref:val('vbl-ref') || null, p_start:val('vbc-start') });
@@ -4491,6 +4571,14 @@ async function vbSaveLegacy(){
       const r3 = await db.rpc('vb_update_contract', Object.assign({ p_contract_id:x.contractId, p_end:val('vbc-end') || null, p_status:val('vbc-status') || null,
         p_template:mode === 'management' ? template : null, p_km_rule:mode === 'per_km' ? kmRule : (kmRule || {}), p_docs:vbCollectDocs() }, common));
       if(r3.error) throw r3.error;
+    }
+    try{ await vbSaveChain(newId, val); }
+    catch(e2){
+      if(x.contractId) throw e2;
+      document.getElementById('vbContractOverlay').style.display = 'none';
+      await vbLoad(); vbRenderStaff();
+      showBanner('globalBanner', 'The contract was added, but the approval chain could not be saved: ' + e2.message + ' Open the contract with Edit and save it again.', 'error');
+      return;
     }
     document.getElementById('vbContractOverlay').style.display = 'none';
     await vbLoad(); vbRenderStaff();
@@ -4505,9 +4593,67 @@ async function vbSaveLegacy(){
 
 // ---------- the bill window (vendor and company) ----------
 function vbCanApproveNow(b, c){
+  if(b.status === 'approved1') return vbCan(c, ['admin', 'approver2']);
   if(!vbCan(c, ['admin', 'approver'])) return false;
   if(b.status === 'verified') return true;
   return b.status === 'under_review' && (c.verifier_id === c.approver_id || !c.verifier_id || (myProfile && myProfile.is_admin));
+}
+
+// ---------- the chain of people (contract set-up, both forms) ----------
+function vbChainFieldsHtml(c){
+  const staff = pmStaff();
+  const skippable = { approver2:1, grn:1, booker:1, sappay:1 };
+  const opts = (sel, skip)=> '<option value="">' + (skip ? '— skip this step —' : '— not assigned —') + '</option>' + staff.map(p=> '<option value="' + p.id + '"' + (p.id === sel ? ' selected' : '') + '>' + pmEsc(p.display_name) + '</option>').join('');
+  const fld = s=> '<div class="field"><label>' + s.n + ' · ' + s.label + ' <span style="text-transform:none; letter-spacing:0;">(' + s.hint + ')</span></label><select id="vbc-' + s.id + '">' + opts(c && c[s.field], !!skippable[s.id]) + '</select></div>';
+  const S = VB_CHAIN;
+  return '<div class="panel" style="margin:10px 0;"><div class="panel-title">Approval and payment chain <span class="count">7 steps</span></div>'
+    + '<div class="hint" style="font-size:11.5px; color:var(--faint); margin-bottom:8px;">Every bill travels through these steps in this order, each done by the person chosen here. A step set to “skip” is left out: with no Approver 2 (or the same person as Approver 1) one approval is enough. The Payer must be a different person from the Verifier and the Approvers. An admin can act at every step.</div>'
+    + (vbChainReady() ? '' : '<div class="banner error" style="display:block; margin-bottom:8px;">Run <b>supabase-vendor-bills-chain.sql</b> in the Supabase SQL Editor to use Approver 2, GRN, Accounts and SAP payment.</div>')
+    + '<div class="row2">' + fld(S[0]) + fld(S[1]) + '</div><div class="row2">' + fld(S[2]) + fld(S[3]) + '</div><div class="row2">' + fld(S[4]) + fld(S[5]) + '</div>' + fld(S[6]) + '</div>';
+}
+function vbChainCheck(val){
+  const v = id=> val('vbc-' + id) || '', pay = v('payer');
+  if(pay && [v('verifier'), v('approver'), v('approver2')].indexOf(pay) >= 0) throw new Error('The payer must be a different person from the verifier and the approvers.');
+}
+async function vbSaveChain(contractId, val){
+  const a = { p_contract_id:contractId, p_approver2:val('vbc-approver2') || null, p_grn:val('vbc-grn') || null, p_accounts:val('vbc-booker') || null, p_sappay:val('vbc-sappay') || null };
+  const c0 = vbContract(contractId);
+  const had = !!(c0 && (c0.approver2_id || c0.grn_user_id || c0.booker_id || c0.sap_payer_id));
+  if(!(a.p_approver2 || a.p_grn || a.p_accounts || a.p_sappay || had)) return;
+  const r = await db.rpc('vb_set_chain', a);
+  if(r.error){
+    if(r.error.code === 'PGRST202' || /could not find the function|schema cache/i.test(r.error.message || '')) throw new Error('Run supabase-vendor-bills-chain.sql in the Supabase SQL Editor first, then save again.');
+    throw r.error;
+  }
+}
+
+// ---------- approval levels ----------
+function vbGoesTo(c, d){ return d.stage === 'payment' ? 'the payer (' + pmWho(c[d.field]) + ')' : d.title.charAt(0).toLowerCase() + d.title.slice(1) + (c[d.field] ? ' (' + pmWho(c[d.field]) + ')' : ''); }
+function vbApproveFinal(b, c){ return b.status === 'approved1' || !vbHasApprover2(c); }     // does this approval complete the approvals?
+function vbApproveLabel(b, c){ return b.status === 'approved1' ? 'Give the second approval' : (vbApproveFinal(b, c) ? 'Approve for payment' : 'Approve (first of two)'); }
+
+// ---------- after approval: GRN, booking in SAP, SAP payment (company side, page 2 of the bill) ----------
+function vbProcHtml(b, c){
+  if(b.status !== 'approved' && b.status !== 'approved1' && !b.appr1_by) return '';
+  const ps = vbProcStage(b);
+  const row = (label, no, date, by, at)=> '<tr><td><b>' + label + '</b></td><td>' + (no ? pmEsc(no) : '<span class="pm-sub">—</span>') + '</td><td>' + (date ? fmtDate(date) : '') + '</td><td>' + (by ? pmEsc(pmWho(by)) + (at ? '<div class="pm-sub">' + pmEsc(fmtDateTime(at)) + '</div>' : '') : '') + '</td></tr>';
+  const two = vbHasApprover2(c);
+  const rows = (b.appr1_by ? row(two ? 'Approver 1' : 'Approval', '', '', b.appr1_by, b.appr1_at) : '')
+    + (two && b.status === 'approved' ? row('Approver 2', '', '', b.approved_by, b.approved_at) : '')
+    + (c.grn_user_id || b.grn_no ? row('GRN', b.grn_no, b.grn_date, b.grn_by, b.grn_at) : '')
+    + (c.booker_id || b.booking_no ? row('Booked in SAP', b.booking_no, b.booking_date, b.booked_by, b.booked_at) : '')
+    + (c.sap_payer_id || b.sap_pay_no ? row('SAP payment', b.sap_pay_no, b.sap_pay_date, b.sap_paid_by, b.sap_paid_at) : '');
+  let h = rows ? '<div class="pm-section-title">Approval and processing</div><div class="table-wrap"><table class="vb-cmp"><thead><tr><th>Step</th><th>Reference no.</th><th>Date</th><th>Done by</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '';
+  const d = vbProcDef(ps);
+  if(b.status === 'approved' && d && ps !== 'payment' && vbCan(c, ['admin', d.role])){
+    const nx = vbProcDef(vbNextStage(c, ps));
+    h += '<div class="pm-form" style="margin-top:8px;"><div class="pm-section-title" style="margin-top:0;">Step ' + d.n + ' · ' + pmEsc(d.title) + '</div>'
+      + '<div class="row2"><div class="field"><label>' + pmEsc(d.noLabel) + '</label><input type="text" id="vb-stg-no" maxlength="60" autocomplete="off"></div>'
+      + '<div class="field"><label>Date</label><input type="date" id="vb-stg-date" value="' + vbToday() + '" max="' + vbToday() + '"></div></div>'
+      + '<div class="field"><label>Note <span style="text-transform:none; letter-spacing:0;">(optional, internal)</span></label><input type="text" id="vb-stg-note"></div>'
+      + '<button type="button" class="btn primary" data-vb-act="stage">Save and forward to ' + pmEsc(nx ? vbGoesTo(c, nx) : 'the next step') + '</button></div>';
+  }
+  return h;
 }
 
 function vbLinesTableHtml(editable, canCertify){
@@ -4581,7 +4727,7 @@ function vbMgmtTable(items, editable, canCertify){
 // read-only view of a submitted bill (the bidder after submission, and the company once the review is over): the fee / KM lines and the
 // monthly lines in ONE table, like the company's verification window, with the certified quantity / rate / amount and the remarks beside the bill
 function vbCombinedShowCert(items){          // are the company's certified figures shown beside the bill yet?
-  const done = ['verified', 'approved'].indexOf(vbCur.bill.status) >= 0;
+  const done = ['verified', 'approved1', 'approved'].indexOf(vbCur.bill.status) >= 0;
   return vbIsVendor() ? done : (done || items.some(l=> l.certified_amount != null));
 }
 function vbCombinedTitle(items){ return vbCombinedShowCert(items) ? 'The bill and the company\'s certification' : (vbIsVendor() ? 'Your bill' : 'The bill as submitted'); }
@@ -4676,7 +4822,7 @@ function vbCertLive(){
 // ---- documents ticked "Verified" by the reviewer (mandatory before the bill goes on to approval) ----
 function vbDocCheck(kind){ return (vbCur.docChecks || []).find(k=> k.kind === kind) || null; }
 function vbDocVerChip(kind){        // on page 2, for company staff
-  if(vbIsVendor() || ['under_review', 'verified', 'approved'].indexOf(vbCur.bill.status) < 0) return '';
+  if(vbIsVendor() || ['under_review', 'verified', 'approved1', 'approved'].indexOf(vbCur.bill.status) < 0) return '';
   const dd = vbDocs(vbCur.contract).find(d=> vbDocKind(d.code) === kind);
   if(!vbCur.files.some(f=> f.kind === kind) && !(dd && dd.required)) return '';      // nothing to verify
   const ck = vbDocCheck(kind);
@@ -4747,8 +4893,9 @@ function vbRenderBill(){
   const reviewer = !vendorSide && vbCan(c, ['admin', 'verifier', 'approver']);
   const canCertify = reviewer && (b.status === 'under_review' || b.status === 'verified');
   const isPayer = !vendorSide && vbCan(c, ['admin', 'payer']);
+  const ps = vbProcStage(b);
   const canDelete = vendorSide && b.status === 'draft' && !b.submitted_at;       // a draft that was never submitted, whatever the billing type
-  const showCert = !vendorSide || ['under_review', 'verified', 'approved', 'query'].indexOf(b.status) >= 0 && (Number(b.certified_taxable) !== Number(b.claimed_taxable) || Number(b.deductions) > 0 || b.status === 'approved');
+  const showCert = !vendorSide || ['under_review', 'verified', 'approved1', 'approved', 'query'].indexOf(b.status) >= 0 && (Number(b.certified_taxable) !== Number(b.claimed_taxable) || Number(b.deductions) > 0 || b.status === 'approved');
 
   document.getElementById('vbBillTitle').innerHTML = pmEsc(b.bill_no) + ' <span class="pm-sub">· ' + pmEsc(c.vendor_name) + ' · ' + pmEsc(c.location_name || '') + ' · ' + vbMonth(b.period_month) + '</span> ' + vbStatusChip(b);
   const info = (l, v)=> '<div class="pm-info-row"><span>' + l + '</span><span>' + v + '</span></div>';
@@ -4782,14 +4929,15 @@ function vbRenderBill(){
   }
 
   // payments
+  if(!vendorSide) p2 += vbProcHtml(b, c);
   const showPay = b.status === 'approved' || payments.length;
   if(showPay){
     p2 += '<div class="pm-section-title">Payment</div>' + vbPaymentsHtml();
-    if(isPayer && b.status === 'approved' && b.pay_status !== 'paid'){
+    if(isPayer && b.status === 'approved' && ps === 'payment' && b.pay_status !== 'paid'){
       const bal = Math.round((Number(b.net_payable) - Number(b.paid_amount)) * 100) / 100;
       p2 += '<div class="pm-form" style="margin-top:8px;"><div class="pm-section-title" style="margin-top:0;">Record a payment</div>'
         + '<div class="row2"><div class="field"><label>Paid on</label><input type="date" id="vb-paydate" value="' + vbToday() + '" max="' + vbToday() + '"></div><div class="field"><label>Amount <span style="text-transform:none; letter-spacing:0;">(balance ' + vbRs(bal) + ')</span></label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vb-payamt" value="' + vbNumStr(bal) + '"></div></div>'
-        + '<div class="row2"><div class="field"><label>Mode</label><select id="vb-paymode"><option>NEFT</option><option>RTGS</option><option>IMPS / UPI</option><option>Cheque</option><option>Other</option></select></div><div class="field"><label>UTR / cheque no.</label><input type="text" id="vb-payref"></div></div>'
+        + '<div class="row2"><div class="field"><label>Mode</label><select id="vb-paymode"><option>RTGS</option><option>NEFT</option><option>IMPS / UPI</option><option>Cheque</option><option>Other</option></select></div><div class="field"><label>RTGS / UTR no. <span style="text-transform:none; letter-spacing:0;">(cheque no. for a cheque)</span></label><input type="text" id="vb-payref"></div></div>'
         + '<div class="field"><label>Remarks</label><input type="text" id="vb-payrem"></div>'
         + '<div class="field"><label>Payment advice <span style="text-transform:none; letter-spacing:0;">(optional)</span></label>' + vbSlotHtml('payment_advice') + '</div>'
         + '<button type="button" class="btn primary" data-vb-act="pay">Record payment</button></div>';
@@ -4801,7 +4949,7 @@ function vbRenderBill(){
   const tabs = '<div class="vb-tabs"><button type="button" class="vb-tab' + (vbPage === 'details' ? ' active' : '') + '" data-vb-page="details">1 · Bill details</button>'
     + '<button type="button" class="vb-tab' + (vbPage === 'attach' ? ' active' : '') + '" data-vb-page="attach">2 · Attachments, messages &amp; actions' + (nMsg ? ' <span class="pm-sub">· 💬 ' + nMsg + '</span>' : '') + ' <span id="vbAttachBadge" style="margin-left:6px;"></span></button></div>';
 
-  let body = vbStepper(b)
+  let body = vbStepper(b) + vbWaitingHtml(b)
     + (b.status === 'query' ? '<div class="banner error" style="display:block; margin-top:10px;"><b>Query' + (b.query_at ? ' raised on ' + pmEsc(fmtDateTime(b.query_at)) : '') + (b.query_by ? ' by ' + pmEsc(pmWho(b.query_by)) : '') + ':</b> ' + pmEsc(b.query_text || '')
       + (vendorSide ? ' — this is the same bill, not a new one. Amend it (page 1: lines / KM, invoice details; page 2: documents), write your response and click <b>Respond &amp; re-submit</b>. The query and your amendments stay in the revision history.' : ' — the vendor can amend the bill and re-submit it; the revision history is kept.') + '</div>' : '')
     + tabs + page1 + page2 + '<input type="file" id="vb-file-input" multiple style="display:none;">';
@@ -4818,7 +4966,9 @@ function vbRenderBill(){
   } else {
     if(b.status === 'submitted' && reviewer) acts = btn('start', 'Start review', 'primary') + btn('query', 'Raise query');
     else if(canCertify) acts = btn('certify', '💾 Save amounts') + btn('query', 'Raise query') + (b.status === 'under_review' ? btn('verify', 'Verify', vbCanApproveNow(b, c) ? '' : 'primary') : '')
-      + (vbCanApproveNow(b, c) ? btn('approve', 'Approve for payment', 'primary') : '');
+      + (vbCanApproveNow(b, c) ? btn('approve', vbApproveLabel(b, c), 'primary') : '');
+    else if(b.status === 'approved1' && vbCan(c, ['admin', 'approver2'])) acts = btn('query', 'Raise query') + btn('approve', vbApproveLabel(b, c), 'primary');
+    else if(b.status === 'approved' && ps && ps !== 'grn' && ps !== 'done' && !(ps === 'payment' && Number(b.paid_amount) > 0) && vbCan(c, ['admin', vbProcDef(ps).role])) acts = btn('sendback', '↩ Send back one step');
     if(b.status !== 'draft') acts += btn('comment', 'Send message');
   }
   document.getElementById('vbBillBody').innerHTML = body;
@@ -5017,14 +5167,36 @@ async function vbAct(act){
       vbRequireVerifications();
       await vbSaveCertification();
       const { error } = await db.rpc('vb_verify_bill', { p_bill_id:b.id, p_note:msg }); if(error) throw error;
-      done = 'Bill verified' + (vbCan(c, ['admin', 'approver']) ? '.' : '; it now goes to the approver.');
+      done = 'Bill verified' + (vbCan(c, ['admin', 'approver']) ? '.' : '; it now goes to Approver 1.');
     }
     else if(act === 'approve'){
       vbRequireVerifications();
       await vbSaveCertification();
-      if(!confirm('Approve this bill for payment? Net payable will be locked.')) throw new Error('Not approved.');
+      const fin = vbApproveFinal(b, c), nx = fin ? vbProcDef(vbNextStage(c, null)) : null;
+      const q = fin ? 'Approve this bill for payment? Net payable will be locked.' + (nx && nx.stage !== 'payment' ? '\n\nIt then goes to ' + vbGoesTo(c, nx) + '.' : '')
+                    : 'Give the first approval? The bill then goes to Approver 2 (' + pmWho(c.approver2_id) + ').';
+      if(!confirm(q)) throw new Error('Not approved.');
       const { error } = await db.rpc('vb_approve_bill', { p_bill_id:b.id, p_note:msg }); if(error) throw error;
-      done = 'Approved. It is now with the payer.';
+      done = fin ? (nx ? 'Approved. It now goes to ' + vbGoesTo(c, nx) + '.' : 'Approved.') : 'First approval given. The bill now goes to Approver 2.';
+    }
+    else if(act === 'stage'){
+      const ps = vbProcStage(b), d = vbProcDef(ps);
+      if(!d || ps === 'payment') throw new Error('This bill is not waiting for GRN, booking or SAP payment.');
+      const no = ((document.getElementById('vb-stg-no') || {}).value || '').trim();
+      if(!no) throw new Error('Enter the ' + d.noLabel + '.');
+      const date = (document.getElementById('vb-stg-date') || {}).value || null, note = ((document.getElementById('vb-stg-note') || {}).value || '').trim();
+      const fn = { grn:'vb_update_grn', booking:'vb_book_in_sap', sap_payment:'vb_sap_payment' }[ps];
+      const args = { p_bill_id:b.id, p_date:date, p_note:note };
+      args[ps === 'grn' ? 'p_grn_no' : 'p_txn_no'] = no;
+      const { error } = await db.rpc(fn, args); if(error) throw error;
+      const nx = vbProcDef(vbNextStage(c, ps));
+      done = d.noLabel + ' ' + no + ' saved. The bill now goes to ' + (nx ? vbGoesTo(c, nx) : 'the next step') + '.';
+    }
+    else if(act === 'sendback'){
+      if(!msg) throw new Error('Write the reason for sending the bill back in the message box first.');
+      if(!confirm('Send this bill back one step? The entry made at the previous step is cleared (it stays in the history).')) throw new Error('Not approved.');
+      const { error } = await db.rpc('vb_send_back', { p_bill_id:b.id, p_reason:msg }); if(error) throw error;
+      done = 'The bill has been sent back one step.';
     }
     else if(act === 'comment'){
       if(!msg) throw new Error('Write a message first.');
@@ -5032,6 +5204,7 @@ async function vbAct(act){
       done = 'Message sent.';
     }
     else if(act === 'pay'){
+      if(!document.getElementById('vb-payref').value.trim()) throw new Error('Enter the RTGS / UTR number.');
       const { error } = await db.rpc('vb_record_payment', { p_bill_id:b.id, p_paid_on:document.getElementById('vb-paydate').value, p_amount:vbVal(document.getElementById('vb-payamt').value),
         p_mode:document.getElementById('vb-paymode').value, p_reference:document.getElementById('vb-payref').value, p_remarks:document.getElementById('vb-payrem').value });
       if(error) throw error;
@@ -5103,7 +5276,7 @@ function vpRenderBills(){
     const c = vbContract(b.contract_id) || {};
     const act = vbNeedsMe(b) ? (b.status === 'query' ? '<span class="pm-chip bad">Reply to query</span>' : '<span class="pm-chip warn">Complete &amp; submit</span>') : '';
     return '<tr data-vb-open="' + b.id + '" style="cursor:pointer;"><td style="font-family:\'IBM Plex Mono\',monospace; font-size:12px;">' + pmEsc(b.bill_no) + '</td><td>' + pmEsc(c.location_name || '') + '</td><td>' + vbMonth(b.period_month) + '</td>'
-      + '<td>' + pmEsc(b.invoice_number || '—') + '</td><td style="text-align:right;">' + vbRs(b.status === 'approved' || b.status === 'verified' ? b.net_payable : Number(b.claimed_taxable) + Number(b.claimed_gst)) + '</td>'
+      + '<td>' + pmEsc(b.invoice_number || '—') + '</td><td style="text-align:right;">' + vbRs(b.status === 'approved' || b.status === 'approved1' || b.status === 'verified' ? b.net_payable : Number(b.claimed_taxable) + Number(b.claimed_gst)) + '</td>'
       + '<td>' + vbStatusChip(b) + ' ' + act + '</td><td><button type="button" class="btn small" data-vb-open="' + b.id + '">Open</button></td></tr>';
   }).join('');
   box.innerHTML = '<div class="hm-proj" style="margin-bottom:14px;">' + cards + '</div>'
@@ -7741,7 +7914,7 @@ function homeCollect(){
     if(asRev) mine.forEach(b=>{
       const c = vbContract(b.contract_id) || {};
       const dd = b.status === 'approved' && b.due_date ? pmDiff(b.due_date, pmToday()) : null;
-      const label = { submitted:'Start review', under_review:'Review', verified:'Approve', approved:'Record payment' }[b.status] || 'Open';
+      const label = b.status === 'approved' ? ({ grn:'Update GRN', booking:'Book in SAP', sap_payment:'SAP payment', payment:'Record payment' }[vbProcStage(b)] || 'Open') : ({ submitted:'Start review', under_review:'Review', verified:'Approve', approved1:'Approve' }[b.status] || 'Open');
       act.push({ mod:'bill', title:(c.vendor_name || 'Vendor') + ' — ' + vbMonth(b.period_month), sub:b.bill_no + ' · ' + (VB_STATUS[b.status] ? VB_STATUS[b.status].label : b.status) + (b.status === 'approved' ? ' · ' + vbRs(Number(b.net_payable) - Number(b.paid_amount)) + ' to pay' : ''),
         days:dd, score:(dd != null && dd < 0 ? 900 - dd : 380), open:'bill:' + b.id, actions:'<button class="btn small primary" data-home-open="bill:' + b.id + '">' + label + '</button>' });
     });
