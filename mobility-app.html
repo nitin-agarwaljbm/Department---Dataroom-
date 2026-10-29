@@ -850,6 +850,9 @@
     #vpPrintArea .pp-page{ page-break-after:always; }
     #vpPrintArea .pp-page:last-child{ page-break-after:auto; }
   }
+.master-pick{ display:flex; gap:6px; align-items:center; }
+.master-pick select{ flex:1; min-width:0; }
+.master-pick .master-add{ padding:0 11px; font-weight:700; font-size:16px; line-height:1.5; flex:none; }
 </style>
 </head>
 <body>
@@ -934,7 +937,7 @@
         <div class="panel-title">My Tenders <button type="button" class="btn small" id="vpEditCompanyProfileBtn" style="float:right;">Edit Company Profile</button></div>
         <div class="table-wrap">
           <table id="vpTendersTable">
-            <thead><tr><th>Location</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Depot</th><th>Status</th><th></th></tr></thead>
             <tbody id="vpTendersTableBody"></tbody>
           </table>
         </div>
@@ -1355,7 +1358,7 @@
         <div class="filter-group"><label>Company</label><select class="filter-input" id="tf-company"></select></div>
         <div class="filter-group"><label>Bidder</label><select class="filter-input" id="tf-bidder"></select></div>
         <div class="filter-group"><label>Awarded To</label><select class="filter-input" id="tf-awarded"></select></div>
-        <div class="filter-group grow"><label>Search location / subject</label><input type="text" class="filter-input" id="tenderSearchBox" placeholder="Type to filter…"></div>
+        <div class="filter-group grow"><label>Search depot / subject</label><input type="text" class="filter-input" id="tenderSearchBox" placeholder="Type to filter…"></div>
         <label style="display:flex; align-items:center; gap:6px; align-self:flex-end; padding-bottom:9px; font-size:calc(13px * var(--fs)); color:var(--text); white-space:nowrap;">
           <input type="checkbox" id="tf-my-approval" style="width:auto;"> Pending my approval
         </label>
@@ -1368,7 +1371,7 @@
       <div class="table-wrap">
         <table id="tendersTable">
           <thead>
-            <tr><th>Location</th><th>Company</th><th>Buses</th><th>Vendors</th><th>Status</th><th>Awarded To</th><th>Awarded ₹/Km</th><th></th></tr>
+            <tr><th>Depot</th><th>Company</th><th>Buses</th><th>Vendors</th><th>Status</th><th>Awarded To</th><th>Awarded ₹/Km</th><th></th></tr>
           </thead>
           <tbody id="tendersTableBody"></tbody>
         </table>
@@ -1701,9 +1704,9 @@
   <div class="modal-box modal-box-wide" style="max-width:1200px; width:97vw;">
     <div class="modal-header"><div class="panel-title" style="border:none; margin:0; padding:0;">Add buses from OEM invoices</div><button class="btn small" id="imInvClose">✕ Close</button></div>
     <div id="imInvBanner" class="banner"></div>
-    <p class="pm-sub">Drop the JBM tax invoice PDFs here, as many as you like (one bus per file). The chassis no., motor no., model, invoice no. and date, value, GST and financier are read from each invoice, the bus is added to the fleet master, and the invoice PDF is saved in OneDrive as the bus's OEM invoice. Fleet no., registration no. and delivery date stay blank: add them afterwards from each bus.</p>
+    <p class="pm-sub">Drop the JBM tax invoice PDFs here, as many as you like (one bus per file). The chassis no., motor no., model, invoice no. and date, value, GST, financier and the owner (name, address and GSTN under "Bill To") are read from each invoice, the bus is added to the fleet master, and the invoice PDF is saved in OneDrive as the bus's OEM invoice. Fleet no., registration no. and delivery date stay blank: add them afterwards from each bus.</p>
     <div style="border:1px solid var(--duesoon); background:var(--duesoon-bg); border-radius:8px; padding:10px 14px; margin:8px 0 12px;"><b>Please ensure that the invoices you upload here are for this Project, depot and configuration only.</b> The project, depot, seats and battery size entered below are saved on every bus of this upload. Upload a separate batch for each project / depot / configuration.</div>
-    <div class="im-form"><div class="field"><label>Project name *</label><input type="text" id="imInvProject" autocomplete="off"></div><div class="field"><label>Depot *</label><input type="text" id="imInvDepot" autocomplete="off"></div><div class="field"><label>Seats *</label><input type="text" inputmode="numeric" id="imInvSeats" class="vb-n" autocomplete="off"></div><div class="field"><label>Battery size (kWh) *</label><input type="text" inputmode="decimal" id="imInvBattery" class="vb-n" autocomplete="off"></div></div>
+    <div class="im-form"><div class="field"><label>Project name *</label><input type="text" id="imInvProject" autocomplete="off"></div><div class="field"><label>Depot *</label><select id="imInvDepot" data-master="depot"></select></div><div class="field"><label>Seats *</label><input type="text" inputmode="numeric" id="imInvSeats" class="vb-n" autocomplete="off"></div><div class="field"><label>Battery size (kWh) *</label><input type="text" inputmode="decimal" id="imInvBattery" class="vb-n" autocomplete="off"></div></div>
     <div id="imInvWarnCfg" class="pm-sub" style="margin-bottom:8px;"></div>
     <div class="pm-drop" id="imInvDrop"><span>📎 Drag the invoice PDFs here, or <button type="button" class="btn small" id="imInvBrowse">Browse…</button></span></div>
     <div id="imInvList"></div>
@@ -2459,7 +2462,7 @@
     <div class="modal-body">
       <form id="newTenderForm">
         <div class="row2">
-          <div class="field"><label>Location</label><input type="text" id="nt-t-location" required placeholder="e.g. Thane Depot"></div>
+          <div class="field"><label>Depot</label><select id="nt-t-location" data-master="depot" required></select></div>
           <div class="field"><label>Company</label>
             <div style="display:flex; gap:6px;">
               <select id="nt-t-company" style="flex:1;"></select>
@@ -2565,7 +2568,7 @@
           <div id="tdMasterFrozenViewTop" class="master-frozen-grid" style="display:none;"></div>
           <div id="tdMasterEditViewTop">
             <div class="row2">
-              <div class="field"><label>Location</label><input type="text" id="td-t-location"></div>
+              <div class="field"><label>Depot</label><select id="td-t-location" data-master="depot"></select></div>
               <div class="field"><label>Target Closure Date <span style="text-transform:none; letter-spacing:0;">(required to float)</span></label><input type="date" id="td-t-closure-date"></div>
             </div>
             <div class="row2">
@@ -2838,7 +2841,7 @@
     <div class="field" id="pmp-template-field"><label>Template to follow</label><select id="pmp-template"></select></div>
     <div class="field"><label>Project name</label><input type="text" id="pmp-name" placeholder="e.g. Kalyan Dombivali 75 buses"></div>
     <div class="row2">
-      <div class="field"><label>Location / Depot</label><input type="text" id="pmp-location"></div>
+      <div class="field"><label>Depot</label><select id="pmp-location" data-master="depot"></select></div>
       <div class="field"><label>Authority / Customer</label><input type="text" id="pmp-authority"></div>
     </div>
     <div class="row2">
@@ -3577,6 +3580,67 @@ const VB_DEFAULT_DOCS = [
   { code:'salary_sheet', label:'Salary sheet of the manpower', required:true, hint:'for the previous month' }
 ];
 
+// ---------- master list: Depot (everybody reads it; only an admin adds to it, with the + sign beside the field) ----------
+let MASTER = { depot:[] };
+const MASTER_META = { depot:{ table:'depots', rpc:'depot_add', label:'depot' } };
+async function loadMasterLists(){
+  for(const k of Object.keys(MASTER_META)){
+    try{ const r = await db.from(MASTER_META[k].table).select('name').order('name'); MASTER[k] = r.error ? [] : (r.data || []).map(x=> x.name); }
+    catch(e){ MASTER[k] = []; }      // supabase-depot-project-masters.sql not run yet
+  }
+  masterWire();
+}
+function masterIsAdmin(){ return !!(myProfile && myProfile.is_admin); }
+function masterOptionsHtml(kind, cur){
+  const names = MASTER[kind].slice(), c = cur == null ? '' : String(cur);
+  if(c && names.indexOf(c) < 0) names.unshift(c);          // a value saved earlier that is not in the list yet stays visible
+  return '<option value="">— select —</option>' + names.map(n=> '<option value="' + pmEsc(n) + '"' + (c && n === c ? ' selected' : '') + '>' + pmEsc(n) + '</option>').join('');
+}
+function masterPlusHtml(kind, id){
+  return masterIsAdmin() ? '<button type="button" class="btn small master-add" data-master-add="' + kind + '" data-master-for="' + id + '" title="Add a new ' + MASTER_META[kind].label + ' to the list">+</button>' : '';
+}
+// a Depot field built in JavaScript: the list with a + sign for admins
+function masterSelectHtml(kind, id, cur, attrs){
+  return '<div class="master-pick"><select id="' + id + '" data-master="' + kind + '" data-wired="1"' + (attrs ? ' ' + attrs : '') + '>' + masterOptionsHtml(kind, cur) + '</select>' + masterPlusHtml(kind, id) + '</div>';
+}
+// the fields written in the page itself (<select data-master="depot">) get their list and + sign here; every field keeps its value
+function masterWire(){
+  document.querySelectorAll('select[data-master]').forEach(sel=> {
+    const kind = sel.dataset.master, cur = sel.value;
+    if(!sel.dataset.wired){
+      sel.dataset.wired = '1'; sel.dataset.auto = '1';
+      const w = document.createElement('div'); w.className = 'master-pick';
+      sel.parentNode.insertBefore(w, sel); w.appendChild(sel);
+    }
+    sel.innerHTML = masterOptionsHtml(kind, cur);
+    if(sel.dataset.auto){
+      sel.parentNode.querySelectorAll('.master-add').forEach(b=> b.remove());
+      sel.insertAdjacentHTML('afterend', masterPlusHtml(kind, sel.id));
+    }
+  });
+}
+function masterSet(id, val){
+  const el = document.getElementById(id); if(!el) return;
+  if(el.tagName !== 'SELECT'){ el.value = val == null ? '' : val; return; }
+  const v = val == null ? '' : String(val);
+  if(v && ![...el.options].some(o=> o.value === v)) el.insertAdjacentHTML('beforeend', '<option value="' + pmEsc(v) + '">' + pmEsc(v) + '</option>');
+  const m = [...el.options].find(o=> o.value === v);
+  el.value = m ? m.value : '';
+}
+async function masterAdd(btn){
+  const kind = btn.dataset.masterAdd, meta = MASTER_META[kind];
+  const name = prompt('Name of the new ' + meta.label + ' (it is added to the list for everybody):');
+  if(name === null || !name.trim()) return;
+  if(vaReadOnly()){ alert('Preview mode is read-only.'); return; }
+  const { error } = await db.rpc(meta.rpc, { p_name:name });
+  if(error){ alert(error.message); return; }
+  await loadMasterLists();           // rebuilds every list on the page, each keeping its own value
+  const norm = name.trim().replace(/\s+/g, ' ');
+  masterSet(btn.dataset.masterFor, MASTER[kind].find(n=> n.toLowerCase() === norm.toLowerCase()) || norm);
+  const el = document.getElementById(btn.dataset.masterFor); if(el) el.dispatchEvent(new Event('input', { bubbles:true }));
+}
+document.addEventListener('click', e=> { const b = e.target.closest && e.target.closest('.master-add'); if(b){ e.preventDefault(); masterAdd(b); } });
+
 const VB_STATUS = {
   draft:        { label:'Draft',              cls:'draft' },
   submitted:    { label:'Submitted',          cls:'duesoon' },
@@ -3697,7 +3761,7 @@ function vbNeedsMe(b){
 }
 
 // the contract's columns a bidder may read: everything except "template", the company's standard monthly lines
-const VB_CONTRACT_COLS_OLD = 'id,tender_id,quote_id,vendor_user,vendor_name,location_name,start_date,end_date,credit_days,tds_rate,verifier_id,approver_id,payer_id,billing_mode,km_rule,status,created_by,created_at,is_legacy,vendor_email,contract_ref,required_docs';
+const VB_CONTRACT_COLS_OLD = 'id,tender_id,quote_id,vendor_user,vendor_name,depot_name,start_date,end_date,credit_days,tds_rate,verifier_id,approver_id,payer_id,billing_mode,km_rule,status,created_by,created_at,is_legacy,vendor_email,contract_ref,required_docs';
 const VB_CONTRACT_COLS = VB_CONTRACT_COLS_OLD + ',approver2_id,grn_user_id,booker_id,sap_payer_id';
 async function vbLoad(){
   let c = await db.from('vb_contracts').select(VB_CONTRACT_COLS).order('id');
@@ -4144,23 +4208,23 @@ function vbRenderStaff(){
     if(vbFilter.vendor && String(b.contract_id) !== vbFilter.vendor) return false;
     if(vbFilter.status && b.status !== vbFilter.status) return false;
     if(vbFilter.q){
-      const hay = ((c && c.vendor_name) + ' ' + (c && c.location_name) + ' ' + b.bill_no + ' ' + (b.invoice_number || '')).toLowerCase();
+      const hay = ((c && c.vendor_name) + ' ' + (c && c.depot_name) + ' ' + b.bill_no + ' ' + (b.invoice_number || '')).toLowerCase();
       if(hay.indexOf(vbFilter.q.toLowerCase()) < 0) return false;
     }
     return true;
   });
   rows.sort((a, b)=> (vbNeedsMe(b) - vbNeedsMe(a)) || String(b.submitted_at || b.created_at).localeCompare(String(a.submitted_at || a.created_at)));
 
-  const contractOpts = '<option value="">All contracts</option>' + vbContracts.map(c=> '<option value="' + c.id + '"' + (String(c.id) === vbFilter.vendor ? ' selected' : '') + '>' + pmEsc(c.vendor_name + ' — ' + (c.location_name || '')) + '</option>').join('');
+  const contractOpts = '<option value="">All contracts</option>' + vbContracts.map(c=> '<option value="' + c.id + '"' + (String(c.id) === vbFilter.vendor ? ' selected' : '') + '>' + pmEsc(c.vendor_name + ' — ' + (c.depot_name || '')) + '</option>').join('');
   const statusOpts = '<option value="">Any status</option>' + Object.keys(VB_STATUS).filter(k=> k !== 'draft' && (k !== 'rejected' || vbBills.some(b=> b.status === 'rejected'))).map(k=> '<option value="' + k + '"' + (k === vbFilter.status ? ' selected' : '') + '>' + VB_STATUS[k].label + '</option>').join('');
-  const tbl = rows.length ? '<div class="table-wrap"><table><thead><tr><th>Bill</th><th>Vendor / location</th><th>Month</th><th>Invoice</th><th style="text-align:right;">Claimed</th><th style="text-align:right;">Net payable</th><th>Status</th><th>Age / due</th><th></th></tr></thead><tbody>'
+  const tbl = rows.length ? '<div class="table-wrap"><table><thead><tr><th>Bill</th><th>Vendor / depot</th><th>Month</th><th>Invoice</th><th style="text-align:right;">Claimed</th><th style="text-align:right;">Net payable</th><th>Status</th><th>Age / due</th><th></th></tr></thead><tbody>'
     + rows.map(b=> {
       const c = vbContract(b.contract_id) || {};
       const age = b.submitted_at ? Math.max(0, Math.round((Date.now() - new Date(b.submitted_at).getTime()) / 86400000)) : null;
       const dueTxt = b.status === 'approved' && b.pay_status !== 'paid' && b.due_date ? 'due ' + fmtDate(b.due_date) : (b.status === 'approved' ? '' : age != null ? age + 'd since submitted' : '');
       return '<tr data-vb-open="' + b.id + '" style="cursor:pointer;">'
         + '<td style="font-family:\'IBM Plex Mono\',monospace; font-size:12px;">' + pmEsc(b.bill_no) + (b.version > 1 ? ' <span class="pm-sub">v' + b.version + '</span>' : '') + '</td>'
-        + '<td><b>' + pmEsc(c.vendor_name || '—') + '</b><div class="pm-sub">' + pmEsc(c.location_name || '') + '</div></td>'
+        + '<td><b>' + pmEsc(c.vendor_name || '—') + '</b><div class="pm-sub">' + pmEsc(c.depot_name || '') + '</div></td>'
         + '<td>' + vbMonth(b.period_month) + '</td><td>' + pmEsc(b.invoice_number || '—') + '<div class="pm-sub">' + (b.invoice_date ? fmtDate(b.invoice_date) : '') + '</div></td>'
         + '<td style="text-align:right;">' + vbRs(Number(b.claimed_taxable) + Number(b.claimed_gst)) + '</td>'
         + '<td style="text-align:right;">' + (['approved', 'approved1', 'verified', 'under_review'].indexOf(b.status) >= 0 ? vbRs(b.net_payable) : '—') + '</td>'
@@ -4172,7 +4236,7 @@ function vbRenderStaff(){
   box.innerHTML = kpiHtml
     + '<div class="filter-bar" style="margin-bottom:12px;"><div class="filter-group"><label>Contract</label><select class="filter-input" id="vbfContract">' + contractOpts + '</select></div>'
     + '<div class="filter-group"><label>Status</label><select class="filter-input" id="vbfStatus">' + statusOpts + '</select></div>'
-    + '<div class="filter-group grow"><label>Search</label><input type="text" class="filter-input" id="vbfQ" placeholder="Vendor, location, bill no., invoice no." value="' + pmEsc(vbFilter.q) + '"></div>'
+    + '<div class="filter-group grow"><label>Search</label><input type="text" class="filter-input" id="vbfQ" placeholder="Vendor, depot, bill no., invoice no." value="' + pmEsc(vbFilter.q) + '"></div>'
     + (vbFilter.kpi || vbFilter.status || vbFilter.vendor || vbFilter.q ? '<button type="button" class="btn small" id="vbfClear" style="align-self:flex-end;">✕ Clear</button>' : '') + '</div>'
     + tbl;
 }
@@ -4182,12 +4246,12 @@ function vbRenderContracts(box){
   const awardedNoContract = rawTenders.filter(t=> t.awarded_quote_id && !vbContracts.some(c=> c.tender_id === t.id));
   const todo = awardedNoContract.length
     ? '<div class="panel" style="margin-bottom:14px;"><div class="panel-title">Awarded tenders waiting for billing set-up <span class="count">' + awardedNoContract.length + '</span></div>'
-      + awardedNoContract.map(t=> '<div class="hm-act"><div class="hm-main"><div class="hm-title">' + pmEsc(t.location_name) + '</div><div class="hm-meta">' + pmEsc(awardedVendorNameFor(t) || '') + ' · ' + pmEsc(billingTypeLabel(t.billing_type)) + '</div></div>'
+      + awardedNoContract.map(t=> '<div class="hm-act"><div class="hm-main"><div class="hm-title">' + pmEsc(t.depot_name) + '</div><div class="hm-meta">' + pmEsc(awardedVendorNameFor(t) || '') + ' · ' + pmEsc(billingTypeLabel(t.billing_type)) + '</div></div>'
         + '<div class="hm-acts"><button type="button" class="btn small primary" data-vb-setup="' + t.id + '">Set up billing</button></div></div>').join('') + '</div>'
     : '';
   const rows = vbContracts.map(c=> {
     const n = vbBills.filter(b=> b.contract_id === c.id && b.status !== 'draft').length;
-    return '<tr><td><b>' + pmEsc(c.vendor_name) + '</b>' + (c.is_legacy ? ' <span class="pm-chip">Existing</span>' : '') + '<div class="pm-sub">' + pmEsc(c.location_name || '') + (c.contract_ref ? ' · ' + pmEsc(c.contract_ref) : '') + '</div></td>'
+    return '<tr><td><b>' + pmEsc(c.vendor_name) + '</b>' + (c.is_legacy ? ' <span class="pm-chip">Existing</span>' : '') + '<div class="pm-sub">' + pmEsc(c.depot_name || '') + (c.contract_ref ? ' · ' + pmEsc(c.contract_ref) : '') + '</div></td>'
       + '<td>' + (c.vendor_user ? pmEsc(pmWho(c.vendor_user)) : (c.is_legacy ? '<span class="pm-chip bad">Not linked yet</span>' : '—')) + '</td><td>' + (c.billing_mode === 'per_km' ? 'Per KM' : 'Management fee') + '</td>'
       + '<td>' + fmtDate(c.start_date) + (c.end_date ? ' → ' + fmtDate(c.end_date) : ' →') + '</td>'
       + VB_CHAIN.map(st=> '<td>' + (c[st.field] ? pmEsc(pmWho(c[st.field])) : '<span class="pm-sub">' + (st.id === 'approver2' || st.id === 'grn' || st.id === 'booker' || st.id === 'sappay' ? 'skipped' : '—') + '</span>') + '</td>').join('')
@@ -4197,7 +4261,7 @@ function vbRenderContracts(box){
   const unlinked = vbContracts.filter(c=> c.is_legacy && !c.vendor_user).length;
   box.innerHTML = '<div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;"><button type="button" class="btn primary small" data-vb-addlegacy>+ Add a running contract (awarded before TrackIt)</button>'
     + (unlinked ? '<span class="pm-chip bad">' + unlinked + ' not linked to a bidder login yet</span>' : '') + '</div>' + todo + '<div class="panel"><div class="panel-title">Billing contracts <span class="count">' + vbContracts.length + '</span></div>'
-    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Vendor / location</th><th>Bidder login</th><th>Billing</th><th>Period</th>' + VB_CHAIN.map(st=> '<th>' + st.n + ' ' + st.label + '</th>').join('') + '<th>Credit</th><th>TDS</th><th>Bills</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Vendor / depot</th><th>Bidder login</th><th>Billing</th><th>Period</th>' + VB_CHAIN.map(st=> '<th>' + st.n + ' ' + st.label + '</th>').join('') + '<th>Credit</th><th>TDS</th><th>Bills</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<div class="empty-state">No contract yet. Once a tender is awarded, set up its billing here.</div>') + '</div>';
 }
 
@@ -4347,7 +4411,7 @@ async function vbOpenSetup(tenderId, contractId){
     }
     vbSetupCtx = { tenderId:tId, contractId:contractId || null, mode, template, kmRule };
     const today = vbToday();
-    document.getElementById('vbContractTitle').textContent = (c ? 'Billing set-up — ' : 'Set up billing — ') + (tender ? tender.location_name : (c && c.location_name) || '');
+    document.getElementById('vbContractTitle').textContent = (c ? 'Billing set-up — ' : 'Set up billing — ') + (tender ? tender.depot_name : (c && c.depot_name) || '');
     document.getElementById('vbContractBanner').style.display = 'none';
     const ruleHtml = mode === 'per_km' && kmRule ? '<div class="panel" style="margin:10px 0;"><div class="panel-title">Per-KM billing terms</div>'
         + '<div class="row2"><div class="field"><label>Rate per KM (₹, excl. GST)</label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vbc-rate" value="' + vbNumStr(kmRule.rate_per_km) + '"></div>'
@@ -4484,7 +4548,7 @@ async function vbOpenLegacy(c){
   const today = vbToday();
   const lab = (t, hint)=> t + (hint ? ' <span style="text-transform:none; letter-spacing:0;">(' + hint + ')</span>' : '');
   vbSetupCtx = { legacy:true, contractId:c ? c.id : null, mode, vendorUser:c ? c.vendor_user : null };
-  document.getElementById('vbContractTitle').textContent = c ? 'Existing contract — ' + c.vendor_name + ' · ' + (c.location_name || '') : 'Add a running contract (awarded before TrackIt)';
+  document.getElementById('vbContractTitle').textContent = c ? 'Existing contract — ' + c.vendor_name + ' · ' + (c.depot_name || '') : 'Add a running contract (awarded before TrackIt)';
   document.getElementById('vbContractBanner').style.display = 'none';
   const docsHtml = '<div class="panel" style="margin:10px 0;"><div class="panel-title">Documents the vendor must attach to every bill</div>'
     + '<div class="hint" style="font-size:11.5px; color:var(--faint); margin-bottom:8px;">A bill cannot be submitted until every <b>mandatory</b> document is attached. The invoice is always mandatory.</div>'
@@ -4493,7 +4557,7 @@ async function vbOpenLegacy(c){
   document.getElementById('vbContractBody').innerHTML =
     '<div class="hint" style="font-size:12px; color:var(--muted); margin-bottom:8px;">For a contract that is already running. Enter the terms from the agreement; the bidder then bills against them every month. If he has not registered yet, leave the login empty and link it later.</div>'
     + '<div class="row2"><div class="field"><label>' + lab('Bidder (vendor) name') + '</label><input type="text" id="vbl-name" value="' + pmEsc(c ? c.vendor_name : '') + '"></div>'
-    + '<div class="field"><label>' + lab('Location') + '</label><input type="text" id="vbl-loc" value="' + pmEsc(c ? c.location_name || '' : '') + '"></div></div>'
+    + '<div class="field"><label>' + lab('Depot') + '</label>' + masterSelectHtml('depot', 'vbl-loc', c ? c.depot_name || '' : '') + '</div></div>'
     + '<div class="row2"><div class="field"><label>' + lab('Agreement / work-order ref.', 'optional') + '</label><input type="text" id="vbl-ref" value="' + pmEsc(c ? c.contract_ref || '' : '') + '"></div>'
     + '<div class="field"><label>' + lab('Bidder e-mail', 'optional, helps to find his login') + '</label><input type="text" id="vbl-email" value="' + pmEsc(c ? c.vendor_email || '' : '') + '"></div></div>'
     + '<div class="field"><label>' + lab('Bidder login', 'the registered account that will submit these bills') + '</label><select id="vbl-user"><option value="">— not registered yet / link later —</option>'
@@ -4897,7 +4961,7 @@ function vbRenderBill(){
   const canDelete = vendorSide && b.status === 'draft' && !b.submitted_at;       // a draft that was never submitted, whatever the billing type
   const showCert = !vendorSide || ['under_review', 'verified', 'approved1', 'approved', 'query'].indexOf(b.status) >= 0 && (Number(b.certified_taxable) !== Number(b.claimed_taxable) || Number(b.deductions) > 0 || b.status === 'approved');
 
-  document.getElementById('vbBillTitle').innerHTML = pmEsc(b.bill_no) + ' <span class="pm-sub">· ' + pmEsc(c.vendor_name) + ' · ' + pmEsc(c.location_name || '') + ' · ' + vbMonth(b.period_month) + '</span> ' + vbStatusChip(b);
+  document.getElementById('vbBillTitle').innerHTML = pmEsc(b.bill_no) + ' <span class="pm-sub">· ' + pmEsc(c.vendor_name) + ' · ' + pmEsc(c.depot_name || '') + ' · ' + vbMonth(b.period_month) + '</span> ' + vbStatusChip(b);
   const info = (l, v)=> '<div class="pm-info-row"><span>' + l + '</span><span>' + v + '</span></div>';
   const invoiceBlock = editable
     ? '<div class="row2"><div class="field"><label>Invoice number</label><input type="text" id="vb-invno" value="' + pmEsc(b.invoice_number || '') + '"></div><div class="field"><label>Invoice date</label><input type="date" id="vb-invdate" value="' + (b.invoice_date || '') + '"></div></div>'
@@ -5240,7 +5304,7 @@ function vbOpenNewBill(contractId){
   vbNewCtx = contractId;
   document.getElementById('vbNewBillBanner').style.display = 'none';
   document.getElementById('vbNewBillSelect').innerHTML = opts.map(o=> '<option value="' + o + '">' + vbMonth(o) + '</option>').join('');
-  document.getElementById('vbNewBillText').textContent = opts.length ? 'Which month is this bill for? (' + c.location_name + ')' : 'Every month so far already has a bill.';
+  document.getElementById('vbNewBillText').textContent = opts.length ? 'Which month is this bill for? (' + c.depot_name + ')' : 'Every month so far already has a bill.';
   document.getElementById('vbNewBillCreateBtn').disabled = !opts.length;
   document.getElementById('vbNewBillOverlay').style.display = 'flex';
 }
@@ -5266,7 +5330,7 @@ function vpRenderBills(){
   const cards = vbContracts.map(c=> {
     const mine = vbBills.filter(b=> b.contract_id === c.id);
     const unpaid = mine.filter(b=> b.status === 'approved' && b.pay_status !== 'paid').reduce((n, b)=> n + Number(b.net_payable) - Number(b.paid_amount), 0);
-    return '<div class="hm-pcard" style="cursor:default;"><div style="display:flex; justify-content:space-between; gap:8px;"><b>' + pmEsc(c.location_name || '') + '</b><span class="pm-chip ok">' + (c.billing_mode === 'per_km' ? 'Per KM' : 'Management fee') + '</span></div>'
+    return '<div class="hm-pcard" style="cursor:default;"><div style="display:flex; justify-content:space-between; gap:8px;"><b>' + pmEsc(c.depot_name || '') + '</b><span class="pm-chip ok">' + (c.billing_mode === 'per_km' ? 'Per KM' : 'Management fee') + '</span></div>'
       + '<div class="hm-meta">Billing from ' + fmtDate(c.start_date) + (c.end_date ? ' to ' + fmtDate(c.end_date) : '') + ' · payment within ' + c.credit_days + ' days of approval</div>'
       + (unpaid ? '<div class="hm-meta">Approved and awaiting payment: <b>' + vbRs(unpaid) + '</b></div>' : '')
       + '<div style="margin-top:8px;">' + (c.status === 'active' ? '<button type="button" class="btn primary small" data-vb-new="' + c.id + '">+ New bill</button>' : '<span class="pm-sub">Contract closed</span>') + '</div></div>';
@@ -5275,12 +5339,12 @@ function vpRenderBills(){
   const rows = bills.map(b=> {
     const c = vbContract(b.contract_id) || {};
     const act = vbNeedsMe(b) ? (b.status === 'query' ? '<span class="pm-chip bad">Reply to query</span>' : '<span class="pm-chip warn">Complete &amp; submit</span>') : '';
-    return '<tr data-vb-open="' + b.id + '" style="cursor:pointer;"><td style="font-family:\'IBM Plex Mono\',monospace; font-size:12px;">' + pmEsc(b.bill_no) + '</td><td>' + pmEsc(c.location_name || '') + '</td><td>' + vbMonth(b.period_month) + '</td>'
+    return '<tr data-vb-open="' + b.id + '" style="cursor:pointer;"><td style="font-family:\'IBM Plex Mono\',monospace; font-size:12px;">' + pmEsc(b.bill_no) + '</td><td>' + pmEsc(c.depot_name || '') + '</td><td>' + vbMonth(b.period_month) + '</td>'
       + '<td>' + pmEsc(b.invoice_number || '—') + '</td><td style="text-align:right;">' + vbRs(b.status === 'approved' || b.status === 'approved1' || b.status === 'verified' ? b.net_payable : Number(b.claimed_taxable) + Number(b.claimed_gst)) + '</td>'
       + '<td>' + vbStatusChip(b) + ' ' + act + '</td><td><button type="button" class="btn small" data-vb-open="' + b.id + '">Open</button></td></tr>';
   }).join('');
   box.innerHTML = '<div class="hm-proj" style="margin-bottom:14px;">' + cards + '</div>'
-    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Bill</th><th>Location</th><th>Month</th><th>Invoice</th><th style="text-align:right;">Amount</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Bill</th><th>Depot</th><th>Month</th><th>Invoice</th><th style="text-align:right;">Amount</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<div class="empty-state">No bills yet. Click <b>+ New bill</b> on a contract above to start the first one.</div>');
   const todo = vbBills.filter(vbNeedsMe).length;
   const badge = document.getElementById('vpBillsBadge');
@@ -5590,6 +5654,7 @@ function imField(f){
   if(f.type === 'textarea') inp = '<textarea id="' + id + '" data-f="' + f.name + '" rows="' + (f.rows || 3) + '"' + ph + '>' + imEsc(v) + '</textarea>';
   else if(f.type === 'select') inp = '<select id="' + id + '" data-f="' + f.name + '">' + (f.options || []).map(o=> '<option value="' + imEsc(o[0]) + '"' + (String(o[0]) === String(v) ? ' selected' : '') + '>' + imEsc(o[1]) + '</option>').join('') + '</select>';
   else if(f.type === 'checkbox') return '<label class="im-check"><input type="checkbox" id="' + id + '" data-f="' + f.name + '"' + (v ? ' checked' : '') + '> ' + imEsc(f.label) + '</label>';
+  else if(f.type === 'master') return '<div class="field' + (f.wide ? ' wide' : '') + '"><label>' + imEsc(f.label) + (f.required ? ' *' : '') + '</label>' + masterSelectHtml(f.kind, id, v, 'data-f="' + f.name + '"') + '</div>';
   else if(f.type === 'hint') return '<div class="pm-sub" style="margin:4px 0 8px;">' + (f.html || imEsc(f.label)) + '</div>';
   else if(f.type === 'html') return '<div class="field wide">' + f.html + '</div>';
   else if(f.type === 'money') inp = '<input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="' + id + '" data-f="' + f.name + '" data-num="1" value="' + imEsc(vbNumStr(v)) + '"' + ph + '>';
@@ -5820,7 +5885,8 @@ function imViewFleet(){
 
 const IM_BUS_FIELDS = [['fleet_no', 'Fleet no.'], ['reg_no', 'Registration no.'], ['chassis_no', 'Chassis no. *'], ['motor_no', 'Motor / engine no.'], ['make', 'Make'], ['model', 'Model'], ['variant', 'Variant'], ['body_type', 'Body type'], ['seats', 'Seats', 'number'], ['mfg_year', 'Year of manufacture', 'number'], ['battery_kwh', 'Battery (kWh)', 'number'],
   ['oem_name', 'OEM'], ['invoice_no', 'OEM invoice no.'], ['invoice_date', 'OEM invoice date', 'date'], ['invoice_value', 'Invoice value (ex-GST) = IDV basis', 'money'], ['invoice_gst', 'GST on invoice', 'money'], ['delivery_date', 'Delivery date', 'date'],
-  ['depot', 'Depot'], ['project_name', 'Project / contract'], ['financier', 'Financier (hypothecation)']];
+  ['depot', 'Depot', 'master', 'depot'], ['project_name', 'Project / contract'], ['financier', 'Financier (hypothecation)'],
+  ['owner_name', 'Owner name'], ['owner_gstin', 'GSTN of owner'], ['owner_address', 'Owner address', 'textarea']];
 function imWinBus(w){
   const role = imRole(), isNew = w.id === null || w.id === 'new', v = isNew ? {} : (imBy(IM.vehicles, w.id) || {});
   const tab = imCurTab(w, 'details');
@@ -5828,7 +5894,7 @@ function imWinBus(w){
   let body = '';
   if(!isNew) body += imTabs([['details', 'Details'], ['cover', 'Policies & claims'], ['docs', 'Documents'], ['history', 'History']], tab);
   if(tab === 'details' || isNew){
-    body += '<div class="im-form">' + IM_BUS_FIELDS.map(f=> imField({ name:f[0], label:f[1].replace(' *', ''), required:/\*/.test(f[1]), type:f[2] || 'text', value:v[f[0]] })).join('')
+    body += '<div class="im-form">' + IM_BUS_FIELDS.map(f=> imField({ name:f[0], label:f[1].replace(' *', ''), required:/\*/.test(f[1]), type:f[2] || 'text', kind:f[3], value:v[f[0]], wide:f[2] === 'textarea' })).join('')
       + imField({ name:'lifecycle', label:'Status', type:'select', value:v.lifecycle || 'active', options:[['active', 'Active'], ['sold', 'Sold'], ['scrapped', 'Scrapped']] }) + imField({ name:'notes', label:'Notes', type:'textarea', value:v.notes, wide:true }) + '</div>';
     if(!role.manage) body = body.replace(/<(input|select|textarea)/g, '<$1 disabled');
   } else if(tab === 'cover'){
@@ -5853,7 +5919,8 @@ async function imSaveBus(){
 }
 // paste buses from Excel: a header row (chassis_no, fleet_no, reg_no, model, invoice_no, invoice_date, invoice_value ...) and one bus per row
 const IM_BUS_ALIAS = { chassis:'chassis_no', 'chassis_number':'chassis_no', vin:'chassis_no', motor:'motor_no', engine_no:'motor_no', engine:'motor_no', registration:'reg_no', registration_no:'reg_no', reg:'reg_no', fleet:'fleet_no', bus_no:'fleet_no', invoice:'invoice_no', invoice_number:'invoice_no',
-  value:'invoice_value', invoice_amount:'invoice_value', taxable_value:'invoice_value', gst:'invoice_gst', project:'project_name', year:'mfg_year', oem:'oem_name', kwh:'battery_kwh' };
+  value:'invoice_value', invoice_amount:'invoice_value', taxable_value:'invoice_value', gst:'invoice_gst', project:'project_name', year:'mfg_year', oem:'oem_name', kwh:'battery_kwh',
+  owner:'owner_name', owner_gstn:'owner_gstin', gstn_of_owner:'owner_gstin', gstin:'owner_gstin', gstn:'owner_gstin', address:'owner_address', billing_address:'owner_address' };
 function imParsePaste(text, alias){
   const lines = String(text || '').split(/\r?\n/).filter(l=> l.trim());
   if(lines.length < 2) throw new Error('Paste the header row and at least one bus.');
@@ -5864,7 +5931,7 @@ function imParsePaste(text, alias){
 }
 function imBulkBus(){
   imAsk({ title:'Add many buses', okText:'Add the buses',
-    intro:'Paste from Excel (copy the cells with the headings). Columns understood: <b>chassis_no</b> (required), fleet_no, reg_no, motor_no, make, model, variant, mfg_year, invoice_no, invoice_date (yyyy-mm-dd), invoice_value, invoice_gst, depot, project_name, financier. Buses already in the fleet are skipped.',
+    intro:'Paste from Excel (copy the cells with the headings). Columns understood: <b>chassis_no</b> (required), fleet_no, reg_no, motor_no, make, model, variant, mfg_year, invoice_no, invoice_date (yyyy-mm-dd), invoice_value, invoice_gst, depot, project_name, financier, owner_name, owner_address, owner_gstin. Buses already in the fleet are skipped.',
     fields:[{ name:'text', label:'Pasted rows', type:'textarea', rows:10, wide:true, required:true }],
     onOk: async v=> {
       const rows = imParsePaste(v.text);
@@ -7033,7 +7100,33 @@ async function imPdfLines(file){
   const items = tc.items.filter(i=> String(i.str).trim() !== '').map(i=> ({ s:String(i.str).trim(), x:i.transform[4], y:i.transform[5] })).sort((a, b)=> b.y - a.y || a.x - b.x);
   const lines = []; let cur = null;
   items.forEach(i=> { if(cur && Math.abs(cur.y - i.y) <= 2.5) cur.parts.push(i); else { cur = { y:i.y, parts:[i] }; lines.push(cur); } });
-  return lines.map(l=> l.parts.sort((a, b)=> a.x - b.x).map(p=> p.s).join(' '));
+  const out = lines.map(l=> l.parts.sort((a, b)=> a.x - b.x).map(p=> p.s).join(' '));
+  out.items = items;
+  return out;
+}
+// the owner of the bus: the "Bill To" block of the invoice (left column; the "Ship to" block sits beside it)
+// -> name (first line), address (the lines up to the GST line) and the GSTIN printed next to "GST NO."
+function imInvBillTo(items){
+  if(!items || !items.length) return null;
+  const lab = items.find(i=> /^Bill\s*To\s*:?$/i.test(i.s));
+  if(!lab) return null;
+  const ship = items.find(i=> /^Ship\s*to\s*:?$/i.test(i.s) && Math.abs(i.y - lab.y) <= 3);
+  const limit = ship ? ship.x - 2 : Infinity;
+  const rows = []; let cur = null;
+  items.filter(i=> i.x < limit && i.y < lab.y - 2.5).sort((a, b)=> b.y - a.y || a.x - b.x).forEach(i=> {
+    if(cur && Math.abs(cur.y - i.y) <= 2.5) cur.p.push(i); else { cur = { y:i.y, p:[i] }; rows.push(cur); }
+  });
+  const texts = rows.map(r=> r.p.sort((a, b)=> a.x - b.x).map(p=> p.s).join(' ').replace(/\s+/g, ' ').trim());
+  const end = texts.findIndex(t=> /^Bill\s*to\s*Region/i.test(t));
+  const blk = end >= 0 ? texts.slice(0, end) : texts.slice(0, 6);
+  const gi = blk.findIndex(t=> /GST\s*NO/i.test(t));
+  const head = (gi >= 0 ? blk.slice(0, gi) : blk).filter(Boolean);
+  const gm = /GST\s*NO\.?\s*[:\-]?\s*([0-9]{2}[A-Z0-9]{13})/i.exec(blk.join(' '));
+  const o = {};
+  if(head.length) o.owner_name = head[0];
+  if(head.length > 1) o.owner_address = head.slice(1).join('\n');
+  if(gm) o.owner_gstin = gm[1].toUpperCase();
+  return Object.keys(o).length ? o : null;
 }
 const imInvNum = s=> s == null ? null : Number(String(s).replace(/,/g, ''));
 const imInvDate = s=> { const m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(s || ''); return m ? m[3] + '-' + m[2] + '-' + m[1] : null; };
@@ -7055,6 +7148,7 @@ function imParseInvoiceText(lines){
   const desc = g(/^\d{3}\s+\S+\s+NOS[^\n]*\n([^\n]+)/m);
   if(desc){ const w = desc.split(/\s+/); o.model = w.slice(0, 2).join(' '); if(w.length > 2) o.variant = w.slice(2).join(' '); }
   o.financier = g(/Hypothecated To\s*:\s*([^\n]+)/);
+  Object.assign(o, imInvBillTo(lines.items) || {});          // owner: name, address and GSTN from "Bill To"
   const po = g(/PO NO\s+(\d+)/), pod = imInvDate(g(/PO Date\s+(\d{2}\.\d{2}\.\d{4})/));
   if(po) o.notes = 'PO ' + po + (pod ? ' dated ' + pod.split('-').reverse().join('-') : '');
   Object.keys(o).forEach(k=> { if(o[k] === null || o[k] === '' || o[k] === undefined) delete o[k]; });
@@ -7125,11 +7219,11 @@ function imInvRender(){
   const S = IM.inv; if(!S) return;
   const n = st=> S.items.filter(i=> i.state === st).length, ready = n('ready'), failed = n('failed');
   const rows = S.items.map((i, k)=> '<tr><td>' + imEsc(i.file.name) + '</td>'
-    + (i.d ? '<td>' + imEsc(i.d.chassis_no) + '<br><span class="pm-sub">' + imEsc(i.d.motor_no || '') + '</span></td><td>' + imEsc(i.d.make || '') + '</td><td>' + imEsc(i.d.oem_name || '') + '</td><td>' + imEsc(i.d.model || '') + '</td><td>' + imEsc(i.d.variant || '') + '</td><td>' + imEsc(i.d.invoice_no || '') + '<br><span class="pm-sub">' + imD(i.d.invoice_date) + '</span></td><td class="n">' + imMoney2(i.d.invoice_value) + '</td><td class="n">' + imMoney2(i.d.invoice_gst) + '</td><td>' + imEsc(i.d.financier || '') + '</td>' : '<td colspan="9"></td>')
+    + (i.d ? '<td>' + imEsc(i.d.chassis_no) + '<br><span class="pm-sub">' + imEsc(i.d.motor_no || '') + '</span></td><td>' + imEsc(i.d.make || '') + '</td><td>' + imEsc(i.d.oem_name || '') + '</td><td>' + imEsc(i.d.model || '') + '</td><td>' + imEsc(i.d.variant || '') + '</td><td>' + imEsc(i.d.invoice_no || '') + '<br><span class="pm-sub">' + imD(i.d.invoice_date) + '</span></td><td class="n">' + imMoney2(i.d.invoice_value) + '</td><td class="n">' + imMoney2(i.d.invoice_gst) + '</td><td>' + imEsc(i.d.financier || '') + '</td><td>' + imEsc(i.d.owner_name || '') + (i.d.owner_gstin ? '<br><span class="pm-sub">' + imEsc(i.d.owner_gstin) + '</span>' : '') + '</td>' : '<td colspan="10"></td>')
     + '<td>' + imChip(IM_INV_LABEL[i.state], IM_INV_TONE[i.state]) + (i.note ? '<div class="pm-sub">' + imEsc(i.note) + '</div>' : '') + '</td>'
     + '<td data-im-nopen="1">' + (S.busy || i.state === 'done' ? '' : '<button type="button" class="btn small" data-inv-rm="' + k + '" title="Take off the list">✕</button>') + '</td></tr>').join('');
   document.getElementById('imInvList').innerHTML = S.items.length
-    ? '<div class="ins-wrap im-wrap" style="max-height:46vh; margin-top:10px;"><table class="ins-table"><thead><tr><th>File</th><th>Chassis / motor no.</th><th>Make</th><th>OEM</th><th>Model</th><th>Variant</th><th>Invoice</th><th style="text-align:right;">Value (ex-GST)</th><th style="text-align:right;">GST</th><th>Financier</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    ? '<div class="ins-wrap im-wrap" style="max-height:46vh; margin-top:10px;"><table class="ins-table"><thead><tr><th>File</th><th>Chassis / motor no.</th><th>Make</th><th>OEM</th><th>Model</th><th>Variant</th><th>Invoice</th><th style="text-align:right;">Value (ex-GST)</th><th style="text-align:right;">GST</th><th>Financier</th><th>Owner (Bill To)</th><th>Status</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       + '<div class="pm-sub" style="margin-top:6px;">' + S.items.length + ' file(s): ' + ready + ' ready' + (n('done') ? ', ' + n('done') + ' added' : '') + (failed ? ', ' + failed + ' invoice(s) not saved' : '') + (n('dup') + n('error') ? ', ' + (n('dup') + n('error')) + ' not added' : '') + '</div>'
     : '';
   const go = document.getElementById('imInvGo');
@@ -7699,9 +7793,9 @@ function imViewDash(){
   const all = d.allPol.concat(d.allCl), months = [...new Set(all.map(r=> r.month).filter(Boolean))].sort();
   const sel = (key, label, opts, val)=> '<div class="filter-group"><label>' + label + '</label><select class="filter-input" data-dash="' + key + '"><option value="">All</option>' + opts.map(o=> '<option value="' + imEsc(o[0]) + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + imEsc(o[1]) + '</option>').join('') + '</select></div>';
   const mo = months.map(m=> [m, imdMonthLabel(m)]), insOpts = IM.insurers.filter(i=> all.some(r=> r.insurerId === String(i.id))).map(i=> [String(i.id), i.name]);
-  const bar = '<div class="filter-bar" style="margin-bottom:6px;">' + sel('from', 'From month', mo, f.from) + sel('to', 'To month', mo, f.to) + sel('company', 'Company', uniq(all, 'company').map(x=> [x, x]), f.company) + sel('project', 'Project', uniq(all, 'project').map(x=> [x, x]), f.project) + sel('loc', 'Location', uniq(all, 'depot').map(x=> [x, x]), f.loc)
+  const bar = '<div class="filter-bar" style="margin-bottom:6px;">' + sel('from', 'From month', mo, f.from) + sel('to', 'To month', mo, f.to) + sel('company', 'Company', uniq(all, 'company').map(x=> [x, x]), f.company) + sel('project', 'Project', uniq(all, 'project').map(x=> [x, x]), f.project) + sel('loc', 'Depot', uniq(all, 'depot').map(x=> [x, x]), f.loc)
     + sel('ins', 'Insurance company', insOpts, f.ins) + sel('broker', 'Broker', uniq(all, 'broker').map(x=> [x, x]), f.broker) + '<button class="btn small" data-im-act="dash-reset" style="align-self:flex-end;">Reset filters</button></div>';
-  const active = Object.keys(f).filter(k=> f[k]).map(k=> '<span class="pm-chip" style="cursor:pointer;" data-im-act="dash-clear" data-id="' + k + '" title="Remove this filter">' + ({ from:'From', to:'To', company:'Company', project:'Project', loc:'Location', ins:'Insurer', broker:'Broker' }[k]) + ': ' + imEsc(k === 'ins' ? imInsName(f[k]) : /^\d{4}-\d{2}$/.test(f[k]) ? imdMonthLabel(f[k]) : f[k]) + ' ✕</span>').join(' ');
+  const active = Object.keys(f).filter(k=> f[k]).map(k=> '<span class="pm-chip" style="cursor:pointer;" data-im-act="dash-clear" data-id="' + k + '" title="Remove this filter">' + ({ from:'From', to:'To', company:'Company', project:'Project', loc:'Depot', ins:'Insurer', broker:'Broker' }[k]) + ': ' + imEsc(k === 'ins' ? imInsName(f[k]) : /^\d{4}-\d{2}$/.test(f[k]) ? imdMonthLabel(f[k]) : f[k]) + ' ✕</span>').join(' ');
   const prem = d.pol.reduce((t, r)=> t + r.prem, 0), claims = d.cl.reduce((t, r)=> t + r.val, 0), paid = d.cl.reduce((t, r)=> t + r.paid, 0), ratio = prem ? claims / prem * 100 : null;
   const open = d.cl.filter(r=> ['settled', 'closed'].indexOf(r.c.status) < 0).length, buses = new Set(d.cl.map(r=> r.vehicle_id)).size, lost = Math.round(d.cl.reduce((t, r)=> t + (Number(r.c.bus_days_lost) || 0), 0));
   const kpis = imKpis([{ label:'Premium (verified policies)', value:imMoney(prem), cls:'pending', sub:d.pol.length + ' policy(ies)' }, { label:'Claims ' + (D.basis === 'paid' ? '(paid)' : '(incurred)'), value:imMoney(claims), cls:'overdue', sub:d.cl.length + ' claim(s) · ' + buses + ' bus(es)' }, { label:'Claim ratio', value:ratio == null ? '—' : ratio.toFixed(1) + ' %', cls:ratio != null && ratio > 70 ? 'overdue' : 'ontrack', sub:'claims ÷ premium' },
@@ -7713,14 +7807,14 @@ function imViewDash(){
   const top = imdTop(d);
   const panel3 = '<div class="panel"><div class="panel-title">Top 20 buses by claims <span style="float:right; font-weight:400; font-size:.8em;">Rank by ' + seg('dash-rank', 'rank', D.rank, [['amount', 'Amount'], ['count', 'Instances']]) + '</span></div>'
     + (top.length ? '<div class="im-cols" style="grid-template-columns:1.1fr 1fr;"><div style="position:relative; height:' + Math.max(260, top.length * 26 + 50) + 'px;"><canvas id="imdChart3"></canvas></div>'
-      + imTable(['#', 'Bus', 'Location', 'Insurer', { t:'Claims', r:true }, { t:'Amount', r:true }, { t:'Open', r:true }], top.map((t, i)=> '<tr data-im-bus="' + t.id + '" style="cursor:pointer;"><td>' + (i + 1) + '</td><td><b>' + imEsc(imBusLabel(imBy(IM.vehicles, t.id))) + '</b></td><td>' + imEsc(t.depot) + '</td><td>' + imEsc(t.insurer) + '</td><td class="n">' + t.n + '</td><td class="n">' + imMoney(t.amt) + '</td><td class="n">' + (t.open || '') + '</td></tr>'), { max:'520px' }) + '</div>' : '<div class="empty-state">No claim in this selection.</div>') + '</div>';
+      + imTable(['#', 'Bus', 'Depot', 'Insurer', { t:'Claims', r:true }, { t:'Amount', r:true }, { t:'Open', r:true }], top.map((t, i)=> '<tr data-im-bus="' + t.id + '" style="cursor:pointer;"><td>' + (i + 1) + '</td><td><b>' + imEsc(imBusLabel(imBy(IM.vehicles, t.id))) + '</b></td><td>' + imEsc(t.depot) + '</td><td>' + imEsc(t.insurer) + '</td><td class="n">' + t.n + '</td><td class="n">' + imMoney(t.amt) + '</td><td class="n">' + (t.open || '') + '</td></tr>'), { max:'520px' }) + '</div>' : '<div class="empty-state">No claim in this selection.</div>') + '</div>';
   const pend = imdPendingFiltered(), cats = ['Claims', 'Policies', 'Quotations', 'Fleet'], cnt = c=> pend.length ? '' : '';
   const allPend = (function(){ const pf = D.pf; D.pf = { who:'', cat:'' }; const a = imdPendingFiltered(); D.pf = pf; return a; })();
   const catChips = cats.map(c=> '<span class="pm-chip' + (D.pf.cat === c ? ' active' : '') + '" style="cursor:pointer;" data-im-act="dash-pcat" data-id="' + c + '">' + c + ' ' + allPend.filter(i=> i.cat === c).length + '</span>').join(' ');
   const whoChips = ['Company', 'Insurer'].map(w=> '<span class="pm-chip' + (D.pf.who === w ? ' active' : '') + '" style="cursor:pointer;" data-im-act="dash-pwho" data-id="' + w + '">With ' + w.toLowerCase() + ' ' + allPend.filter(i=> i.who === w).length + '</span>').join(' ');
   const panel4 = '<div class="panel"><div class="panel-title">Pending actions <span class="pm-sub" style="font-weight:400;">(' + pend.length + ' of ' + allPend.length + ')</span></div><div style="margin-bottom:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' + catChips + ' <span class="pm-sub">|</span> ' + whoChips + (D.pf.cat || D.pf.who ? ' <button class="btn small" data-im-act="dash-pclear">Show all</button>' : '') + '</div>'
     + (pend.length ? imTable(['', 'Action needed', 'Reference', 'Bus / detail', 'Insurer', 'With', { t:'Days', r:true }], pend.slice(0, 300).map(i=> '<tr data-dash-open="' + i.entity + '|' + i.id + '|' + (i.tab || '') + '" style="cursor:pointer;"><td>' + imChip(i.prio === 1 ? 'urgent' : i.prio === 2 ? 'to do' : 'low', i.prio === 1 ? 'bad' : i.prio === 2 ? 'warn' : '') + '</td><td>' + imEsc(i.what) + '</td><td><b>' + imEsc(i.ref) + '</b> <span class="pm-sub">' + imEsc(i.cat) + '</span></td><td>' + imEsc(i.detail) + '</td><td>' + imEsc(i.insurer || '') + '</td><td>' + (i.who === 'Insurer' ? imChip('insurer', 'pend') : imChip('company', 'ok')) + '</td><td class="n">' + (i.age == null ? '' : i.age < 0 ? 'in ' + (-i.age) : i.age) + '</td></tr>'), { max:'60vh' }) + (pend.length > 300 ? '<div class="pm-sub">The first 300 are shown.</div>' : '') : '<div class="empty-state">Nothing is pending for this selection. 👍</div>')
-    + '<div class="pm-sub" style="margin-top:6px;">Filters (company, project, location, insurer, broker) apply here too; the month filter does not. Days = days since the step was reached (renewals: days to expiry).</div></div>';
+    + '<div class="pm-sub" style="margin-top:6px;">Filters (company, project, depot, insurer, broker) apply here too; the month filter does not. Days = days since the step was reached (renewals: days to expiry).</div></div>';
   return bar + (active ? '<div style="margin:0 0 8px;">' + active + '</div>' : '') + kpis + '<div class="im-dashgrid">' + panel1 + panel2 + '</div>' + panel3 + panel4;
 }
 // ---------- the charts ----------
@@ -7876,7 +7970,7 @@ function homeCollect(){
       const toPropose = awardMoves.indexOf(x) >= 0;
       const label = x.wf.text === 'Float Requested' ? 'Review &amp; float' : (x.t.status === 'draft' ? 'Open draft' : (toPropose ? 'Propose award' : 'Review award'));
       const nBids = tenderBidders(x.t).filter(v=> v.submitted_at).length;
-      act.push({ mod:'tender', title:x.t.location_name, sub:(toPropose ? (lapsed(x.t) ? 'Closing date passed (' + fmtDate(x.t.target_closure_date) + ')' : 'Bidding closed') + ' · ' + nBids + ' bid' + (nBids === 1 ? '' : 's') + ' in · award pending' : x.wf.text) + (co ? ' · ' + co : ''), days:null, score:(toPropose ? 470 : 450), open:'tender:' + x.t.id,
+      act.push({ mod:'tender', title:x.t.depot_name, sub:(toPropose ? (lapsed(x.t) ? 'Closing date passed (' + fmtDate(x.t.target_closure_date) + ')' : 'Bidding closed') + ' · ' + nBids + ' bid' + (nBids === 1 ? '' : 's') + ' in · award pending' : x.wf.text) + (co ? ' · ' + co : ''), days:null, score:(toPropose ? 470 : 450), open:'tender:' + x.t.id,
         actions:'<button class="btn small primary" data-home-open="tender:' + x.t.id + '">' + label + '</button>' });
     });
   }
@@ -8077,7 +8171,7 @@ function renderHome(){
   const tdv = document.getElementById('homeTenderChart');
   if(tdv){
     const rows = card.tenders.scope.filter(t=> t.status === 'open').slice(0, 8);
-    homeCharts.tender = new Chart(tdv, { type:'bar', data:{ labels:rows.map(t=> t.location_name), datasets:[
+    homeCharts.tender = new Chart(tdv, { type:'bar', data:{ labels:rows.map(t=> t.depot_name), datasets:[
         { label:'Submitted', data:rows.map(t=> tenderBidders(t).filter(v=> v.submitted_at).length), backgroundColor:COLORS.ontrack, borderRadius:4 },
         { label:'Yet to bid', data:rows.map(t=> tenderBidders(t).filter(v=> !v.submitted_at).length), backgroundColor:'#6E7A90', borderRadius:4 }] },
       options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ labels:{ color:tc.text, boxWidth:10, font:{ size:11 } } } }, scales:{ x:Object.assign({ stacked:true }, axis), y:Object.assign({ stacked:true }, yaxis) } } });
@@ -10657,7 +10751,7 @@ function getFilteredTenders(){
   const myApprovalOnly = document.getElementById('tf-my-approval').checked;
   return rawTenders.filter(t=>{
     if(status && t.status !== status) return false;
-    if(q && !((t.location_name||'').toLowerCase().includes(q) || (t.subject||'').toLowerCase().includes(q))) return false;
+    if(q && !((t.depot_name||'').toLowerCase().includes(q) || (t.subject||'').toLowerCase().includes(q))) return false;
     if(company && String(t.company_id) !== company) return false;
     if(bidder && !(t.vendor_quotes||[]).some(v=> v.vendor_name === bidder)) return false;
     if(awarded && awardedVendorNameFor(t) !== awarded) return false;
@@ -10731,7 +10825,7 @@ function renderTenderKPIs(){
   rawTenders.forEach(t=>{ if(counts[t.status]!==undefined) counts[t.status]++; });
   const totalVendors = rawTenders.reduce((sum,t)=> sum + (t.vendor_quotes||[]).length, 0);
   const cards = [
-    { cls:'total', label:'Total Tenders', value: rawTenders.length, sub:'all locations' },
+    { cls:'total', label:'Total Tenders', value: rawTenders.length, sub:'all depots' },
     { cls:'closed', label:'Draft', value: counts.draft, sub:'being set up' },
     { cls:'pending', label:'Open', value: counts.open, sub:'accepting quotes' },
     { cls:'duesoon', label:'Closed', value: counts.closed, sub:'awaiting award' },
@@ -10791,7 +10885,7 @@ function renderTendersTable(filtered){
       const wf = tenderWorkflowStatusLabel(t);
       return `
       <tr data-tender-row="${t.id}" style="cursor:pointer;" title="Double-click for details">
-        <td data-label="Location">${t.location_name}</td>
+        <td data-label="Depot">${t.depot_name}</td>
         <td data-label="Company">${(rawCompanies.find(c=> String(c.id)===String(t.company_id))||{}).name || '—'}</td>
         <td data-label="Buses">${t.total_buses ?? '—'}</td>
         <td data-label="Vendors">${submitted}/${vendors.length} submitted</td>
@@ -10844,7 +10938,7 @@ const TENDER_EVENT_BADGE_CLASS = {
 
 async function openTenderEventHistoryModal(tenderId){
   const tender = rawTenders.find(t=> t.id === tenderId);
-  document.getElementById('tenderEventHistoryTitle').textContent = 'History — ' + (tender ? tender.location_name : '');
+  document.getElementById('tenderEventHistoryTitle').textContent = 'History — ' + (tender ? tender.depot_name : '');
   document.getElementById('tenderEventHistoryBody').innerHTML = '<div class="footer-note">Loading…</div>';
   document.getElementById('tenderEventHistoryOverlay').style.display = 'flex';
   try{
@@ -10998,7 +11092,7 @@ function renderMasterFrozenView(tender){
   // Pinned section stops right after Operator Agreement/Status -- everything
   // from Background down scrolls with the rest of the modal body instead.
   top.innerHTML = [
-    shortRow('Location', tender.location_name),
+    shortRow('Depot', tender.depot_name),
     shortRow('Target Closure Date', tender.target_closure_date ? fmtDate(tender.target_closure_date) : '—'),
     shortRow('Subject', tender.subject),
     shortRow('Project', tender.project),
@@ -11088,7 +11182,7 @@ async function handleNewTenderSubmit(e){
       .filter(r=> r.model || r.bus_count || r.assured_km_per_month)
       .map(r=> ({ model: r.model, bus_count: parseFloat(r.bus_count)||0, assured_km_per_month: parseFloat(r.assured_km_per_month)||0 }));
     const payload = {
-      location_name: document.getElementById('nt-t-location').value.trim(),
+      depot_name: document.getElementById('nt-t-location').value.trim(),
       company_id: document.getElementById('nt-t-company').value || null,
       subject: document.getElementById('nt-t-subject').value.trim() || null,
       project: document.getElementById('nt-t-project').value.trim() || null,
@@ -11133,7 +11227,7 @@ async function handleNewTenderSubmit(e){
 async function cloneTender(sourceTenderId){
   const src = rawTenders.find(t=> t.id === sourceTenderId);
   if(!src) return;
-  if(!confirm(`Create a new draft tender copied from "${src.location_name}"?\n\nLine items, cost items and your internal budget will be copied. Bidder rates will not -- bidders start fresh on the new tender.`)) return;
+  if(!confirm(`Create a new draft tender copied from "${src.depot_name}"?\n\nLine items, cost items and your internal budget will be copied. Bidder rates will not -- bidders start fresh on the new tender.`)) return;
   try{
     const { data: fullTender, error: tErr } = await db.from('vendor_tenders').select('*').eq('id', sourceTenderId).single();
     if(tErr) throw tErr;
@@ -11145,7 +11239,7 @@ async function cloneTender(sourceTenderId){
     if(iErr) throw iErr;
 
     const newTenderPayload = {
-      location_name: fullTender.location_name,
+      depot_name: fullTender.depot_name,
       company_id: fullTender.company_id,
       subject: fullTender.subject,
       project: fullTender.project,
@@ -11267,8 +11361,8 @@ async function openTenderDetail(id){
     currentTenderVendors = vendors;
     currentTenderInternal = tender.vendor_tender_internal || null;
 
-    document.getElementById('tenderDetailTitle').textContent = tender.location_name;
-    document.getElementById('td-t-location').value = tender.location_name || '';
+    document.getElementById('tenderDetailTitle').textContent = tender.depot_name;
+    masterSet('td-t-location', tender.depot_name);
     document.getElementById('td-t-subject').value = tender.subject || '';
     document.getElementById('td-t-project').value = tender.project || '';
     document.getElementById('td-t-billing-type').value = tender.billing_type || '';
@@ -11341,7 +11435,7 @@ async function saveTenderDetail(){
       .filter(r=> r.model || r.bus_count || r.assured_km_per_month)
       .map(r=> ({ model: r.model, bus_count: parseFloat(r.bus_count)||0, assured_km_per_month: parseFloat(r.assured_km_per_month)||0 }));
     const payload = {
-      location_name: document.getElementById('td-t-location').value.trim(),
+      depot_name: document.getElementById('td-t-location').value.trim(),
       subject: document.getElementById('td-t-subject').value.trim() || null,
       project: document.getElementById('td-t-project').value.trim() || null,
       billing_type: document.getElementById('td-t-billing-type').value || null,
@@ -11474,7 +11568,7 @@ function renderSubmitForFloatBox(tender){
     const submitter = tender.submitted_by && profileById[tender.submitted_by] ? profileById[tender.submitted_by].display_name : 'the creator';
     box.innerHTML = `<div class="footer-note">Submitted by ${submitter} on ${fmtDate(tender.submitted_for_float_at)} -- awaiting float.</div>`
       + (isCreator ? `<div style="margin-top:8px;"><button type="button" class="btn small" id="tdWithdrawBtn" title="Unlock the tender so you can correct it, then submit it again">↩ Take back to edit</button>
-        <span class="hint" style="font-size:11px; color:var(--faint);">Forgot to save something (closure date, location…)? Take it back, correct it, save, and submit again.</span></div>` : '');
+        <span class="hint" style="font-size:11px; color:var(--faint);">Forgot to save something (closure date, depot…)? Take it back, correct it, save, and submit again.</span></div>` : '');
     const wbtn = document.getElementById('tdWithdrawBtn');
     if(wbtn) wbtn.addEventListener('click', handleWithdrawSubmission);
     return;
@@ -13044,7 +13138,7 @@ function renderMyTendersList(){
     const canStillBid = !q && !closureDatePassed && t.awarded_quote_id == null;
     const actionLabel = q ? 'Open' : 'Bid';
     return `<tr>
-      <td>${t.location_name||''}</td>
+      <td>${t.depot_name||''}</td>
       <td>${statusHtml}</td>
       <td>${(q || canStillBid) ? `<button type="button" class="btn small vp-open-tender-btn" data-tender-id="${t.id}">${actionLabel}</button>` : '<span class="footer-note">Bidding closed</span>'}</td>
     </tr>`;
@@ -13188,7 +13282,7 @@ function renderVendorTenderSummary(t){
   const fullRow = (label, value)=> `<div class="mf-row full"><span class="mf-label">${label}</span><div class="mf-value">${(value != null && value !== '') ? value : '—'}</div></div>`;
 
   top.innerHTML = [
-    shortRow('Location', t.location_name),
+    shortRow('Depot', t.depot_name),
     shortRow('Type', billingTypeLabel(t.billing_type)),
     shortRow('Subject', t.subject),
     shortRow('Project', t.project),
@@ -13237,7 +13331,7 @@ function buildVendorPrintDocument(){
 
   const header = (pageLabel)=> `
     <div class="pp-header">
-      <div><h1>Vendor Bid Summary</h1><div class="pp-sub">${t.location_name || ''} — ${t.subject || ''}</div></div>
+      <div><h1>Vendor Bid Summary</h1><div class="pp-sub">${t.depot_name || ''} — ${t.subject || ''}</div></div>
       <div class="pp-meta">JBM Auto Limited &middot; TrackIt Vendor Tendering<br>${pageLabel}<br>Printed ${printedAt}</div>
     </div>`;
 
@@ -13247,7 +13341,7 @@ function buildVendorPrintDocument(){
 
       <div class="pp-section-title">Tender Overview</div>
       <div class="pp-grid">
-        ${row('Location', t.location_name)}
+        ${row('Depot', t.depot_name)}
         ${row('Bidding Closes', t.target_closure_date ? fmtDate(t.target_closure_date) : '—')}
         ${row('Subject', t.subject)}
         ${row('Project', t.project)}
@@ -13348,7 +13442,7 @@ function buildTenderPrintDocument(){
 
   const header = (pageLabel)=> `
     <div class="pp-header">
-      <div><h1>Tender Summary — Management Review</h1><div class="pp-sub">${t.location_name || ''} — ${t.subject || ''}</div></div>
+      <div><h1>Tender Summary — Management Review</h1><div class="pp-sub">${t.depot_name || ''} — ${t.subject || ''}</div></div>
       <div class="pp-meta">JBM Auto Limited &middot; TrackIt Vendor Tendering<br>${pageLabel}<br>Printed ${printedAt}</div>
     </div>`;
 
@@ -13357,7 +13451,7 @@ function buildTenderPrintDocument(){
       ${header('Page 1 — Tender Overview')}
       <div class="pp-section-title">Master Details</div>
       <div class="pp-grid">
-        ${row('Location', t.location_name)}
+        ${row('Depot', t.depot_name)}
         ${row('Company', companyName)}
         ${row('Subject', t.subject)}
         ${row('Project', t.project)}
@@ -13468,7 +13562,7 @@ function buildTenderPrintDocument(){
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Tender Summary — ${t.location_name || ''}</title>
+<title>Tender Summary — ${t.depot_name || ''}</title>
 <style>
   *{box-sizing:border-box;}
   body{ font-family:'IBM Plex Sans',Arial,sans-serif; margin:0; color:#111; background:#fff; }
@@ -14319,6 +14413,7 @@ async function onSignedIn(){
     document.getElementById('nt-open').value = new Date().toISOString().slice(0,10);
     // add this period's copy of any repeating task that is now inside its lead time (needs supabase-add-recurring-tasks.sql)
     try{ await db.rpc('spawn_recurring_tasks'); }catch(e){ /* not set up yet */ }
+    await loadMasterLists();
     await loadTasks();
     populateWhoReviewerSelects();
     initTimeFilters();
@@ -14391,6 +14486,7 @@ async function vaSet(id, mode){
   vaApplyNav();
   vaRenderChrome();
   try{
+    await loadMasterLists();
     await loadTasks();
     populateWhoReviewerSelects();
     await loadLetters();
@@ -16718,7 +16814,7 @@ function pmOpenProjectModal(id){
   document.getElementById('pmProjectSaveBtn').textContent = p ? 'Save changes' : 'Create Project';
   document.getElementById('pmProjectSaveBtn').dataset.id = p ? p.id : '';
   document.getElementById('pmp-name').value = p ? p.name : '';
-  document.getElementById('pmp-location').value = p ? (p.location || '') : '';
+  masterSet('pmp-location', p ? p.location : '');
   document.getElementById('pmp-authority').value = p ? (p.authority || '') : '';
   document.getElementById('pmp-buses').value = p && p.buses != null ? p.buses : '';
   document.getElementById('pmp-loa').value = p ? (p.loa_date || '') : '';
