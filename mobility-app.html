@@ -853,6 +853,15 @@
 .master-pick{ display:flex; gap:6px; align-items:center; }
 .master-pick select{ flex:1; min-width:0; }
 .master-pick .master-add{ padding:0 11px; font-weight:700; font-size:16px; line-height:1.5; flex:none; }
+th.ts-h{ cursor:pointer; user-select:none; }
+th.ts-h:hover{ color:var(--accent); }
+.ts-ind{ margin-left:5px; font-size:9px; color:var(--accent); }
+.charts-row{ position:relative; }
+.charts-row.folded{ min-height:20px; margin-bottom:8px; }
+.charts-row.folded > .panel{ display:none; }
+.charts-fold-btn{ position:absolute; right:10px; bottom:10px; z-index:3; width:30px; height:22px; padding:0; line-height:1; font-size:11px; color:var(--muted); background:var(--panel); border:1px solid var(--border); border-radius:11px; cursor:pointer; }
+.charts-fold-btn:hover{ color:var(--accent); border-color:var(--accent); }
+.charts-row.folded .charts-fold-btn{ bottom:auto; top:-2px; }
 </style>
 </head>
 <body>
@@ -4419,8 +4428,8 @@ async function vbOpenSetup(tenderId, contractId){
         + '<div class="row2"><div class="field"><label>Rate for KM beyond assured <span style="text-transform:none; letter-spacing:0;">(% of rate per KM, as stated by the bidder)</span></label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vbc-excess" value="' + vbNumStr(kmRule.excess_pct) + '"></div>'
         + '<div class="field"><label>Fleet availability %</label><input type="text" inputmode="decimal" autocomplete="off" class="vb-n" id="vbc-avail" value="' + vbNumStr(kmRule.availability_pct) + '"></div></div>'
         + '<div class="table-wrap"><table><thead><tr><th>Bus model</th><th>Buses</th><th>Assured KM / bus / year</th><th>Assured KM / bus / month</th><th>Assured fleet KM / month (× availability)</th></tr></thead><tbody>'
-        + kmRule.models.map(m=> '<tr><td>' + pmEsc(m.model) + '</td><td>' + vbNum(m.buses) + '</td><td>' + vbNum(m.assured_per_bus_year) + '</td><td>' + vbNum((m.assured_per_bus_year || m.assured_per_bus_month * 12) / 12) + '</td><td>' + vbNum(m.buses * ((m.assured_per_bus_year != null ? m.assured_per_bus_year / 12 : m.assured_per_bus_month) || 0) * kmRule.availability_pct / 100) + '</td></tr>').join('')
-        + '</tbody></table></div></div>'
+        + kmRule.models.map((m, i)=> '<tr><td>' + pmEsc(m.model) + '</td><td><input type="text" inputmode="numeric" autocomplete="off" class="vb-n" id="vbc-m-buses-' + i + '" value="' + vbNumStr(m.buses) + '" style="width:90px;" oninput="vbKmModelsRecalc()"></td><td>' + vbNum(m.assured_per_bus_year) + '</td><td>' + vbNum((m.assured_per_bus_year || m.assured_per_bus_month * 12) / 12) + '</td><td id="vbc-m-fleet-' + i + '">' + vbNum(m.buses * ((m.assured_per_bus_year != null ? m.assured_per_bus_year / 12 : m.assured_per_bus_month) || 0) * kmRule.availability_pct / 100) + '</td></tr>').join('')
+        + '</tbody></table></div><div class="hint" style="font-size:11px; color:var(--faint); margin-top:6px;">The number of buses can be changed here if the fleet changed after the bid (e.g. buses added). It changes this billing contract only: the tender and its award stay as they were.</div></div>'
       : '<div class="panel" style="margin:10px 0;"><div class="panel-title">Monthly bill lines (from the awarded bid)</div><div class="table-wrap"><table><thead><tr><th>Line</th><th>Unit</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Rate</th><th style="text-align:right;">GST %</th></tr></thead><tbody>'
         + template.map(l=> '<tr><td>' + pmEsc(l.description) + '</td><td>' + pmEsc(l.unit || '') + '</td><td style="text-align:right;">' + vbNum(l.qty) + '</td><td style="text-align:right;">' + vbRs(l.rate) + '</td><td style="text-align:right;">' + vbNum(l.gst_rate) + '</td></tr>').join('')
         + '</tbody></table></div><div class="hint" style="font-size:11px; color:var(--faint);">This is the company\x27s standard for the monthly bill and the bidder cannot see it: he enters his own quantity, rate and GST % each month, and the verifier sees his figures compared with this standard. He can add extra lines, which the verifier will see flagged.</div></div>';
@@ -4444,6 +4453,14 @@ async function vbOpenSetup(tenderId, contractId){
     showBanner('globalBanner', 'Could not open billing set-up: ' + err.message, 'error');
   }
 }
+function vbKmModelsRecalc(){        // live "assured fleet KM / month" while the bus count is edited
+  const x = vbSetupCtx; if(!x || !x.kmRule || !Array.isArray(x.kmRule.models)) return;
+  const avail = vbVal((document.getElementById('vbc-avail') || {}).value);
+  x.kmRule.models.forEach((m, i)=> {
+    const b = document.getElementById('vbc-m-buses-' + i), cell = document.getElementById('vbc-m-fleet-' + i); if(!b || !cell) return;
+    cell.textContent = vbNum(vbVal(b.value) * ((m.assured_per_bus_year != null ? m.assured_per_bus_year / 12 : m.assured_per_bus_month) || 0) * avail / 100);
+  });
+}
 async function vbSaveSetup(){
   const x = vbSetupCtx; if(!x) return;
   if(x.legacy){ await vbSaveLegacy(); return; }
@@ -4452,6 +4469,10 @@ async function vbSaveSetup(){
   if(x.kmRule && (x.mode === 'per_km' || x.mode === 'management')){
     kmRule = Object.assign({}, x.kmRule, { rate_per_km:Math.round(vbVal(val('vbc-rate')) * 100) / 100, gst_rate:vbVal(val('vbc-gst')), excess_pct:vbVal(val('vbc-excess')), availability_pct:vbVal(val('vbc-avail')) });
     if(x.mode === 'management') kmRule.short_pct = val('vbc-short').trim() === '' ? 0 : vbVal(val('vbc-short'));
+    if(x.mode === 'per_km' && Array.isArray(kmRule.models)){      // buses can be corrected here (fleet changed after the bid); billing contract only
+      kmRule.models = kmRule.models.map((m, i)=> document.getElementById('vbc-m-buses-' + i) ? Object.assign({}, m, { buses:Math.round(vbVal(val('vbc-m-buses-' + i))) }) : m);
+      if(kmRule.models.some(m=> !(Number(m.buses) >= 0))) throw new Error('Buses must be a number.');
+    }
   }
   const btn = document.getElementById('vbContractSaveBtn');
   btn.disabled = true;
@@ -17407,6 +17428,104 @@ function init(){
     }
   });
 }
+
+// ---------- click a column heading to sort any list (1st click ascending, 2nd descending, 3rd back to the original order) ----------
+// Works on every plain list in the app; tables with entry boxes, grouped headings or calculation rows are left alone. The chosen sort
+// is kept when the list is redrawn (a filter, a refresh, a save).
+const TS = { state:{} };
+const TS_MON = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+function tsSortable(table){
+  if(table.dataset.nosort || table.closest('[data-nosort]')) return false;
+  if(/\b(vb-calc|vb-cmp|vb-table|comparative-table|plain-readonly-table)\b/.test(table.className)) return false;
+  const head = table.tHead; if(!head || head.rows.length !== 1 || table.tBodies.length !== 1) return false;
+  if(head.querySelector('th[colspan], th[rowspan]')) return false;
+  const body = table.tBodies[0];
+  if(body.querySelector('input:not([type=checkbox]):not([type=radio]), select, textarea, td[colspan]')) return false;
+  return true;
+}
+function tsLabels(table){ return [...table.tHead.rows[0].cells].map(th=> th.dataset.tsLabel != null ? th.dataset.tsLabel : th.textContent.replace(/\s+/g, ' ').trim()); }
+function tsKey(table){ const a = table.closest('[id]'); return (table.id || (a ? a.id : '')) + '|' + tsLabels(table).join('~'); }
+function tsCellText(c){ return (c ? c.textContent : '').replace(/\s+/g, ' ').trim(); }
+function tsEmpty(t){ return t === '' || /^[—–-]+$/.test(t); }
+function tsDate(t){
+  let m = /^(\d{1,2})[ \-\/]([A-Za-z]{3})[a-z]*[ ,\-\/]+(\d{4})/.exec(t);
+  if(m && TS_MON[m[2].toLowerCase()] != null) return Date.UTC(+m[3], TS_MON[m[2].toLowerCase()], +m[1]);
+  if((m = /^([A-Za-z]{3})[a-z]*\.?\s+(\d{4})\b/.exec(t)) && TS_MON[m[1].toLowerCase()] != null) return Date.UTC(+m[2], TS_MON[m[1].toLowerCase()], 1);      // 'Jul 2026'
+  if((m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t))) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  if((m = /^(\d{1,2})[\-\/.](\d{1,2})[\-\/.](\d{4})/.exec(t))) return Date.UTC(+m[3], +m[2] - 1, +m[1]);
+  return null;
+}
+function tsNum(t){
+  const m = /^([−\-]?)\s*(?:₹|Rs\.?)?\s*([\d,]*\.?\d+)\s*(?:%|d|h|hrs?|km|kwh)?(?:\s|$)/i.exec(t);
+  return m ? (m[1] ? -1 : 1) * Number(m[2].replace(/,/g, '')) : null;
+}
+function tsApply(table){
+  const body = table.tBodies[0], st = TS.state[tsKey(table)];
+  if(body.querySelector('input:not([type=checkbox]):not([type=radio]), select, textarea, td[colspan]')) return;            // a list that turned into a form: leave it as it is
+  const rows = [...body.rows];
+  if(!body._tsOrig || !rows.length || !body._tsOrig.has(rows[0])) body._tsOrig = new Set(rows), body._tsList = rows.slice();      // a freshly drawn list
+  let out = body._tsList.filter(r=> r.parentNode === body);
+  if(st){
+    const cells = out.map(r=> tsCellText(r.cells[st.col])), full = cells.filter(t=> !tsEmpty(t));
+    const asDate = full.length && full.every(t=> tsDate(t) != null), asNum = !asDate && full.length && full.every(t=> tsNum(t) != null);
+    const rec = out.map((r, i)=> ({ r, t:cells[i], e:tsEmpty(cells[i]), v:asDate ? tsDate(cells[i]) : asNum ? tsNum(cells[i]) : cells[i].toLowerCase() }));
+    rec.sort((a, b)=> a.e !== b.e ? (a.e ? 1 : -1) : a.e ? 0 : st.dir * ((asDate || asNum) ? a.v - b.v : String(a.v).localeCompare(String(b.v), undefined, { numeric:true, sensitivity:'base' })));
+    out = rec.map(x=> x.r);
+  }
+  const frag = document.createDocumentFragment(); out.forEach(r=> frag.appendChild(r)); body.appendChild(frag);
+  body._tsDone = new WeakSet(out);
+  [...table.tHead.rows[0].cells].forEach((th, i)=> { const ind = th.querySelector('.ts-ind'); if(ind) ind.textContent = st && st.col === i ? (st.dir === 1 ? '▲' : '▼') : ''; });
+}
+function tsScan(){
+  document.querySelectorAll('table:not([data-ts])').forEach(table=> {
+    if(!tsSortable(table)){ table.dataset.ts = '0'; return; }
+    table.dataset.ts = '1';
+    [...table.tHead.rows[0].cells].forEach(th=> {
+      const lab = th.textContent.replace(/\s+/g, ' ').trim();
+      th.dataset.tsLabel = lab;
+      if(!lab || /^(action|actions)$/i.test(lab)) return;
+      th.classList.add('ts-h'); th.title = 'Click to sort'; th.insertAdjacentHTML('beforeend', '<span class="ts-ind"></span>');
+    });
+  });
+  document.querySelectorAll('table[data-ts="1"]').forEach(table=> {              // a sorted list that has been drawn again keeps its sort
+    const body = table.tBodies[0], st = TS.state[tsKey(table)];
+    if(st && body.rows.length && (!body._tsDone || !body._tsDone.has(body.rows[0]))) tsApply(table);
+  });
+}
+document.addEventListener('click', e=> {
+  const th = e.target.closest && e.target.closest('th.ts-h'); if(!th || e.target.closest('button, input, select, a')) return;
+  const table = th.closest('table'); if(!table || table.dataset.ts !== '1') return;
+  const idx = [...th.parentNode.cells].indexOf(th), key = tsKey(table), cur = TS.state[key];
+  if(!cur || cur.col !== idx) TS.state[key] = { col:idx, dir:1 }; else if(cur.dir === 1) cur.dir = -1; else delete TS.state[key];
+  tsApply(table);
+});
+{
+  let queued = false;
+  const obs = new MutationObserver(()=> { if(queued) return; queued = true; requestAnimationFrame(()=> { queued = false; try{ tsScan(); }catch(e){ console.error(e); } obs.takeRecords(); }); });
+  obs.observe(document.body, { childList:true, subtree:true });
+  tsScan();
+}
+
+// ---------- a fold symbol at the bottom of each row of charts hides it and gives the lists more room (remembered on this computer) ----------
+function chartsFoldInit(){
+  document.querySelectorAll('.charts-row').forEach(row=> {
+    if(row.dataset.fold) return; row.dataset.fold = '1';
+    const view = row.closest('.view'), idx = view ? [...view.querySelectorAll('.charts-row')].indexOf(row) : 0;
+    const key = 'trackit.charts.' + (view ? view.id : '') + '.' + idx;
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'charts-fold-btn';
+    row.appendChild(btn);
+    const set = (hide, save)=> {
+      row.classList.toggle('folded', hide);
+      btn.textContent = hide ? '▼' : '▲'; btn.title = hide ? 'Show the charts' : 'Hide the charts to give the list more room';
+      if(save){ try{ localStorage.setItem(key, hide ? '1' : '0'); }catch(e){ /* storage not available */ } }
+      if(!hide) setTimeout(()=> window.dispatchEvent(new Event('resize')), 60);          // the charts measure themselves again
+    };
+    let hid = false; try{ hid = localStorage.getItem(key) === '1'; }catch(e){ /* storage not available */ }
+    set(hid, false);
+    btn.addEventListener('click', ()=> set(!row.classList.contains('folded'), true));
+  });
+}
+chartsFoldInit();
 
 init();
 </script>
