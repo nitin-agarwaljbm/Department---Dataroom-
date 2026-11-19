@@ -286,6 +286,10 @@
 
   .charts-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px;}
   .chart-box{height:220px; position:relative;}
+  .td-bid-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr)); gap:14px; margin-bottom:16px;}
+  .td-bid-card{cursor:pointer;}
+  .td-bid-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px;}
+  .td-bid-title{font-weight:600; font-size:calc(15px * var(--fs));}
   table{width:100%; border-collapse:collapse; font-size:calc(12.5px * var(--fs));}
   thead th{text-align:left; padding:9px 10px; font-size:calc(10.5px * var(--fs)); color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--panel);}
   tbody tr{border-bottom:1px solid var(--border);}
@@ -1387,6 +1391,8 @@ th.ts-h:hover{ color:var(--accent); }
         <div class="empty-state" id="tendersEmptyState" style="display:none;">No tenders match the current filters.</div>
       </div>
       <div class="footer-note" id="tendersCountLine"></div>
+      <div class="panel-title" style="margin:18px 0 10px;">Bid prices by depot <span style="text-transform:none; letter-spacing:0; font-weight:400;">(₹/KM incl. GST · submitted bids · follows the filters above)</span></div>
+      <div id="tenderBidCards" class="td-bid-grid"></div>
     </div>
 
     <!-- ---------- PROJECTS VIEW (Pre-Operation charter) ---------- -->
@@ -10672,6 +10678,7 @@ async function loadTenders(){
   rawTenders = data;
   await attachAwardedRatePerKm(rawTenders);
   await attachBidderActivity(rawTenders);
+  tenderBidCache = {};
   renderTenders();
 }
 
@@ -10932,11 +10939,107 @@ function renderTendersTable(filtered){
   document.getElementById('tendersCountLine').textContent = `Showing ${sorted.length} of ${rawTenders.length} tender(s)`;
 }
 
+// ---------------- Bid prices by depot: one card + chart for every tender in the table ----------------
+// A bid's price is its all-in rate per KM (incl. GST), worked out exactly as the "Awarded ₹/Km" column and the
+// Comparative do (computeVendorFinancials). Only submitted bids are shown, lowest first.
+let tenderBidCache = {}, tenderBidLoading = new Set(), tenderBidCharts = {};
+function tenderBidWrap(name, max){
+  const lines = []; let cur = '';
+  String(name || '').split(/\s+/).forEach(w=>{ if(cur && (cur + ' ' + w).length > max){ lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; });
+  if(cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+async function loadTenderBidPrices(tenders){
+  const ids = tenders.map(t=> t.id).filter(id=> !(id in tenderBidCache) && !tenderBidLoading.has(id));
+  if(!ids.length) return;
+  ids.forEach(id=> tenderBidLoading.add(id));
+  try{
+    const [liRes, ciRes, qRes] = await Promise.all([
+      db.from('vendor_tender_line_items').select('*').in('tender_id', ids),
+      db.from('vendor_tender_cost_items').select('*').in('tender_id', ids),
+      db.from('vendor_quotes').select('*, vendor_quote_line_items(*), vendor_quote_cost_amounts(*)').in('tender_id', ids).not('submitted_at', 'is', null)
+    ]);
+    if(liRes.error) throw liRes.error;
+    if(ciRes.error) throw ciRes.error;
+    if(qRes.error) throw qRes.error;
+    ids.forEach(id=>{
+      const t = rawTenders.find(x=> x.id === id);
+      if(!t) return;
+      const lineItems = liRes.data.filter(li=> li.tender_id === id), costItems = ciRes.data.filter(ci=> ci.tender_id === id);
+      const rows = qRes.data.filter(q=> q.tender_id === id).map(q=>{
+        let rate = null;
+        try{ rate = computeVendorFinancials(t, lineItems, costItems, q).effectiveRatePerKm; }catch(e){ rate = null; }
+        return { quoteId:q.id, name:q.vendor_name, rate:(rate != null && isFinite(rate) && rate > 0) ? Math.round(rate * 100) / 100 : null };
+      });
+      tenderBidCache[id] = { rows };
+    });
+  }catch(err){
+    console.error('Could not load bid prices:', err);
+    ids.forEach(id=> { tenderBidCache[id] = { error:(err && err.message) || 'error' }; });
+  }finally{
+    ids.forEach(id=> tenderBidLoading.delete(id));
+  }
+  drawTenderBidCards();
+}
+function drawTenderBidCards(){
+  const box = document.getElementById('tenderBidCards');
+  if(!box) return;
+  Object.values(tenderBidCharts).forEach(c=> { try{ c.destroy(); }catch(e){ /* already gone */ } });
+  tenderBidCharts = {};
+  const list = [...getFilteredTenders()].sort((a, b)=> new Date(b.created_at || 0) - new Date(a.created_at || 0));     // same order as the table
+  if(!list.length){ box.innerHTML = '<div class="empty-state">No tenders match the current filters.</div>'; return; }
+  const tc = themeColors(), GREEN = '#4FA97F', AMBER = '#E0A458', BLUE = '#5B8DEF';
+  const plots = [];
+  box.innerHTML = list.map(t=>{
+    const c = tenderBidCache[t.id], wf = tenderWorkflowStatusLabel(t);
+    const company = (rawCompanies.find(x=> String(x.id) === String(t.company_id)) || {}).name || '';
+    const meta = [company, t.total_buses != null ? t.total_buses + ' buses' : ''].filter(Boolean).map(pmEsc).join(' · ');
+    const note = txt=> '<div class="empty-state" style="padding:24px 8px;">' + txt + '</div>';
+    let body;
+    if(!c) body = note('Loading bid prices…');
+    else if(c.error) body = note('Could not load bid prices.');
+    else {
+      const priced = c.rows.filter(r=> r.rate != null).sort((a, b)=> a.rate - b.rate);
+      const unpriced = c.rows.length - priced.length;
+      if(!priced.length) body = note(c.rows.length ? 'Bids are in, but no ₹/KM can be worked out.' : 'No bids submitted yet.');
+      else {
+        plots.push({ t, priced });
+        body = '<div class="chart-box" style="height:' + Math.max(110, priced.length * 44 + 40) + 'px;"><canvas id="tenderBidChart' + t.id + '"></canvas></div>'
+          + '<div class="footer-note" style="margin-top:6px;">' + priced.length + ' bid' + (priced.length === 1 ? '' : 's') + ' · <span style="color:' + GREEN + ';">■</span> lowest (L1) · <span style="color:' + AMBER + ';">■</span> awarded · <span style="color:' + BLUE + ';">■</span> other' + (unpriced ? ' · ' + unpriced + ' without a price' : '') + '</div>';
+      }
+    }
+    return '<div class="panel td-bid-card" data-bid-card="' + t.id + '" title="Double-click for tender details">'
+      + '<div class="td-bid-head"><div><div class="td-bid-title">' + pmEsc(t.depot_name) + '</div><div class="pm-sub">' + meta + '</div></div><span class="badge ' + wf.cls + '">' + wf.text + '</span></div>' + body + '</div>';
+  }).join('');
+  plots.forEach(({ t, priced })=>{
+    const l1 = priced[0].rate, top = priced[priced.length - 1].rate, awardedId = t.awarded_quote_id != null ? String(t.awarded_quote_id) : null;
+    const isAwarded = r=> awardedId != null && String(r.quoteId) === awardedId;
+    const colors = priced.map(r=> r.rate === l1 ? GREEN : (isAwarded(r) ? AMBER : BLUE));
+    const labels = priced.map(r=> tenderBidWrap((isAwarded(r) ? '★ ' : '') + r.name, 22));
+    tenderBidCharts[t.id] = new Chart(document.getElementById('tenderBidChart' + t.id), {
+      type:'bar',
+      data:{ labels, datasets:[{ data:priced.map(r=> r.rate), backgroundColor:colors, borderRadius:4, maxBarThickness:24 }] },
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:items=> priced[items[0].dataIndex].name, label:item=> '₹' + fmtNum(item.raw) + ' / KM (incl. GST)' } } },
+        scales:{ x:{ beginAtZero:true, max:top * 1.55, grid:{ color:tc.grid }, ticks:{ display:false } }, y:{ grid:{ display:false }, ticks:{ color:tc.text, font:{ family:'IBM Plex Sans', size:11 } } } } },
+      plugins:[{ id:'bidValueLabels', afterDatasetsDraw(chart){
+        const ctx = chart.ctx;
+        ctx.save(); ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.fillStyle = tc.text; ctx.textBaseline = 'middle';
+        chart.getDatasetMeta(0).data.forEach((bar, i)=>{ const r = priced[i]; ctx.fillText('₹' + fmtNum(r.rate) + (r.rate === l1 ? '  L1' : '  +' + ((r.rate / l1 - 1) * 100).toFixed(1) + '%'), bar.x + 6, bar.y); });
+        ctx.restore();
+      } }]
+    });
+  });
+  box.querySelectorAll('[data-bid-card]').forEach(card=> card.addEventListener('dblclick', ()=> openTenderDetail(Number(card.dataset.bidCard))));
+}
+
 function renderTenders(){
   populateTenderFilterSelects();
   renderTenderKPIs();
   renderTendersTable(getFilteredTenders());
   renderTenderCharts();
+  drawTenderBidCards();
+  loadTenderBidPrices(getFilteredTenders());
   homeRefresh();
 }
 
