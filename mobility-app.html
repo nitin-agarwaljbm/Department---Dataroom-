@@ -1402,6 +1402,7 @@ th.ts-h:hover{ color:var(--accent); }
         <div class="pm-seg">
           <button class="btn small active" data-vb-tab="bills">Bills</button>
           <button class="btn small" data-vb-tab="contracts" style="display:none;">Contracts &amp; set-up</button>
+          <button class="btn small" data-vb-tab="mis" style="display:none;">MIS</button>
         </div>
         <div class="pm-toolbar-right"><button class="btn small" id="vbRefreshBtn">↻ Refresh</button></div>
       </div>
@@ -3793,6 +3794,7 @@ async function vbLoad(){
   const b = await db.from('vb_bills').select('*').order('created_at', { ascending:false });
   if(b.error) throw b.error;
   vbContracts = c.data || []; vbBills = b.data || []; vbAvailable = true;
+  vbMisData = null;                                                                 // the MIS reloads its extra data (payments, driver lines) after any change
   vbUpdateNavBadge();
   return true;
 }
@@ -4171,6 +4173,305 @@ function vbAmountsHtml(b, showCertified){
 }
 
 // ---------- company side: the list ----------
+// ---------- MIS (admin): operator-wise fleet, contract rates, driver cost and the billing / payment position ----------
+// Contract rate per KM: per-KM contracts = the rate per KM. Management-fee contracts = (monthly manpower and cost lines + the management
+// fee on the assured KM) / assured KM per month. Assured KM per month = buses x assured KM per bus per year / 12 x fleet availability %.
+let vbMisData = null, vbMisLoading = false, vbMisError = '', vbMisCharts = [], vbMisLast = null;
+let vbMisFilter = { operator:'', type:'', status:'active', period:'all' };
+const misN = n=> (n == null || !isFinite(n)) ? '—' : Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 });
+const misR = n=> (n == null || !isFinite(n)) ? '—' : '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const misC = n=> { if(n == null || !isFinite(n)) return '—'; const a = Math.abs(n), s = n < 0 ? '−' : ''; return a >= 1e7 ? s + '₹' + (a / 1e7).toFixed(2) + ' Cr' : a >= 1e5 ? s + '₹' + (a / 1e5).toFixed(2) + ' L' : s + '₹' + Math.round(a).toLocaleString('en-IN'); };
+const misP = n=> (n == null || !isFinite(n)) ? '—' : Number(n).toFixed(1) + '%';
+const misD = n=> (n == null || !isFinite(n)) ? '—' : Number(n).toFixed(1);
+const misAvg = a=> a.length ? a.reduce((x, y)=> x + y, 0) / a.length : null;
+
+async function vbMisFetchAll(make){
+  const out = [];
+  for(let from = 0; ; from += 1000){
+    const r = await make().range(from, from + 999);
+    if(r.error) throw r.error;
+    out.push(...(r.data || []));
+    if(!r.data || r.data.length < 1000) break;
+  }
+  return out;
+}
+async function vbMisLoad(){
+  if(vbMisData || vbMisLoading) return;
+  vbMisLoading = true; vbMisError = '';
+  try{
+    const tIds = [...new Set(vbContracts.map(c=> c.tender_id).filter(Boolean))];
+    const [tenders, payments, drv] = await Promise.all([
+      tIds.length ? vbMisFetchAll(()=> db.from('vendor_tenders').select('id,bus_mix,total_buses,total_km_per_month,availability_factor,billing_type').in('id', tIds).order('id')) : [],
+      vbMisFetchAll(()=> db.from('vb_payments').select('id,bill_id,paid_on,amount,voided').order('id')),
+      vbMisFetchAll(()=> db.from('vb_bill_lines').select('id,bill_id,description,qty,rate,amount,certified_qty,certified_rate,certified_amount,kind').eq('kind', 'item').ilike('description', '%driver%').order('id'))
+    ]);
+    vbMisData = { tenders:{}, payments, drv };
+    tenders.forEach(t=> { vbMisData.tenders[t.id] = t; });
+  }catch(err){
+    console.error('MIS data:', err); vbMisError = (err && err.message) || String(err); vbMisData = null;
+  }finally{ vbMisLoading = false; }
+  if(vbTab === 'mis') vbRenderStaff();
+}
+function vbMisPeriodOk(b){
+  const f = vbMisFilter.period;
+  if(f === 'all') return true;
+  const m = String(b.period_month).slice(0, 7), now = new Date(), ym = (y, mo)=> y + '-' + String(mo).padStart(2, '0');
+  if(f === 'fy'){ const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; return m >= ym(y, 4) && m <= ym(y + 1, 3); }
+  const d = new Date(now.getFullYear(), now.getMonth() - ((f === '3m' ? 3 : 6) - 1), 1);
+  return m >= ym(d.getFullYear(), d.getMonth() + 1);
+}
+// fleet of a contract: its own bus models, else the tender's bus mix
+function vbMisFleet(c){
+  const t = c.tender_id && vbMisData ? vbMisData.tenders[c.tender_id] : null, rule = c.km_rule || {};
+  let models = Array.isArray(rule.models) ? rule.models.filter(m=> m && (m.model || m.buses)).map(m=> ({ model:String(m.model || 'Bus'), buses:Number(m.buses) || 0, perMonth:m.assured_per_bus_year != null ? (Number(m.assured_per_bus_year) || 0) / 12 : (Number(m.assured_per_bus_month) || 0) })) : [];
+  if(!models.length && t && Array.isArray(t.bus_mix)) models = t.bus_mix.filter(m=> m && (m.model || m.bus_count)).map(m=> ({ model:String(m.model || 'Bus'), buses:Number(m.bus_count) || 0, perMonth:(Number(m.assured_km_per_month) || 0) / 12 }));
+  const avail = rule.availability_pct != null ? Number(rule.availability_pct) : (t && t.availability_factor != null ? Number(t.availability_factor) : 100);
+  const buses = models.reduce((n, m)=> n + m.buses, 0) || (t ? Number(t.total_buses) || 0 : 0);
+  const assuredKm = models.some(m=> m.perMonth > 0) ? models.reduce((n, m)=> n + m.buses * m.perMonth, 0) * avail / 100 : null;
+  return { models, avail, buses, assuredKm };
+}
+// contract price per KM and the monthly value at the assured KM
+function vbMisRate(c, fl){
+  const rule = c.km_rule || {};
+  if(c.billing_mode === 'per_km'){
+    const rate = Number(rule.rate_per_km) || 0, gst = Number(rule.gst_rate) || 0, monthly = fl.assuredKm != null ? rate * fl.assuredKm : null;
+    return { excl:rate, incl:rate * (1 + gst / 100), monthly, monthlyIncl:monthly != null ? monthly * (1 + gst / 100) : null, feeRate:null };
+  }
+  let base = 0, gstAmt = 0;
+  (Array.isArray(c.template) ? c.template : []).forEach(l=> { const a = (Number(l.qty) || 0) * (Number(l.rate) || 0); base += a; gstAmt += a * (Number(l.gst_rate) || 0) / 100; });
+  let feeRate = null;
+  if(vbHasFee(c)){
+    feeRate = Number(rule.rate_per_km);
+    if(fl.assuredKm != null){ const fee = feeRate * fl.assuredKm; base += fee; gstAmt += fee * (Number(rule.gst_rate) || 0) / 100; }
+  }
+  const km = fl.assuredKm;
+  return { excl:km > 0 ? base / km : null, incl:km > 0 ? (base + gstAmt) / km : null, monthly:base > 0 ? base : null, monthlyIncl:base > 0 ? base + gstAmt : null, feeRate };
+}
+// driver cost of a management-fee contract (the Drivers line of its monthly standard)
+function vbMisDriver(c, fl, rt){
+  if(c.billing_mode !== 'management') return null;
+  const ls = (Array.isArray(c.template) ? c.template : []).filter(l=> isDriverLineItem({ activity_name:l.description }));
+  if(!ls.length) return null;
+  const qty = ls.reduce((n, l)=> n + (Number(l.qty) || 0), 0), cost = ls.reduce((n, l)=> n + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0);
+  return { qty, rate:qty > 0 ? cost / qty : null, cost, perBus:fl.buses > 0 ? cost / fl.buses : null, perKm:fl.assuredKm > 0 ? cost / fl.assuredKm : null,
+    perBusDrivers:fl.buses > 0 ? qty / fl.buses : null, share:rt.monthly > 0 ? cost / rt.monthly * 100 : null };
+}
+// months from billing start to last month with no submitted bill
+function vbMisMissing(c, bills){
+  if(!c.start_date) return [];
+  const now = new Date(), last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  let end = last;
+  if(c.end_date){ const e = new Date(String(c.end_date).slice(0, 7) + '-01'); if(e < end) end = e; }
+  const have = new Set(bills.map(b=> String(b.period_month).slice(0, 7))), out = [];
+  for(let d = new Date(String(c.start_date).slice(0, 7) + '-01'); d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)){
+    const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    if(!have.has(k)) out.push(k + '-01');
+  }
+  return out;
+}
+function vbMisBuild(){
+  const f = vbMisFilter, today = vbToday();
+  const contracts = vbContracts.filter(c=> (!f.operator || c.vendor_name === f.operator) && (!f.type || c.billing_mode === f.type) && (!f.status || c.status === f.status));
+  const pays = {};
+  vbMisData.payments.filter(p=> !p.voided).forEach(p=> { (pays[p.bill_id] = pays[p.bill_id] || []).push(p); });
+  const drvLines = vbMisData.drv.filter(l=> isDriverLineItem({ activity_name:l.description }));
+  const dayDiff = (a, b)=> (new Date(String(b).slice(0, 10)) - new Date(String(a).slice(0, 10))) / 86400000;
+  const rows = contracts.map(c=>{
+    const fl = vbMisFleet(c), rt = vbMisRate(c, fl), dr = vbMisDriver(c, fl, rt);
+    const bills = vbBills.filter(b=> b.contract_id === c.id && b.status !== 'draft' && b.status !== 'rejected');
+    const inP = bills.filter(vbMisPeriodOk);
+    const bl = { count:inP.length, billed:0, inProc:0, approved:0, paid:0, outstanding:0, overdue:0, queries:0, km:0, kmTaxable:0, kmBills:0, subApp:[], appPay:[], paidN:0, onTime:0 };
+    inP.forEach(b=>{
+      const claimed = Number(b.claimed_taxable) || 0, net = Number(b.net_payable) || 0, paid = Number(b.paid_amount) || 0, isApp = b.status === 'approved';
+      bl.billed += claimed;
+      if(!isApp) bl.inProc += claimed + (Number(b.claimed_gst) || 0);
+      if(b.status === 'query') bl.queries++;
+      if(isApp){
+        bl.approved += net; bl.paid += paid;
+        const open = Math.max(0, net - paid); bl.outstanding += open;
+        if(open > 0.005 && b.due_date && String(b.due_date).slice(0, 10) < today) bl.overdue += open;
+        if(b.submitted_at && b.approved_at) bl.subApp.push(dayDiff(b.submitted_at, b.approved_at));
+        const ps = pays[b.id] || [];
+        if(b.pay_status === 'paid' && ps.length && b.approved_at){
+          const last = ps.map(p=> String(p.paid_on).slice(0, 10)).sort().pop();
+          bl.appPay.push(dayDiff(b.approved_at, last)); bl.paidN++;
+          if(b.due_date && last <= String(b.due_date).slice(0, 10)) bl.onTime++;
+        }
+      }
+      if(Array.isArray(b.km_input) && b.km_input.length){
+        const km = b.km_input.reduce((n, k)=> n + (Number(k.km) || 0), 0);
+        if(km > 0){ bl.km += km; bl.kmBills++; bl.kmTaxable += (isApp && b.certified_taxable != null) ? Number(b.certified_taxable) : claimed; }
+      }
+    });
+    bl.actualRate = bl.km > 0 ? bl.kmTaxable / bl.km : null;
+    bl.kmUtil = (bl.kmBills && fl.assuredKm > 0) ? bl.km / (fl.assuredKm * bl.kmBills) * 100 : null;
+    let act = null;
+    if(dr){
+      for(const b of bills.slice().sort((x, y)=> String(y.period_month).localeCompare(String(x.period_month)))){
+        const ls = drvLines.filter(l=> l.bill_id === b.id);
+        if(!ls.length) continue;
+        act = { period:b.period_month, qty:ls.reduce((n, l)=> n + (Number(l.certified_qty != null ? l.certified_qty : l.qty) || 0), 0), cost:ls.reduce((n, l)=> n + (Number(l.certified_amount != null ? l.certified_amount : l.amount) || 0), 0) };
+        break;
+      }
+    }
+    const endIn = c.end_date ? (new Date(String(c.end_date).slice(0, 10)) - new Date(today)) / 86400000 : null;
+    return { c, fl, rt, dr, bl, act, missing:vbMisMissing(c, bills), endIn };
+  });
+  const ops = {};
+  rows.forEach(r=>{
+    const o = ops[r.c.vendor_name] = ops[r.c.vendor_name] || { name:r.c.vendor_name, n:0, buses:0, assured:0, per:0, mgmt:0, monthly:0, monthlyIncl:0, kmRated:0, billed:0, inProc:0, approved:0, paid:0, outstanding:0, overdue:0, queries:0, count:0, paidN:0, onTime:0, subApp:[], appPay:[], expiring:0, missing:0, models:{} };
+    o.n++; o.buses += r.fl.buses; o.assured += r.fl.assuredKm || 0;
+    if(r.c.billing_mode === 'per_km') o.per++; else o.mgmt++;
+    if(r.rt.monthly != null && r.fl.assuredKm > 0){ o.monthly += r.rt.monthly; o.monthlyIncl += r.rt.monthlyIncl; o.kmRated += r.fl.assuredKm; }
+    ['billed', 'inProc', 'approved', 'paid', 'outstanding', 'overdue', 'queries', 'count', 'paidN', 'onTime'].forEach(k=> { o[k] += r.bl[k]; });
+    o.subApp.push(...r.bl.subApp); o.appPay.push(...r.bl.appPay);
+    o.missing += r.missing.length;
+    if(r.endIn != null && r.endIn >= 0 && r.endIn <= 90) o.expiring++;
+    r.fl.models.forEach(x=> { o.models[x.model] = (o.models[x.model] || 0) + x.buses; });
+  });
+  const opList = Object.values(ops).sort((a, b)=> b.buses - a.buses || a.name.localeCompare(b.name));
+  const t = { n:rows.length, ops:opList.length, depots:new Set(rows.map(r=> r.c.depot_name)).size, buses:0, assured:0, per:0, mgmt:0, monthly:0, monthlyIncl:0, kmRated:0, billed:0, inProc:0, approved:0, paid:0, outstanding:0, overdue:0, queries:0, count:0, paidN:0, onTime:0, subApp:[], appPay:[], expiring:0, missing:0 };
+  opList.forEach(o=> { ['buses', 'assured', 'per', 'mgmt', 'monthly', 'monthlyIncl', 'kmRated', 'billed', 'inProc', 'approved', 'paid', 'outstanding', 'overdue', 'queries', 'count', 'paidN', 'onTime', 'expiring', 'missing'].forEach(k=> { t[k] += o[k]; }); t.subApp.push(...o.subApp); t.appPay.push(...o.appPay); });
+  return { rows, ops:opList, t, models:[...new Set(opList.flatMap(o=> Object.keys(o.models)))].sort() };
+}
+function misTable(spec){
+  if(!spec.rows.length) return '<div class="empty-state">' + (spec.empty || 'Nothing to show for the current filters.') + '</div>';
+  const al = c=> c.r ? ' style="text-align:right;"' : '';
+  return '<div class="table-wrap"><table><thead><tr>' + spec.cols.map(c=> '<th' + al(c) + '>' + c.t + '</th>').join('') + '</tr></thead><tbody>'
+    + spec.rows.map(x=> '<tr>' + spec.cols.map(c=> { const v = c.v ? c.v(x) : null; return '<td' + al(c) + '>' + (c.h ? c.h(x) : c.f ? c.f(v) : pmEsc(v == null || v === '' ? '—' : v)) + '</td>'; }).join('') + '</tr>').join('')
+    + (spec.foot ? '<tr class="vb-same">' + spec.foot.map((h, i)=> '<td' + al(spec.cols[i]) + '><b>' + h + '</b></td>').join('') + '</tr>' : '') + '</tbody></table></div>';
+}
+function misSpecs(m){
+  const t = m.t, chip = (txt, cls, title)=> '<span class="pm-chip ' + (cls || '') + '"' + (title ? ' title="' + pmEsc(title) + '"' : '') + '>' + txt + '</span>';
+  const modelsTxt = o=> Object.keys(o.models).sort().map(k=> k + ' ×' + o.models[k]).join(', ');
+  const opRate = (o, k)=> o.kmRated > 0 ? o[k] / o.kmRated : null;
+  const opA = { title:'Operator-wise fleet and contract rates', rows:m.ops, cols:[
+    { t:'Operator', v:o=> o.name }, { t:'Contracts', r:1, v:o=> o.n, f:misN }, { t:'Buses', r:1, v:o=> o.buses, f:misN }, { t:'Assured KM / month', r:1, v:o=> o.assured, f:misN },
+    { t:'Per KM', r:1, v:o=> o.per, f:misN }, { t:'Mgmt fee', r:1, v:o=> o.mgmt, f:misN }, { t:'Contract value / month (excl. GST)', r:1, v:o=> o.monthly || null, f:misC },
+    { t:'Avg ₹/KM (excl. GST)', r:1, v:o=> opRate(o, 'monthly'), f:misR }, { t:'Avg ₹/KM (incl. GST)', r:1, v:o=> opRate(o, 'monthlyIncl'), f:misR },
+    { t:'Fleet', v:modelsTxt }, { t:'Ending in 90 days', r:1, h:o=> o.expiring ? chip(o.expiring, 'warn') : '—', v:o=> o.expiring } ],
+    foot:['Total', misN(t.n), misN(t.buses), misN(t.assured), misN(t.per), misN(t.mgmt), misC(t.monthly || null), misR(t.kmRated > 0 ? t.monthly / t.kmRated : null), misR(t.kmRated > 0 ? t.monthlyIncl / t.kmRated : null), '', t.expiring ? String(t.expiring) : '—'] };
+  const opB = { title:'Operator-wise billing and payment position', rows:m.ops, cols:[
+    { t:'Operator', v:o=> o.name }, { t:'Bills', r:1, v:o=> o.count, f:misN }, { t:'Billed (taxable)', r:1, v:o=> o.billed, f:misC }, { t:'In process (incl. GST)', r:1, v:o=> o.inProc, f:misC },
+    { t:'Approved (net payable)', r:1, v:o=> o.approved, f:misC }, { t:'Paid', r:1, v:o=> o.paid, f:misC }, { t:'Outstanding', r:1, v:o=> o.outstanding, f:misC },
+    { t:'Overdue', r:1, v:o=> o.overdue, h:o=> o.overdue > 0.005 ? chip(misC(o.overdue), 'bad') : '—' }, { t:'Queries open', r:1, v:o=> o.queries, f:misN },
+    { t:'Avg days to approve', r:1, v:o=> misAvg(o.subApp), f:misD }, { t:'Avg days approval to payment', r:1, v:o=> misAvg(o.appPay), f:misD }, { t:'Paid within due date', r:1, v:o=> o.paidN ? o.onTime / o.paidN * 100 : null, f:misP },
+    { t:'Months with no bill', r:1, v:o=> o.missing, h:o=> o.missing ? chip(o.missing, 'bad') : chip('0', 'ok') } ],
+    foot:['Total', misN(t.count), misC(t.billed), misC(t.inProc), misC(t.approved), misC(t.paid), misC(t.outstanding), misC(t.overdue), misN(t.queries), misD(misAvg(t.subApp)), misD(misAvg(t.appPay)), misP(t.paidN ? t.onTime / t.paidN * 100 : null), String(t.missing)] };
+  const ct = { title:'Contract / depot-wise rates and billing', rows:m.rows, cols:[
+    { t:'Operator', v:r=> r.c.vendor_name }, { t:'Depot', v:r=> r.c.depot_name },
+    { t:'Type', v:r=> r.c.billing_mode === 'per_km' ? 'Per KM' : 'Management fee', h:r=> chip(r.c.billing_mode === 'per_km' ? 'Per KM' : 'Management fee', r.c.billing_mode === 'per_km' ? 'ok' : '') },
+    { t:'Buses', r:1, v:r=> r.fl.buses, f:misN }, { t:'Fleet mix', v:r=> r.fl.models.map(x=> x.model + ' ×' + x.buses).join(', ') }, { t:'Assured KM / month', r:1, v:r=> r.fl.assuredKm, f:misN },
+    { t:'Contract ₹/KM (excl. GST)', r:1, v:r=> r.rt.excl, f:misR }, { t:'Contract ₹/KM (incl. GST)', r:1, v:r=> r.rt.incl, f:misR }, { t:'Mgmt fee ₹/KM', r:1, v:r=> r.rt.feeRate, f:misR },
+    { t:'Value / month (excl. GST)', r:1, v:r=> r.rt.monthly, f:misC }, { t:'Credit days', r:1, v:r=> r.c.credit_days, f:misN }, { t:'TDS %', r:1, v:r=> Number(r.c.tds_rate) || 0, f:x=> misN(x) + '%' },
+    { t:'Billing from', v:r=> r.c.start_date ? fmtDate(r.c.start_date) : '' },
+    { t:'Ends', v:r=> r.c.end_date ? fmtDate(r.c.end_date) : 'Ongoing', h:r=> { const e = r.c.end_date ? fmtDate(r.c.end_date) : 'Ongoing'; return r.endIn != null && r.endIn < 0 && r.c.status === 'active' ? e + ' ' + chip('ended', 'bad') : r.endIn != null && r.endIn <= 90 ? e + ' ' + chip(Math.round(r.endIn) + ' d', 'warn') : e; } },
+    { t:'Billed ₹/KM (actual)', r:1, v:r=> r.bl.actualRate, f:misR }, { t:'KM run vs assured', r:1, v:r=> r.bl.kmUtil, f:misP }, { t:'Bills', r:1, v:r=> r.bl.count, f:misN },
+    { t:'Months with no bill', r:1, v:r=> r.missing.length, h:r=> r.missing.length ? chip(r.missing.length, 'bad', r.missing.map(vbMonth).join(', ')) : chip('0', 'ok') },
+    { t:'Status', v:r=> r.c.status } ] };
+  const dRows = m.rows.filter(r=> r.dr);
+  const dv = { title:'Depot-wise driver cost (management-fee contracts)', rows:dRows, empty:'No management-fee contract with a Drivers line in the current filters.', cols:[
+    { t:'Operator', v:r=> r.c.vendor_name }, { t:'Depot', v:r=> r.c.depot_name }, { t:'Buses', r:1, v:r=> r.fl.buses, f:misN },
+    { t:'Drivers (contract)', r:1, v:r=> r.dr.qty, f:misN }, { t:'Drivers per bus', r:1, v:r=> r.dr.perBusDrivers, f:x=> x == null ? '—' : x.toFixed(2) },
+    { t:'Rate / driver / month', r:1, v:r=> r.dr.rate, f:misR }, { t:'Driver cost / month', r:1, v:r=> r.dr.cost, f:misC }, { t:'Per bus / month', r:1, v:r=> r.dr.perBus, f:misR }, { t:'Per KM', r:1, v:r=> r.dr.perKm, f:misR },
+    { t:'Share of monthly bill', r:1, v:r=> r.dr.share, f:misP },
+    { t:'Last billed month', v:r=> r.act ? vbMonth(r.act.period) : '' }, { t:'Drivers billed', r:1, v:r=> r.act ? r.act.qty : null, f:misN }, { t:'Driver cost billed', r:1, v:r=> r.act ? r.act.cost : null, f:misC },
+    { t:'Billed vs contract', r:1, v:r=> r.act && r.dr.cost > 0 ? (r.act.cost / r.dr.cost - 1) * 100 : null, h:r=> { if(!r.act || !(r.dr.cost > 0)) return '—'; const d = (r.act.cost / r.dr.cost - 1) * 100; return chip((d > 0 ? '+' : '') + d.toFixed(1) + '%', d > 5 ? 'bad' : d < -5 ? 'warn' : 'ok'); } } ],
+    foot:['Total', '', misN(dRows.reduce((n, r)=> n + r.fl.buses, 0)), misN(dRows.reduce((n, r)=> n + r.dr.qty, 0)), '', '', misC(dRows.reduce((n, r)=> n + r.dr.cost, 0)), misR((() => { const b = dRows.reduce((n, r)=> n + r.fl.buses, 0); return b > 0 ? dRows.reduce((n, r)=> n + r.dr.cost, 0) / b : null; })()), '', '', '', '', '', ''] };
+  const fleet = { title:'Fleet by bus model (buses)', rows:m.ops, cols:[ { t:'Operator', v:o=> o.name } ].concat(m.models.map(k=> ({ t:pmEsc(k), r:1, v:o=> o.models[k] || 0, f:x=> x ? misN(x) : '—' }))).concat([{ t:'Total', r:1, v:o=> o.buses, f:misN }]),
+    foot:['Total'].concat(m.models.map(k=> misN(m.ops.reduce((n, o)=> n + (o.models[k] || 0), 0)))).concat([misN(t.buses)]) };
+  return { opA, opB, ct, dv, fleet };
+}
+function vbRenderMis(box){
+  vbMisCharts.forEach(c=> { try{ c.destroy(); }catch(e){ /* already gone */ } });
+  vbMisCharts = [];
+  if(vbMisError){ box.innerHTML = '<div class="banner error" style="display:block;">Could not load the MIS data: ' + pmEsc(vbMisError) + ' <button type="button" class="btn small" id="vbMisRetry">Retry</button></div>'; return; }
+  if(!vbMisData){ box.innerHTML = '<div class="empty-state">Loading the MIS…</div>'; vbMisLoad(); return; }
+  const m = vbMisLast = vbMisBuild(), f = vbMisFilter, t = m.t, sp = misSpecs(m), tc = themeColors();
+  const sel = (key, label, list)=> '<div class="field" style="margin:0;"><label>' + label + '</label><select data-mis-f="' + key + '">' + list.map(o=> '<option value="' + pmEsc(o[0]) + '"' + (String(f[key]) === String(o[0]) ? ' selected' : '') + '>' + pmEsc(o[1]) + '</option>').join('') + '</select></div>';
+  const opNames = [...new Set(vbContracts.map(c=> c.vendor_name))].sort();
+  const periodLabel = { all:'All time', fy:'This financial year', '6m':'Last 6 months', '3m':'Last 3 months' }[f.period] || 'All time';
+  const toolbar = '<div class="panel" style="padding:12px 14px; margin-bottom:14px;"><div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">'
+    + sel('operator', 'Operator', [['', 'All operators']].concat(opNames.map(n=> [n, n]))) + sel('type', 'Billing type', [['', 'All'], ['per_km', 'Per KM'], ['management', 'Management fee']])
+    + sel('status', 'Contract status', [['active', 'Active'], ['closed', 'Closed'], ['', 'All']]) + sel('period', 'Billing period (for amounts)', [['all', 'All time'], ['fy', 'This financial year'], ['6m', 'Last 6 months'], ['3m', 'Last 3 months']])
+    + '<button type="button" class="btn small" id="vbMisCsv" style="margin-left:auto;">⬇ Download CSV</button></div></div>';
+  const wRate = t.kmRated > 0 ? t.monthly / t.kmRated : null, wRateIncl = t.kmRated > 0 ? t.monthlyIncl / t.kmRated : null;
+  const cards = [
+    ['total', 'Contracts', t.n, t.ops + ' operator' + (t.ops === 1 ? '' : 's') + ' · ' + t.depots + ' depot' + (t.depots === 1 ? '' : 's')],
+    ['total', 'Buses', misN(t.buses), misN(t.assured) + ' assured KM / month'],
+    ['pending', 'Per KM / Mgmt fee', t.per + ' / ' + t.mgmt, 'contracts'],
+    ['ontrack', 'Avg contract ₹/KM', misR(wRate), 'excl. GST · incl. ' + misR(wRateIncl)],
+    ['total', 'Contract value / month', misC(t.monthly || null), 'at assured KM, excl. GST'],
+    ['pending', 'In process', misC(t.inProc), 'claimed incl. GST, not approved'],
+    ['duesoon', 'Outstanding', misC(t.outstanding), 'approved, not yet paid'],
+    ['overdue', 'Overdue', misC(t.overdue), 'past the payment due date'],
+    ['ontrack', 'Paid', misC(t.paid), periodLabel],
+    ['duesoon', 'Months with no bill', t.missing, 'since billing start'],
+    ['closed', 'Ending in 90 days', t.expiring, 'contracts']
+  ];
+  const kpis = '<div class="kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(165px,1fr));">' + cards.map(c=> '<div class="kpi ' + c[0] + '"><div class="kpi-label">' + c[1] + '</div><div class="kpi-value" style="font-size:calc(22px * var(--fs));">' + c[2] + '</div><div class="kpi-sub">' + c[3] + '</div></div>').join('') + '</div>';
+  const rated = m.rows.filter(r=> r.rt.excl != null).sort((a, b)=> a.rt.excl - b.rt.excl);
+  const dChart = m.rows.filter(r=> r.dr && r.dr.perBus != null);
+  const h = n=> Math.max(220, n * 34 + 70);
+  const panel = (title, id, n, note)=> '<div class="panel"><div class="panel-title">' + title + '</div>' + (n ? '<div class="chart-box" style="height:' + h(n) + 'px;"><canvas id="' + id + '"></canvas></div>' + (note ? '<div class="footer-note" style="margin-top:6px;">' + note + '</div>' : '') : '<div class="empty-state">No data for the current filters.</div>') + '</div>';
+  const charts = '<div class="charts-row" style="grid-template-columns:1fr 1fr;">'
+    + panel('Buses by operator', 'vbMisC1', m.ops.length) + panel('Contract ₹/KM by depot (excl. GST)', 'vbMisC2', rated.length, '<span style="color:#5B8DEF;">■</span> per KM contract · <span style="color:#E0A458;">■</span> management fee contract, converted to ₹ per KM')
+    + panel('Billing position by operator (₹ lakh)', 'vbMisC3', m.ops.length, periodLabel) + panel('Driver cost per bus per month (₹)', 'vbMisC4', dChart.length, '<span style="color:#5B8DEF;">■</span> as per contract · <span style="color:#E0A458;">■</span> as billed (last billed month)') + '</div>';
+  const sec = (s, note)=> '<div class="panel" style="margin-bottom:14px;"><div class="panel-title">' + s.title + '</div>' + misTable(s) + (note ? '<div class="footer-note" style="margin-top:6px;">' + note + '</div>' : '') + '</div>';
+  box.innerHTML = toolbar + kpis + charts
+    + sec(sp.opA, 'Average ₹/KM is weighted by assured KM. Management-fee contracts are converted: (monthly manpower and cost lines + management fee on the assured KM) ÷ assured KM per month. Contracts without fleet details are left out of the averages.')
+    + sec(sp.opB, 'Amounts are for the billing period selected above. Overdue = approved bills past their due date and not fully paid. "Months with no bill" counts months since billing start with no submitted bill.')
+    + sec(sp.ct, 'Billed ₹/KM (actual) = taxable amount of the bills in the period ÷ KM run entered on them (all-in for management-fee bills). KM run vs assured = KM run ÷ assured KM for the same months.')
+    + sec(sp.dv, 'Contract cost is the Drivers line of the contract standard (drivers × rate). "Billed" is the certified Drivers line of the last submitted bill; red above +5%, amber below −5% of the contract.')
+    + sec(sp.fleet);
+  // ----- charts -----
+  const BLUE = '#5B8DEF', AMBER = '#E0A458', GREEN = '#4FA97F', RED = '#E2574C';
+  const labelPlugin = texts=> ({ id:'misLabels', afterDatasetsDraw(chart){ const ctx = chart.ctx; ctx.save(); ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.fillStyle = tc.text; ctx.textBaseline = 'middle';
+    texts.forEach((arr, di)=> chart.getDatasetMeta(di).data.forEach((bar, i)=> { if(arr[i]) ctx.fillText(arr[i], bar.x + 6, bar.y); })); ctx.restore(); } });
+  const base = (stacked, maxV)=> ({ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } },
+    scales:{ x:{ stacked, beginAtZero:true, max:maxV, grid:{ color:tc.grid }, ticks:{ color:tc.muted, maxRotation:0, autoSkip:true, maxTicksLimit:6, font:{ family:'IBM Plex Mono', size:10 } } }, y:{ stacked, grid:{ display:false }, ticks:{ color:tc.text, font:{ family:'IBM Plex Sans', size:11 } } } } });
+  if(m.ops.length) vbMisCharts.push(barChart('vbMisC1', null, m.ops.map(o=> o.name), m.ops.map(o=> o.buses), 0, '', null));
+  if(rated.length){
+    const dup = n=> rated.filter(r=> r.c.depot_name === n).length > 1, lab = r=> dup(r.c.depot_name) ? r.c.depot_name + ' · ' + r.c.vendor_name : r.c.depot_name;
+    const top = rated[rated.length - 1].rt.excl;
+    vbMisCharts.push(new Chart(document.getElementById('vbMisC2'), { type:'bar', data:{ labels:rated.map(lab), datasets:[{ data:rated.map(r=> Math.round(r.rt.excl * 100) / 100), backgroundColor:rated.map(r=> r.c.billing_mode === 'per_km' ? BLUE : AMBER), borderRadius:4, maxBarThickness:22 }] },
+      options:Object.assign(base(false, top * 1.25), { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:i=> rated[i[0].dataIndex].c.vendor_name + ' · ' + rated[i[0].dataIndex].c.depot_name, label:i=> misR(i.raw) + ' / KM excl. GST' } } } }), plugins:[labelPlugin([rated.map(r=> misR(r.rt.excl))])] }));
+  }
+  if(m.ops.length){
+    const L = v=> Math.round(v / 1e5 * 100) / 100;
+    vbMisCharts.push(new Chart(document.getElementById('vbMisC3'), { type:'bar', data:{ labels:m.ops.map(o=> o.name), datasets:[
+      { label:'Paid', data:m.ops.map(o=> L(o.paid)), backgroundColor:GREEN, maxBarThickness:22 },
+      { label:'Outstanding (not due)', data:m.ops.map(o=> L(Math.max(0, o.outstanding - o.overdue))), backgroundColor:BLUE, maxBarThickness:22 },
+      { label:'Overdue', data:m.ops.map(o=> L(o.overdue)), backgroundColor:RED, maxBarThickness:22 } ] },
+      options:Object.assign(base(true), { plugins:{ legend:{ display:true, labels:{ color:tc.text, boxWidth:12, font:{ family:'IBM Plex Sans', size:11 } } }, tooltip:{ callbacks:{ label:i=> i.dataset.label + ': ₹' + Number(i.raw).toLocaleString('en-IN') + ' L' } } } }) }));
+  }
+  if(dChart.length){
+    const actPer = dChart.map(r=> r.act && r.fl.buses > 0 ? Math.round(r.act.cost / r.fl.buses) : null), conPer = dChart.map(r=> Math.round(r.dr.perBus));
+    const top = Math.max(...conPer, ...actPer.filter(v=> v != null));
+    vbMisCharts.push(new Chart(document.getElementById('vbMisC4'), { type:'bar', data:{ labels:dChart.map(r=> r.c.depot_name), datasets:[
+      { data:conPer, backgroundColor:BLUE, maxBarThickness:16 }, { data:actPer, backgroundColor:AMBER, maxBarThickness:16 } ] },
+      options:Object.assign(base(false, top * 1.3), { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:i=> dChart[i[0].dataIndex].c.vendor_name + ' · ' + dChart[i[0].dataIndex].c.depot_name, label:i=> (i.datasetIndex ? 'Billed: ' : 'Contract: ') + misI(i.raw) } } } }),
+      plugins:[labelPlugin([conPer.map(v=> misI(v)), actPer.map(v=> v == null ? '' : misI(v))])] }));
+  }
+}
+const misI = n=> (n == null || !isFinite(n)) ? '—' : '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits:0 });
+function vbMisCsv(){
+  if(!vbMisLast) return;
+  const sp = misSpecs(vbMisLast), out = [];
+  const esc = v=> { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  [sp.opA, sp.opB, sp.ct, sp.dv, sp.fleet].forEach(s=> {
+    out.push(esc(s.title));
+    out.push(s.cols.map(c=> esc(String(c.t).replace(/&amp;/g, '&'))).join(','));
+    s.rows.forEach(x=> out.push(s.cols.map(c=> { const v = c.v ? c.v(x) : ''; return esc(typeof v === 'number' ? Math.round(v * 100) / 100 : v); }).join(',')));
+    out.push('');
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + out.join('\r\n')], { type:'text/csv;charset=utf-8' }));
+  a.download = 'Vendor-MIS-' + vbToday() + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(a.href), 2000);
+}
+
 function vbRenderStaff(){
   const box = document.getElementById('vbStaffBody');
   if(!box) return;
@@ -4180,7 +4481,9 @@ function vbRenderStaff(){
   }
   document.querySelectorAll('[data-vb-tab]').forEach(b=> b.classList.toggle('active', b.dataset.vbTab === vbTab));
   document.querySelector('[data-vb-tab="contracts"]').style.display = (myProfile && myProfile.is_admin) ? '' : 'none';
+  document.querySelector('[data-vb-tab="mis"]').style.display = (myProfile && myProfile.is_admin) ? '' : 'none';
   if(vbTab === 'contracts' && myProfile && myProfile.is_admin){ vbRenderContracts(box); return; }
+  if(vbTab === 'mis' && myProfile && myProfile.is_admin){ vbRenderMis(box); return; }
 
   const today = vbToday();
   const live = vbBills.filter(b=> b.status !== 'draft');            // staff never see vendor drafts (the database hides them too)
@@ -5463,7 +5766,9 @@ function attachBillsEvents(){
   const page = document.getElementById('billsView');
   page.addEventListener('click', (e)=> {
     const tab = e.target.closest('[data-vb-tab]'); if(tab){ vbTab = tab.dataset.vbTab; vbRenderStaff(); return; }
-    if(e.target.closest('#vbRefreshBtn')){ vbLoad().then(vbRenderStaff); return; }
+    if(e.target.closest('#vbRefreshBtn')){ vbMisError = ''; vbLoad().then(vbRenderStaff); return; }
+    if(e.target.closest('#vbMisCsv')){ vbMisCsv(); return; }
+    if(e.target.closest('#vbMisRetry')){ vbMisError = ''; vbRenderStaff(); return; }
     const kpi = e.target.closest('[data-vb-kpi]'); if(kpi){ vbFilter.kpi = vbFilter.kpi === kpi.dataset.vbKpi ? '' : kpi.dataset.vbKpi; vbRenderStaff(); return; }
     if(e.target.closest('#vbfClear')){ vbFilter = { kpi:'', status:'', vendor:'', q:'' }; vbRenderStaff(); return; }
     if(e.target.closest('[data-vb-addlegacy]')){ vbOpenLegacy(null); return; }
@@ -5474,6 +5779,7 @@ function attachBillsEvents(){
   page.addEventListener('change', (e)=> {
     if(e.target.id === 'vbfContract'){ vbFilter.vendor = e.target.value; vbRenderStaff(); }
     else if(e.target.id === 'vbfStatus'){ vbFilter.status = e.target.value; vbRenderStaff(); }
+    else if(e.target.dataset && e.target.dataset.misF){ vbMisFilter[e.target.dataset.misF] = e.target.value; vbRenderStaff(); }
   });
   page.addEventListener('input', (e)=> {
     if(e.target.id === 'vbfQ'){ vbFilter.q = e.target.value; const pos = e.target.selectionStart; vbRenderStaff(); const q = document.getElementById('vbfQ'); if(q){ q.focus(); q.setSelectionRange(pos, pos); } }
@@ -10941,27 +11247,41 @@ function renderTendersTable(filtered){
 
 // ---------------- Bid prices by depot: one card + chart for every tender in the table ----------------
 // A bid's price is its all-in rate per KM (incl. GST), worked out exactly as the "Awarded ₹/Km" column and the
-// Comparative do (computeVendorFinancials). Only submitted bids are shown, lowest first.
+// Comparative do (computeVendorFinancials). Only submitted bids are shown, lowest first. The tender's internal
+// Budget (same ₹/KM basis, computeBudgetFinancials) is shown as the first bar when it has been entered.
 let tenderBidCache = {}, tenderBidLoading = new Set(), tenderBidCharts = {};
-function tenderBidWrap(name, max){
-  const lines = []; let cur = '';
-  String(name || '').split(/\s+/).forEach(w=>{ if(cur && (cur + ' ' + w).length > max){ lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; });
-  if(cur) lines.push(cur);
-  return lines.length ? lines : [''];
+function tenderBidShortName(name, words){
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  let s = parts.slice(0, words).join(' ');
+  if(s && /[A-Z]/.test(s) && s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|\s)\S/g, c=> c.toUpperCase());     // ALL CAPS -> Title Case
+  return s || String(name || '');
+}
+// first two words of each bidder; where two bidders would look the same, a third word (then the full name) tells them apart
+function tenderBidLabels(names){
+  const dup = arr=> arr.map(x=> arr.filter(y=> y === x).length > 1);
+  let out = names.map(n=> tenderBidShortName(n, 2)), d = dup(out);
+  if(d.some(Boolean)){
+    out = out.map((x, i)=> d[i] ? tenderBidShortName(names[i], 3) : x); d = dup(out);
+    if(d.some(Boolean)) out = out.map((x, i)=> d[i] ? String(names[i]) : x);
+  }
+  return out;
 }
 async function loadTenderBidPrices(tenders){
   const ids = tenders.map(t=> t.id).filter(id=> !(id in tenderBidCache) && !tenderBidLoading.has(id));
   if(!ids.length) return;
   ids.forEach(id=> tenderBidLoading.add(id));
   try{
-    const [liRes, ciRes, qRes] = await Promise.all([
+    const [liRes, ciRes, qRes, inRes] = await Promise.all([
       db.from('vendor_tender_line_items').select('*').in('tender_id', ids),
       db.from('vendor_tender_cost_items').select('*').in('tender_id', ids),
-      db.from('vendor_quotes').select('*, vendor_quote_line_items(*), vendor_quote_cost_amounts(*)').in('tender_id', ids).not('submitted_at', 'is', null)
+      db.from('vendor_quotes').select('*, vendor_quote_line_items(*), vendor_quote_cost_amounts(*)').in('tender_id', ids).not('submitted_at', 'is', null),
+      db.from('vendor_tender_internal').select('*').in('tender_id', ids)
     ]);
     if(liRes.error) throw liRes.error;
     if(ciRes.error) throw ciRes.error;
     if(qRes.error) throw qRes.error;
+    const internals = inRes.error ? [] : (inRes.data || []);          // the budget is a bonus: the chart still works without it
+    const round2 = x=> (x != null && isFinite(x) && x > 0) ? Math.round(x * 100) / 100 : null;
     ids.forEach(id=>{
       const t = rawTenders.find(x=> x.id === id);
       if(!t) return;
@@ -10969,9 +11289,12 @@ async function loadTenderBidPrices(tenders){
       const rows = qRes.data.filter(q=> q.tender_id === id).map(q=>{
         let rate = null;
         try{ rate = computeVendorFinancials(t, lineItems, costItems, q).effectiveRatePerKm; }catch(e){ rate = null; }
-        return { quoteId:q.id, name:q.vendor_name, rate:(rate != null && isFinite(rate) && rate > 0) ? Math.round(rate * 100) / 100 : null };
+        return { quoteId:q.id, name:q.vendor_name, rate:round2(rate) };
       });
-      tenderBidCache[id] = { rows };
+      let budget = null;
+      const internal = internals.find(x=> x.tender_id === id);
+      if(internal){ try{ budget = round2(computeBudgetFinancials(t, lineItems, costItems, internal).effectiveRatePerKm); }catch(e){ budget = null; } }
+      tenderBidCache[id] = { rows, budget };
     });
   }catch(err){
     console.error('Could not load bid prices:', err);
@@ -10988,44 +11311,59 @@ function drawTenderBidCards(){
   tenderBidCharts = {};
   const list = [...getFilteredTenders()].sort((a, b)=> new Date(b.created_at || 0) - new Date(a.created_at || 0));     // same order as the table
   if(!list.length){ box.innerHTML = '<div class="empty-state">No tenders match the current filters.</div>'; return; }
-  const tc = themeColors(), GREEN = '#4FA97F', AMBER = '#E0A458', BLUE = '#5B8DEF';
+  const tc = themeColors(), GREEN = '#4FA97F', AMBER = '#E0A458', BLUE = '#5B8DEF', PURPLE = '#9E7BE0';
   const plots = [];
   box.innerHTML = list.map(t=>{
     const c = tenderBidCache[t.id], wf = tenderWorkflowStatusLabel(t);
     const company = (rawCompanies.find(x=> String(x.id) === String(t.company_id)) || {}).name || '';
-    const meta = [company, t.total_buses != null ? t.total_buses + ' buses' : ''].filter(Boolean).map(pmEsc).join(' · ');
     const note = txt=> '<div class="empty-state" style="padding:24px 8px;">' + txt + '</div>';
-    let body;
+    let body, bidsTxt = '';
     if(!c) body = note('Loading bid prices…');
     else if(c.error) body = note('Could not load bid prices.');
     else {
       const priced = c.rows.filter(r=> r.rate != null).sort((a, b)=> a.rate - b.rate);
       const unpriced = c.rows.length - priced.length;
+      bidsTxt = c.rows.length + ' bid' + (c.rows.length === 1 ? '' : 's');
       if(!priced.length) body = note(c.rows.length ? 'Bids are in, but no ₹/KM can be worked out.' : 'No bids submitted yet.');
       else {
-        plots.push({ t, priced });
-        body = '<div class="chart-box" style="height:' + Math.max(110, priced.length * 44 + 40) + 'px;"><canvas id="tenderBidChart' + t.id + '"></canvas></div>'
-          + '<div class="footer-note" style="margin-top:6px;">' + priced.length + ' bid' + (priced.length === 1 ? '' : 's') + ' · <span style="color:' + GREEN + ';">■</span> lowest (L1) · <span style="color:' + AMBER + ';">■</span> awarded · <span style="color:' + BLUE + ';">■</span> other' + (unpriced ? ' · ' + unpriced + ' without a price' : '') + '</div>';
+        plots.push({ t, priced, budget:c.budget });
+        const rowsN = priced.length + (c.budget != null ? 1 : 0);
+        body = '<div class="chart-box" style="height:' + Math.max(110, rowsN * 38 + 16) + 'px;"><canvas id="tenderBidChart' + t.id + '"></canvas></div>'
+          + '<div class="footer-note" style="margin-top:6px;">' + (c.budget != null ? '<span style="color:' + PURPLE + ';">■</span> budget · ' : '') + '<span style="color:' + GREEN + ';">■</span> lowest (L1) · <span style="color:' + AMBER + ';">■</span> awarded · <span style="color:' + BLUE + ';">■</span> other' + (unpriced ? ' · ' + unpriced + ' without a price' : '') + '</div>';
       }
     }
+    const meta = [company, t.total_buses != null ? t.total_buses + ' buses' : '', bidsTxt].filter(Boolean).map(pmEsc).join(' · ');
     return '<div class="panel td-bid-card" data-bid-card="' + t.id + '" title="Double-click for tender details">'
       + '<div class="td-bid-head"><div><div class="td-bid-title">' + pmEsc(t.depot_name) + '</div><div class="pm-sub">' + meta + '</div></div><span class="badge ' + wf.cls + '">' + wf.text + '</span></div>' + body + '</div>';
   }).join('');
-  plots.forEach(({ t, priced })=>{
-    const l1 = priced[0].rate, top = priced[priced.length - 1].rate, awardedId = t.awarded_quote_id != null ? String(t.awarded_quote_id) : null;
+  plots.forEach(({ t, priced, budget })=>{
+    const l1 = priced[0].rate, awardedId = t.awarded_quote_id != null ? String(t.awarded_quote_id) : null;
     const isAwarded = r=> awardedId != null && String(r.quoteId) === awardedId;
-    const colors = priced.map(r=> r.rate === l1 ? GREEN : (isAwarded(r) ? AMBER : BLUE));
-    const labels = priced.map(r=> tenderBidWrap((isAwarded(r) ? '★ ' : '') + r.name, 22));
+    const short = tenderBidLabels(priced.map(r=> r.name));
+    const items = (budget != null ? [{ budget:true, name:'Budget', rate:budget }] : []).concat(priced.map((r, i)=> Object.assign({ budget:false, short:short[i] }, r)));
+    const labels = items.map(x=> x.budget ? 'Budget' : (isAwarded(x) ? '★ ' : '') + x.short);
+    const colors = items.map(x=> x.budget ? PURPLE : (x.rate === l1 ? GREEN : (isAwarded(x) ? AMBER : BLUE)));
+    const texts = items.map(x=> '₹' + fmtNum(x.rate) + (x.budget ? '' : (x.rate === l1 ? '  ·  L1' : '  ·  +' + ((x.rate / l1 - 1) * 100).toFixed(1) + '%')));
+    const top = Math.max(...items.map(x=> x.rate));
     tenderBidCharts[t.id] = new Chart(document.getElementById('tenderBidChart' + t.id), {
       type:'bar',
-      data:{ labels, datasets:[{ data:priced.map(r=> r.rate), backgroundColor:colors, borderRadius:4, maxBarThickness:24 }] },
-      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
-        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ title:items=> priced[items[0].dataIndex].name, label:item=> '₹' + fmtNum(item.raw) + ' / KM (incl. GST)' } } },
-        scales:{ x:{ beginAtZero:true, max:top * 1.55, grid:{ color:tc.grid }, ticks:{ display:false } }, y:{ grid:{ display:false }, ticks:{ color:tc.text, font:{ family:'IBM Plex Sans', size:11 } } } } },
+      data:{ labels, datasets:[{ data:items.map(x=> x.rate), backgroundColor:colors, borderRadius:4, maxBarThickness:28 }] },
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', layout:{ padding:{ right:2 } },
+        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{
+          title:its=> items[its[0].dataIndex].name,
+          label:it=>{ const x = items[it.dataIndex], out = ['₹' + fmtNum(x.rate) + ' / KM (incl. GST)'];
+            if(!x.budget) out.push('vs lowest bid: ' + (x.rate === l1 ? 'L1' : '+' + ((x.rate / l1 - 1) * 100).toFixed(1) + '%'));
+            if(!x.budget && budget != null){ const v = (x.rate / budget - 1) * 100; out.push('vs budget: ' + (v > 0 ? '+' : '') + v.toFixed(1) + '%'); }
+            return out; } } } },
+        scales:{ x:{ display:false, beginAtZero:true, max:top * 1.02 }, y:{ grid:{ display:false }, border:{ display:false }, ticks:{ color:tc.text, font:{ family:'IBM Plex Sans', size:11 } } } } },
       plugins:[{ id:'bidValueLabels', afterDatasetsDraw(chart){
         const ctx = chart.ctx;
-        ctx.save(); ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.fillStyle = tc.text; ctx.textBaseline = 'middle';
-        chart.getDatasetMeta(0).data.forEach((bar, i)=>{ const r = priced[i]; ctx.fillText('₹' + fmtNum(r.rate) + (r.rate === l1 ? '  L1' : '  +' + ((r.rate / l1 - 1) * 100).toFixed(1) + '%'), bar.x + 6, bar.y); });
+        ctx.save(); ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle';
+        chart.getDatasetMeta(0).data.forEach((bar, i)=>{
+          const txt = texts[i], w = ctx.measureText(txt).width, len = Math.abs(bar.x - bar.base);
+          if(len >= w + 16){ ctx.textAlign = 'right'; ctx.fillStyle = colors[i] === AMBER ? '#1B1B1B' : '#FFFFFF'; ctx.fillText(txt, bar.x - 8, bar.y); }      // inside the bar
+          else { ctx.textAlign = 'left'; ctx.fillStyle = tc.text; ctx.fillText(txt, bar.x + 6, bar.y); }
+        });
         ctx.restore();
       } }]
     });
